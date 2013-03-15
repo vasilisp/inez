@@ -1,4 +1,4 @@
-#include "cc_handler.hpp"
+#include "cc_handler.h"
 #include "scip_utils.hpp"
 
 #include <boost/utility.hpp>
@@ -1299,4 +1299,47 @@ void cc_handler::finalize()
 
   }
 
+}
+
+void cc_handler::include()
+{
+  SCIP*& scip = scip::ObjEventhdlr::scip_;
+  sa(SCIPincludeObjConshdlr(scip, this, false));
+}
+
+/* C wrappers */
+
+cc_handler* new_cc_handler(SCIP* s)
+{
+  return new cc_handler(s);
+}
+
+void delete_cc_handler(cc_handler* c)
+{
+  delete c;
+}
+
+void cc_handler_call(cc_handler* c,
+                     SCIP_VAR* rv, llint roffset, char* id,
+                     uint nvars, SCIP_VAR** vars, llint* coefs)
+{
+
+  scip_ovar ov(rv, roffset);
+  vector<scip_ovar> ovv;
+
+  for (uint i = 0; i < nvars; i++)
+    ovv.push_back(scip_ovar(vars[0], coefs[0]));
+
+  c->call(ov, id, ovv);
+
+}
+
+void cc_handler_finalize(cc_handler* c)
+{
+  c->finalize();
+}
+
+void cc_handler_include(cc_handler* c)
+{
+  c->include();
 }

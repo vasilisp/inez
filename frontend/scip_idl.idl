@@ -1,0 +1,173 @@
+int SCIPmajorVersion();
+int SCIPminorVersion();
+int SCIPtechVersion();
+
+typedef [abstract] void* scip;
+typedef [abstract] void* var;
+typedef [abstract] void* cons;
+typedef [abstract] void* sol;
+typedef [abstract] void* cch;
+
+// typedef unsigned int sbool;
+
+typedef unsigned int proptiming;
+
+typedef enum
+{
+  SCIP_OKAY               =  +1,
+  SCIP_ERROR              =   0,
+  SCIP_NOMEMORY           =  -1,
+  SCIP_READERROR          =  -2,
+  SCIP_WRITEERROR         =  -3,
+  SCIP_NOFILE             =  -4,
+  SCIP_FILECREATEERROR    =  -5,
+  SCIP_LPERROR            =  -6,
+  SCIP_NOPROBLEM          =  -7,
+  SCIP_INVALIDCALL        =  -8,
+  SCIP_INVALIDDATA        =  -9,
+  SCIP_INVALIDRESULT      = -10,
+  SCIP_PLUGINNOTFOUND     = -11,
+  SCIP_PARAMETERUNKNOWN   = -12,
+  SCIP_PARAMETERWRONGTYPE = -13,
+  SCIP_PARAMETERWRONGVAL  = -14,
+  SCIP_KEYALREADYEXISTING = -15,
+  SCIP_MAXDEPTHLEVEL      = -16 
+} retcode;
+
+typedef enum
+{
+  SCIP_VARTYPE_BINARY     = 0,
+  SCIP_VARTYPE_INTEGER    = 1,
+  SCIP_VARTYPE_IMPLINT    = 2,
+  SCIP_VARTYPE_CONTINUOUS = 3
+} vartype;
+
+typedef enum
+{
+  SCIP_STATUS_UNKNOWN        =  0,
+  SCIP_STATUS_USERINTERRUPT  =  1,
+  SCIP_STATUS_NODELIMIT      =  2,
+  SCIP_STATUS_TOTALNODELIMIT =  3,
+  SCIP_STATUS_STALLNODELIMIT =  4,
+  SCIP_STATUS_TIMELIMIT      =  5,
+  SCIP_STATUS_MEMLIMIT       =  6,
+  SCIP_STATUS_GAPLIMIT       =  7,
+  SCIP_STATUS_SOLLIMIT       =  8,
+  SCIP_STATUS_BESTSOLLIMIT   =  9,
+  SCIP_STATUS_OPTIMAL        = 10,
+  SCIP_STATUS_INFEASIBLE     = 11,
+  SCIP_STATUS_UNBOUNDED      = 12,
+  SCIP_STATUS_INFORUNBD      = 13
+} status;
+
+
+typedef enum
+{
+  SCIP_PARAMEMPHASIS_DEFAULT = 0,
+  SCIP_PARAMEMPHASIS_CPSOLVER = 1,
+  SCIP_PARAMEMPHASIS_EASYCIP = 2,
+  SCIP_PARAMEMPHASIS_FEASIBILITY = 3,
+  SCIP_PARAMEMPHASIS_HARDLP = 4,
+  SCIP_PARAMEMPHASIS_OPTIMALITY = 5,
+  SCIP_PARAMEMPHASIS_COUNTER = 6
+} param_emphasis;
+
+retcode SCIPcreate([out] scip *s);
+
+retcode SCIPcreateProb_wrap
+([in] scip s,
+ [in,string] char* name)
+  quote(call,
+        "_res = SCIPcreateProb(s, name, NULL, NULL, NULL, NULL, NULL, NULL, NULL);");
+
+retcode SCIPincludeDefaultPlugins([in] scip s);
+
+retcode SCIPsolve([in] scip s);
+
+retcode SCIPcreateVar_wrap
+([in] scip s,
+ [out] var *v,
+ [in,string] const char *name,
+ [in] double lb,
+ [in] double ub,
+ [in] double obj,
+ [in] vartype vt,
+ [in] boolean initial,
+ [in] boolean removable)
+  quote(call,
+        "_res = SCIPcreateVar(s, v, name, lb, ub, obj, vt, initial, removable, NULL, NULL, NULL, NULL, NULL);");
+
+retcode SCIPaddVar([in] scip s, [in] var v);
+
+retcode SCIPreleaseVar([in] scip s, [in,ref] var *v);
+
+retcode SCIPsetEmphasis
+([in] scip s,
+ [in] param_emphasis p,
+ [in] boolean q);
+
+retcode SCIPcreateConsLinear
+([in] scip s,
+ [out] cons* c,
+ [in,string] const char* name,
+ [in] int nvars,
+ [in,size_is(nvars)] var vars[],
+ [in,size_is(nvars)] double vals[],
+ [in] double lhs,
+ [in] double rhs,
+ [in] boolean initial,
+ [in] boolean separate,
+ [in] boolean enforce,
+ [in] boolean check,
+ [in] boolean propagate,
+ [in] boolean is_local,
+ [in] boolean modifiable,
+ [in] boolean dynamic,
+ [in] boolean removable,
+ [in] boolean stickingatnode);
+
+retcode SCIPaddCons([in] scip s, [in] cons c);
+
+retcode SCIPdelCons([in] scip s, [in] cons c);
+
+retcode SCIPreleaseCons([in] scip s, [in,ref] cons* c);
+
+status SCIPgetStatus([in] scip s);
+
+retcode SCIPstartInteraction([in] scip s);
+
+double SCIPinfinity([in] scip s);
+
+double SCIPvarGetSol([in] var v, [in] boolean getlpval);
+
+double SCIPgetVarSol([in] scip s, [in] var v);
+
+retcode SCIPchgVarObj([in] scip s, [in] var v, [in] double newobj);
+
+retcode SCIPsetIntParam([in] scip s, [in,string] const char* name,
+                        [in] int val);
+
+retcode SCIPwriteOrigProblem([in] scip s,
+                             [in,string] const char* file,
+                             [in,string] const char* extension,
+                             [in] boolean generic_names);
+
+sol SCIPgetBestSol([in] scip s);
+
+double SCIPgetSolVal([in] scip s, [in] sol sl, [in] var v);
+
+cch new_cc_handler([in] scip s);
+
+void delete_cc_handler([in] cch c);
+
+void cc_handler_call([in] cch c,
+                     [in] var rv,
+                     [in] long long int roffset,
+                     [in,string] char* id,
+                     [in] unsigned int nvars,
+                     [in,size_is(nvars)] var vars[],
+                     [in,size_is(nvars)] long long int coefs[]);
+
+void cc_handler_finalize([in] cch c);
+
+void cc_handler_include([in] cch c);

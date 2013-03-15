@@ -3,7 +3,7 @@ open build/C
 INCLUDES = /home/vpap/sfw/boost_1_53_0/ \
     /home/vpap/dist/src/scipoptsuite-3.0.1/scip-3.0.1/src/
 
-StaticCXXLibrary(libbct, util cc_handler)
+StaticCXXLibrary(libbct, util scip_utils cc_handler)
 
 .PHONY: clean
 

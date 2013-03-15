@@ -1,14 +1,91 @@
+open build/C
 open build/OCaml
 
 BYTE_ENABLED = false
 NATIVE_ENABLED = true
 OCAMLFLAGS += -thread
 USE_OCAMLFIND = true
-OCAMLPACKS[] += core
+OCAMLPACKS[] = core
 
-OCamlProgram(ibct, smtlib_parser smtlib_lexer main)
+OCAMLDEP_MODULES_ENABLED = true
+
+OCAML_CLIBS = ../backend/libbct
+
+OCAML_NATIVE_LINK_FLAGS = -ccopt -L/home/vpap/sfw/lib/ \
+        -cclib -lstdc++ -cclib -lcamlidl -cclib -lscipopt
+
+private.EXT_COBJ = .o
+
+scip_idl.ml scip_idl.mli scip_idl.h scip_idl_stubs.c: scip_idl.idl
+    camlidl -header scip_idl.idl
+
+# I copied the function below from OCaml.om, and extended it to link
+# against .o files generated from .c sources. I also reordered
+# parameters to ocamlopt: $(OCAML_LINK_FLAGS) should be after
+# $(COFILES) .
+
+public.MyOCamlProgram(name, files, cfiles) =
+
+    private.CMOFILES = $(addsuffix .cmo, $(files))
+    private.CMXFILES = $(addsuffix .cmx, $(files))
+    private.OFILES = $(addsuffix $(EXT_OBJ), $(files))
+
+    private.COFILES = $(addsuffix $(EXT_COBJ), $(cfiles))
+
+    private.CMAFILES = $(addsuffix .cma,  $(OCAML_LIBS))
+    private.CMXAFILES = $(addsuffix .cmxa, $(OCAML_LIBS))
+    private.ARFILES = $(addsuffix $(EXT_LIB), $(OCAML_LIBS))
+    private.CMA_OTHER_FILES = $(addsuffix .cma, $(OCAML_OTHER_LIBS))
+    private.CMXA_OTHER_FILES = $(addsuffix .cmxa, $(OCAML_OTHER_LIBS))
+
+    private.CLIBS = $(addsuffix $(EXT_LIB), $(OCAML_CLIBS))
+
+    private.name = $(file $(name))
+
+    private.PROG = $(file $(name)$(EXE))
+    private.BYTEPROG = $(file $(name).run)
+    private.OPTPROG = $(file $(name).opt)
+
+    #
+    # Rules to build byte-code and native targets
+    #
+    $(BYTEPROG): $(CMAFILES) $(CMOFILES) $(CLIBS) $(COFILES)
+        $(OCAMLFIND) $(OCAMLLINK) $(LAZY_OCAMLFINDFLAGS) \
+                $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS) $(OCAMLCFLAGS) \
+                $(PREFIXED_OCAMLINCLUDES) \
+                -o $@ $(CMA_OTHER_FILES) \
+                $(CMAFILES) $(OCamlLinkSort $(CMOFILES)) $(CLIBS) \
+                $(OCAML_LINK_FLAGS) $(OCAML_BYTE_LINK_FLAGS)
+
+    $(OPTPROG): $(CMXAFILES) $(ARFILES) $(CMXFILES) $(OFILES) $(CLIBS) \
+            $(COFILES)
+        $(OCAMLFIND) $(OCAMLOPTLINK) $(LAZY_OCAMLFINDFLAGS) \
+                $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS) $(OCAMLOPTFLAGS) \
+                $(PREFIXED_OCAMLINCLUDES) \
+                -o $@ $(CMXA_OTHER_FILES) \
+                $(CMXAFILES) $(COFILES) $(OCamlLinkSort $(CMXFILES)) \
+                $(CLIBS) $(OCAML_LINK_FLAGS) $(OCAML_NATIVE_LINK_FLAGS)
+
+    #
+    # Link the actual executables.
+    # Always prefer native executables.
+    #
+    if $(NATIVE_ENABLED)
+        $(PROG): $(OPTPROG)
+            ln-or-cp $< $@
+    else
+        $(PROG): $(BYTEPROG)
+            ln-or-cp $< $@
+
+    return $(array $(PROG), \
+                   $(if $(NATIVE_ENABLED), $(OPTPROG)), \
+                   $(if $(BYTE_ENABLED), $(BYTEPROG)))
+
+MyOCamlProgram(ibct, smtlib_parser smtlib_lexer scip_idl main, \
+               scip_idl_stubs)
 
 .PHONY: clean
 
 clean:
-    rm -f *.o *.cm[ix] smtlib_lexer.ml ibct ibct.opt *.omc
+    rm -f *.o *.cm[iox] smtlib_lexer.ml ibct ibct.opt *.omc \
+            scip_idl.ml scip_idl.mli scip_idl.h scip_idl_stubs.c

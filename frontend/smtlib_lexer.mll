@@ -192,6 +192,7 @@ and quoted_token ctx = parse
       print_endline (string_of_token (token ctx lexbuf));
       do_stuff () in
     do_stuff ()
-    let _ = main ()
+
+  let _ = main ()
 
 }

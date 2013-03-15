@@ -1,5 +1,7 @@
-#ifndef CC_HANDLER_HPP_
-#define CC_HANDLER_HPP_
+#ifndef CC_HANDLER_H_
+#define CC_HANDLER_H_
+
+#ifdef __cplusplus /* begin C++ declarations */
 
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
@@ -81,7 +83,7 @@ public:
   {}
 
   virtual void operator()(symbol, symbol, llint);
-  
+
 };
 
 typedef pair<vector<llint>, scip_ovar> ffc_offset;
@@ -253,7 +255,39 @@ public:
             const vector<scip_ovar>&);
 
   void finalize();
+
+  void include();
   
 };
+
+#else /* end C++ declarations */
+
+typedef struct cc_handler cc_handler;
+
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if defined(__STDC__) || defined(__cplusplus) // ANSI C prototypes
+	extern cc_handler* new_cc_handler(SCIP* s);
+	extern void delete_cc_handler(cc_handler*);
+	extern void cc_handler_call(cc_handler*,
+				    SCIP_VAR*, llint, char*,
+				    unsigned int, SCIP_VAR**, llint*);
+	extern void cc_handler_finalize(cc_handler*);
+	extern void cc_handler_include(cc_handler*);
+#else // K&R style prototypes
+	extern cc_handler* new_cc_handler();
+	extern void delete_cc_handler();
+	extern void cc_handler_call();
+	extern void cc_handler_finalize();
+	extern void cc_handler_include();
+#endif
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
