@@ -1,0 +1,11 @@
+open build/C
+
+INCLUDES = /home/vpap/sfw/boost_1_53_0/ \
+    /home/vpap/dist/src/scipoptsuite-3.0.1/scip-3.0.1/src/
+
+StaticCXXLibrary(libbct, util cc_handler)
+
+.PHONY: clean
+
+clean:
+    rm -f *.a *.o *.omc

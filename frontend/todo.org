@@ -1,0 +1,2 @@
+* Small Tasks
+** TODO Record strings and quoted symbols in lexer
