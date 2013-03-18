@@ -1,4 +1,4 @@
-module type Imt_context = sig
+module type Imt_solver = sig
   
   type ctx
 
@@ -15,7 +15,7 @@ module type Imt_context = sig
 
   (** [add_eq op i] enforces i = 0 *) 
   val add_eq: ctx -> var Expr.iexpr -> unit
-  
+
   (** [add_le op i] enforces i <= 0 *) 
   val add_le: ctx -> var Expr.iexpr -> unit
 
