@@ -81,8 +81,8 @@ public.MyOCamlProgram(name, files, cfiles) =
                    $(if $(NATIVE_ENABLED), $(OPTPROG)), \
                    $(if $(BYTE_ENABLED), $(BYTEPROG)))
 
-MyOCamlProgram(ibct, smtlib_parser smtlib_lexer scip_idl scip main,	\
-               scip_idl_stubs)
+MyOCamlProgram(ibct, smtlib_parser smtlib_lexer scip_idl scip uflia	\
+               main, scip_idl_stubs)
 
 .PHONY: clean
 

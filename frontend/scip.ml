@@ -95,6 +95,8 @@ let new_ctx () =
   and r_sol = None in
   {r_ctx; r_cch; r_var_d; r_constraints_n; r_has_objective; r_sol}
 
+let new_f _ id _ = id
+
 let scip_lb {r_ctx} =
   Option.value_map
     ~default:(~-. (sCIPinfinity r_ctx))

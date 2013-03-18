@@ -1,5 +1,6 @@
-module type Imt_solver = sig
+module type Solver = sig
   
+  (** context *)
   type ctx
 
   (** variables *)
@@ -9,6 +10,8 @@ module type Imt_solver = sig
   type f
 
   val new_ctx: unit -> ctx
+
+  val new_f: ctx -> string -> int -> f
 
   (** define a variable with optional lower and upper bounds *)
   val new_var: ctx -> Expr.ilp_type -> var

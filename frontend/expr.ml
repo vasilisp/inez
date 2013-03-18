@@ -53,11 +53,6 @@ type 't isum = (Int64.t * 't) list
 
 type 't iexpr = 't isum offset
 
-type ('s, 't) gexpr =
-  F_Le   of  't iexpr
-| F_Eq   of  't iexpr
-| F_Var  of  's
-
 type ilp_type =
   T_Int of Int64.t option * Int64.t option
 | T_Real of float option * float option
