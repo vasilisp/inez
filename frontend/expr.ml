@@ -1,5 +1,8 @@
 open Core.Std
 
+module TBI = (Core.Std.Int64: Int_intf.S)
+open TBI
+
 type op = O_Lt | O_Le | O_Eq | O_Ge | O_Gt
 
 type op' = O'_Le | O'_Eq
@@ -8,7 +11,7 @@ type 'l expr =
   E_True     of  'l
 | E_False    of  'l
 | E_Id       of  'l * string
-| E_Int      of  'l * int
+| E_Int      of  'l * Int64.t
 | E_Fn       of  'l * string * 'l expr list
 | E_Not      of  'l * 'l expr
 | E_And      of  'l * 'l expr * 'l expr
@@ -44,12 +47,19 @@ type 't fexpr =
 | F_Not     of  't fexpr
 | F_And     of  't fexpr list
 
-type 't iexpr =
-  (int * 't) list * int
+type 't offset = 't * Int64.t
+
+type 't isum = (Int64.t * 't) list
+
+type 't iexpr = 't isum offset
 
 type ('s, 't) gexpr =
   F_Le   of  't iexpr
 | F_Eq   of  't iexpr
 | F_Var  of  's
 
-type 't offset = 't * int
+type ilp_type =
+  T_Int of Int64.t option * Int64.t option
+| T_Real of float option * float option
+
+type result = R_Opt | R_Unbounded | R_Sat | R_Unsat | R_Unknown

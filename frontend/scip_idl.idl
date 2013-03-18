@@ -74,28 +74,22 @@ typedef enum
 
 retcode SCIPcreate([out] scip *s);
 
-retcode SCIPcreateProb_wrap
+retcode SCIPcreateProbBasic
 ([in] scip s,
- [in,string] char* name)
-  quote(call,
-        "_res = SCIPcreateProb(s, name, NULL, NULL, NULL, NULL, NULL, NULL, NULL);");
+ [in,string] char* name);
 
 retcode SCIPincludeDefaultPlugins([in] scip s);
 
 retcode SCIPsolve([in] scip s);
 
-retcode SCIPcreateVar_wrap
+retcode SCIPcreateVarBasic
 ([in] scip s,
  [out] var *v,
  [in,string] const char *name,
  [in] double lb,
  [in] double ub,
  [in] double obj,
- [in] vartype vt,
- [in] boolean initial,
- [in] boolean removable)
-  quote(call,
-        "_res = SCIPcreateVar(s, v, name, lb, ub, obj, vt, initial, removable, NULL, NULL, NULL, NULL, NULL);");
+ [in] vartype vt);
 
 retcode SCIPaddVar([in] scip s, [in] var v);
 
@@ -106,7 +100,7 @@ retcode SCIPsetEmphasis
  [in] param_emphasis p,
  [in] boolean q);
 
-retcode SCIPcreateConsLinear
+retcode SCIPcreateConsBasicLinear
 ([in] scip s,
  [out] cons* c,
  [in,string] const char* name,
@@ -114,17 +108,7 @@ retcode SCIPcreateConsLinear
  [in,size_is(nvars)] var vars[],
  [in,size_is(nvars)] double vals[],
  [in] double lhs,
- [in] double rhs,
- [in] boolean initial,
- [in] boolean separate,
- [in] boolean enforce,
- [in] boolean check,
- [in] boolean propagate,
- [in] boolean is_local,
- [in] boolean modifiable,
- [in] boolean dynamic,
- [in] boolean removable,
- [in] boolean stickingatnode);
+ [in] double rhs);
 
 retcode SCIPaddCons([in] scip s, [in] cons c);
 
@@ -166,7 +150,7 @@ void cc_handler_call([in] cch c,
                      [in,string] char* id,
                      [in] unsigned int nvars,
                      [in,size_is(nvars)] var vars[],
-                     [in,size_is(nvars)] long long int coefs[]);
+                     [in,size_is(nvars)] long long int offsets[]);
 
 void cc_handler_finalize([in] cch c);
 
