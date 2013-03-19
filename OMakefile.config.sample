@@ -1,0 +1,3 @@
+BOOST_DIR = /home/vasilis/sfw/boost_1_52_0/
+SCIP_LIB_DIR = /home/vasilis/sfw/lib/
+SCIP_SRC_DIR = /home/vasilis/dist/src/scipoptsuite-3.0.0/scip-3.0.0/src/

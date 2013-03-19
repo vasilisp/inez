@@ -1,3 +1,5 @@
+open OMakefile.config
+
 .PHONY: all install clean
 
 .SUBDIRS: frontend backend

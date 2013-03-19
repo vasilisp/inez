@@ -11,8 +11,8 @@ OCAMLDEP_MODULES_ENABLED = true
 
 OCAML_CLIBS = ../backend/libbct
 
-OCAML_NATIVE_LINK_FLAGS = -ccopt -L/home/vpap/sfw/lib/ \
-        -cclib -lstdc++ -cclib -lcamlidl -cclib -lscipopt
+OCAML_NATIVE_LINK_FLAGS = -ccopt -L$(SCIP_LIB_DIR) \
+        -cclib -lcamlidl -cclib -lscipopt -cclib -lstdc++
 
 private.EXT_COBJ = .o
 

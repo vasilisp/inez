@@ -1,7 +1,6 @@
 open build/C
 
-INCLUDES = /home/vpap/sfw/boost_1_53_0/ \
-    /home/vpap/dist/src/scipoptsuite-3.0.1/scip-3.0.1/src/
+INCLUDES = $(BOOST_DIR) $(SCIP_SRC_DIR)
 
 StaticCXXLibrary(libbct, util scip_utils cc_handler)
 
