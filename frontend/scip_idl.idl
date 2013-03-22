@@ -110,6 +110,23 @@ retcode SCIPcreateConsBasicLinear
  [in] double lhs,
  [in] double rhs);
 
+retcode SCIPcreateConsBasicIndicator
+([in] scip s,
+ [out] cons* c,
+ [in,string] const char* name,
+ [in] var bvar,
+ [in] int nvars,
+ [in,size_is(nvars)] var vars[],
+ [in,size_is(nvars)] double vals[],
+ [in] double rhs);
+
+retcode SCIPcreateConsBasicLogicor
+([in] scip s,
+ [out] cons* c,
+ [in,string] const char* name,
+ [in] int nvars,
+ [in,size_is(nvars)] var vars[]);
+
 retcode SCIPaddCons([in] scip s, [in] cons c);
 
 retcode SCIPdelCons([in] scip s, [in] cons c);

@@ -1,13 +1,7 @@
 open Core.Std
 open Scip_idl
 
-(*
-module TBI = (Core.Std.Int64: Int_intf.S)
-open TBI
-*)
-
 exception Int_Exn of string
-
 type ctx = {
   r_ctx: scip;
   r_cch: cch;
@@ -100,12 +94,12 @@ let new_f _ id _ = id
 let scip_lb {r_ctx} =
   Option.value_map
     ~default:(~-. (sCIPinfinity r_ctx))
-    ~f:Int64.to_float
+    ~f:Int63.to_float
 
 let scip_ub {r_ctx} =
   Option.value_map
     ~default:(sCIPinfinity r_ctx)
-    ~f:Int64.to_float
+    ~f:Int63.to_float
 
 let scip_lb_float {r_ctx} =
   Option.value ~default:(~-. (sCIPinfinity r_ctx))
@@ -139,9 +133,9 @@ let create_constraint ({r_ctx; r_constraints_n} as r) eq (l, o) =
     sCIPcreateConsBasicLinear r_ctx
       (Printf.sprintf "c%d" r_constraints_n)
       (Array.of_list_map ~f:snd l)
-      (Array.of_list_map ~f:(Fn.compose Int64.to_float fst) l)
-      (-. (if eq then Int64.to_float o else sCIPinfinity r_ctx))
-      (Int64.to_float (Int64.neg o)) in
+      (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
+      (-. (if eq then Int63.to_float o else sCIPinfinity r_ctx))
+      (Int63.to_float (Int63.neg o)) in
   assert_ok "createConsBasicLinear" k;
   r.r_constraints_n <- r_constraints_n + 1; c
 
@@ -156,9 +150,9 @@ let add_eq ({r_ctx} as ctx) e =
   assert_ok "addCons" k
 
 let add_call {r_cch} (v, o) f l =
-  Scip_idl.cc_handler_call r_cch v o f
+  Scip_idl.cc_handler_call r_cch v (Int63.to_int64 o) f
     (Array.of_list_map l ~f:fst)
-    (Array.of_list_map l ~f:snd)
+    (Array.of_list_map l ~f:(Fn.compose Int63.to_int64 snd))
 
 let add_objective {r_ctx; r_has_objective; r_var_d} l =
   if r_has_objective then
@@ -167,7 +161,7 @@ let add_objective {r_ctx; r_has_objective; r_var_d} l =
     List.iter l
       ~f:(fun (c, v) ->
         assert_ok "chgVarObj"
-          (sCIPchgVarObj r_ctx v (Int64.to_float c)))
+          (sCIPchgVarObj r_ctx v (Int63.to_float c)))
 
 let result_of_status = function
   | SCIP_STATUS_OPTIMAL ->

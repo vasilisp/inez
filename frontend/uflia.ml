@@ -1,38 +1,44 @@
+open Core.Std
+
 module Make (S: Imt_intf.Solver) = struct
+
+  open Formula
 
   type var = S.var
 
   type f = S.f
 
-  type ctx = {c_ctx: S.ctx}
-
-  type term =
-    M_Var of var
-  | M_App of f * term list
-  | M_Off of term * Int64.t
-  | M_Sum of term Expr.isum
+  type term = (f, var) Term.term
 
   type atom = term * Expr.op' option
 
-  type formula = atom Expr.fexpr
+  type formula = atom Formula.formula
 
-  let get_and _ _ _ = Expr.F_True
+  type ctx =
+    {r_ctx   : S.ctx;
+     r_var_m : (var Expr.boption, term) Hashtbl.Poly.t;
+     r_q     : formula Dequeue.t}
 
-  let get_or _ _ _ = Expr.F_True
+  (* blasting *)
 
-  let get_not _ _ = Expr.F_True
+  let blast_atom r = function
+    | t, Some op ->
+      Expr.X_True
+    | t, None ->
+      Expr.X_True
 
-  let get_implies _ _ _ = Expr.F_True
+  let blast_formula r = function
+    | F_True ->
+      Expr.X_True
+    | _ ->
+      Expr.X_False
 
-  let get_dummy_term {c_ctx} =
-    M_App (S.new_f c_ctx "__dummy" 0, [])
+  let assert_formula {r_q} =
+    Dequeue.push_back r_q
 
-  let get_plus r _ _ = get_dummy_term r
-
-  let get_minus r _ _ = get_dummy_term r
-
-  let get_mult r _ _ = get_dummy_term r
-
-  let get_app r _ _ = Some (get_dummy_term r)
+  let solve ({r_q} as r) =
+    Dequeue.iter r_q ~f:(Fn.compose ignore (blast_formula r));
+    Dequeue.clear r_q;
+    Expr.R_Sat
 
 end

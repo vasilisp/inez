@@ -6,9 +6,6 @@ type 't binop' = 't -> 't -> 't option
 
 module type Solver = sig
 
-  (** context *)
-  type ctx
-
   (** function identifiers *)
   type f
 
@@ -16,24 +13,12 @@ module type Solver = sig
 
   type formula
 
-  (** boolean operators *)
+  (** context *)
+  type ctx
 
-  val get_not: ctx -> formula unop
+  (** assert constraint *)
+  val assert_formula: ctx -> formula -> unit
 
-  val get_and: ctx -> formula binop
-
-  val get_or: ctx -> formula binop
-
-  val get_implies: ctx -> formula binop
-
-  (** term operators *)
-
-  val get_plus: ctx -> term binop
-
-  val get_minus: ctx -> term binop
-
-  val get_app: ctx -> f -> term list -> term option
-
-  val get_mult: ctx -> Int64.t -> term -> term
+  val solve: ctx -> Expr.result
 
 end

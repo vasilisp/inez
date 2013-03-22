@@ -1,17 +1,21 @@
 open Core.Std
-
-module TBI = (Core.Std.Int64: Int_intf.S)
-open TBI
+open Int63
 
 type op = O_Lt | O_Le | O_Eq | O_Ge | O_Gt
 
 type op' = O'_Le | O'_Eq
 
+type 't unop = 't -> 't
+
+type 't binop = 't -> 't -> 't
+
+type 't binop' = 't -> 't -> 't option
+
 type 'l expr =
   E_True     of  'l
 | E_False    of  'l
 | E_Id       of  'l * string
-| E_Int      of  'l * Int64.t
+| E_Int      of  'l * Int63.t
 | E_Fn       of  'l * string * 'l expr list
 | E_Not      of  'l * 'l expr
 | E_And      of  'l * 'l expr * 'l expr
@@ -41,20 +45,10 @@ let loc_of_expr = function
   | E_Mult (l, _, _)
   | E_Cmp (l, _, _, _) -> l
 
-type 't fexpr =
-  F_True
-| F_Ground  of  't
-| F_Not     of  't fexpr
-| F_And     of  't fexpr list
-
-type 't offset = 't * Int64.t
-
-type 't isum = (Int64.t * 't) list
-
-type 't iexpr = 't isum offset
-
 type ilp_type =
-  T_Int of Int64.t option * Int64.t option
+  T_Int of Int63.t option * Int63.t option
 | T_Real of float option * float option
 
 type result = R_Opt | R_Unbounded | R_Sat | R_Unsat | R_Unknown
+
+type 't boption = X_True | X_False | X_Some of 't

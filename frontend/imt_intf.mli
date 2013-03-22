@@ -17,16 +17,16 @@ module type Solver = sig
   val new_var: ctx -> Expr.ilp_type -> var
 
   (** [add_eq op i] enforces i = 0 *) 
-  val add_eq: ctx -> var Expr.iexpr -> unit
+  val add_eq: ctx -> var Term.iexpr -> unit
 
   (** [add_le op i] enforces i <= 0 *) 
-  val add_le: ctx -> var Expr.iexpr -> unit
+  val add_le: ctx -> var Term.iexpr -> unit
 
   (** [add_call v f l] enforces v = f(l) *)
   val add_call:
-    ctx -> var Expr.offset -> f -> var Expr.offset list -> unit
+    ctx -> var Term.offset -> f -> var Term.offset list -> unit
 
-  val add_objective: ctx -> var Expr.isum -> unit
+  val add_objective: ctx -> var Term.isum -> unit
 
   val solve: ctx -> Expr.result
 

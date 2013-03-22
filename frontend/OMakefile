@@ -1,23 +1,38 @@
 open build/C
 open build/OCaml
 
-BYTE_ENABLED = false
-NATIVE_ENABLED = true
+BYTE_ENABLED = true
+NATIVE_ENABLED = false
 OCAMLFLAGS += -thread
 USE_OCAMLFIND = true
-OCAMLPACKS[] = core
+OCAMLPACKS = core camlp4 camlidl camlp4.lib
+INCLUDES = $(CAMLIDL_INCLUDE_PATH)
 
 OCAMLDEP_MODULES_ENABLED = true
 
 OCAML_CLIBS = ../backend/libbct
 
-OCAML_NATIVE_LINK_FLAGS = -ccopt -L$(SCIP_LIB_DIR) \
-        -cclib -lcamlidl -cclib -lscipopt -cclib -lstdc++
+OCAML_BYTE_LINK_FLAGS = -custom
+OCAML_LINK_FLAGS = -linkpkg -ccopt -L$(SCIP_LIB_DIR) -cclib -lscipopt	\
+        -cclib -lstdc++ -cclib -lcamlidl
 
 private.EXT_COBJ = .o
 
 scip_idl.ml scip_idl.mli scip_idl.h scip_idl_stubs.c: scip_idl.idl
     camlidl -header scip_idl.idl
+
+# copied from
+#   http://www.camlcity.org/knowledge/kb_001_omake_recipes.html
+
+Camlp4o(module) =
+    section
+        OCAMLPACKS += camlp4
+        OCAMLDEPFLAGS += -pp camlp4of
+        OCAMLFLAGS += -pp camlp4of
+        $(module).cmi:
+        $(module).cmo:
+        $(module).o:
+        $(module).cmx:
 
 # I copied the function below from OCaml.om, and extended it to link
 # against .o files generated from .c sources. I also reordered
@@ -50,21 +65,20 @@ public.MyOCamlProgram(name, files, cfiles) =
     # Rules to build byte-code and native targets
     #
     $(BYTEPROG): $(CMAFILES) $(CMOFILES) $(CLIBS) $(COFILES)
-        $(OCAMLFIND) $(OCAMLLINK) $(LAZY_OCAMLFINDFLAGS) \
-                $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS) $(OCAMLCFLAGS) \
-                $(PREFIXED_OCAMLINCLUDES) \
-                -o $@ $(CMA_OTHER_FILES) \
-                $(CMAFILES) $(OCamlLinkSort $(CMOFILES)) $(CLIBS) \
-                $(OCAML_LINK_FLAGS) $(OCAML_BYTE_LINK_FLAGS)
+        $(OCAMLFIND) $(OCAMLLINK) $(LAZY_OCAMLFINDFLAGS)		\
+                $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS) $(OCAMLCFLAGS)	\
+                $(PREFIXED_OCAMLINCLUDES) -o $@ $(CMA_OTHER_FILES)	\
+                $(CMAFILES) $(OCamlLinkSort $(CMOFILES)) $(COFILES)	\
+                $(CLIBS) $(OCAML_LINK_FLAGS) $(OCAML_BYTE_LINK_FLAGS)
 
     $(OPTPROG): $(CMXAFILES) $(ARFILES) $(CMXFILES) $(OFILES) $(CLIBS) \
             $(COFILES)
-        $(OCAMLFIND) $(OCAMLOPTLINK) $(LAZY_OCAMLFINDFLAGS) \
-                $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS) $(OCAMLOPTFLAGS) \
-                $(PREFIXED_OCAMLINCLUDES) \
-                -o $@ $(CMXA_OTHER_FILES) \
-                $(CMXAFILES) $(COFILES) $(OCamlLinkSort $(CMXFILES)) \
-                $(CLIBS) $(OCAML_LINK_FLAGS) $(OCAML_NATIVE_LINK_FLAGS)
+        $(OCAMLFIND) $(OCAMLOPTLINK) $(LAZY_OCAMLFINDFLAGS)		\
+                $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS) $(OCAMLOPTFLAGS)	\
+                $(PREFIXED_OCAMLINCLUDES) -o $@ $(CMXA_OTHER_FILES)	\
+                $(CMXAFILES) $(COFILES) $(OCamlLinkSort $(CMXFILES))	\
+                $(CLIBS) $(OCAML_LINK_FLAGS)				\
+                $(OCAML_NATIVE_LINK_FLAGS)
 
     #
     # Link the actual executables.
@@ -79,13 +93,15 @@ public.MyOCamlProgram(name, files, cfiles) =
 
     return $(array $(PROG), \
                    $(if $(NATIVE_ENABLED), $(OPTPROG)), \
-                   $(if $(BYTE_ENABLED), $(BYTEPROG)))
+           o        $(if $(BYTE_ENABLED), $(BYTEPROG)))
 
-MyOCamlProgram(ibct, smtlib_parser smtlib_lexer scip_idl scip uflia	\
-               main, scip_idl_stubs)
+Camlp4o(dsl)
+
+MyOCamlProgram(ibct, scip uflia main, scip_idl_stubs)
+MyOCamlProgram(ibctdsl, dsl, scip_idl_stubs)
 
 .PHONY: clean
 
 clean:
-    rm -f *.o *.cm[iox] smtlib_lexer.ml ibct ibct.opt *.omc \
+    rm -f *.o *.cm[iox] smtlib_lexer.ml ibct ibct.opt ibct.run *.omc	\
             scip_idl.ml scip_idl.mli scip_idl.h scip_idl_stubs.c
