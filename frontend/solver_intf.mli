@@ -1,10 +1,6 @@
-type 't unop = 't -> 't
-
-type 't binop = 't -> 't -> 't
-
-type 't binop' = 't -> 't -> 't option
-
 module type S = sig
+
+  open Terminology
 
   (** function identifiers *)
   type f
@@ -19,6 +15,6 @@ module type S = sig
   (** assert constraint *)
   val assert_formula: ctx -> formula -> unit
 
-  val solve: ctx -> Expr.result
+  val solve: ctx -> result
 
 end

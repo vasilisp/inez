@@ -1,4 +1,5 @@
 open Core.Std
+open Terminology
 
 type ('f, 'v) term =
   M_Var   of  'v
@@ -10,7 +11,7 @@ type ('f, 'v) term =
 
 and ('f, 'v) formula =
   F_True
-| F_Ground  of  ('f, 'v) term * Expr.op' option
+| F_Ground  of  ('f, 'v) term * op' option
 | F_Not     of  ('f, 'v) formula
 | F_And     of  ('f, 'v) formula * ('f, 'v) formula
 | F_Ite     of  ('f, 'v) formula * ('f, 'v) formula * ('f, 'v) formula
@@ -71,14 +72,14 @@ let (=>) g h = not g || h
 
 let ite c g h = F_Ite (c, g, h)
 
-let (<) a b = F_Ground ((a + M_Int Int63.one) - b, Some Expr.O'_Le)
+let (<) a b = F_Ground ((a + M_Int Int63.one) - b, Some O'_Le)
 
-let (<=) a b = F_Ground (a - b, Some Expr.O'_Le)
+let (<=) a b = F_Ground (a - b, Some O'_Le)
 
-let (=) a b = F_Ground (a - b, Some Expr.O'_Eq)
+let (=) a b = F_Ground (a - b, Some O'_Eq)
 
-let (>=) a b = F_Ground (b - a, Some Expr.O'_Le)
+let (>=) a b = F_Ground (b - a, Some O'_Le)
 
-let (>) a b = F_Ground ((b + M_Int Int63.one) - a, Some Expr.O'_Le)
+let (>) a b = F_Ground ((b + M_Int Int63.one) - a, Some O'_Le)
 
 let iite c a b = M_Ite (c, a, b)

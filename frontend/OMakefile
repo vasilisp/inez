@@ -95,9 +95,35 @@ public.MyOCamlProgram(name, files, cfiles) =
                    $(if $(NATIVE_ENABLED), $(OPTPROG)), \
            o        $(if $(BYTE_ENABLED), $(BYTEPROG)))
 
+public.OCamlLibrary(name, files) =
+   # XXX: JYH: these variables should be marked private in 0.9.9
+   protected.name = $(file $(name))
+
+   protected.OFILES   = $(addsuffix $(EXT_OBJ), $(files))
+   protected.CMOFILES = $(addsuffix .cmo, $(files))
+   protected.CMXFILES = $(addsuffix .cmx, $(files))
+
+   protected.CLIB      = $(file $(name)$(EXT_LIB))
+   protected.BYTELIB   = $(file $(name).cma)
+   protected.NATIVELIB = $(file $(name).cmxa)
+
+   #
+   # Link commands
+   #
+   $(BYTELIB): $(CMOFILES)
+        $(OCAMLFIND) $(OCAMLLINK) $(LAZY_OCAMLFINDFLAGS) $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS) $(OCAMLCFLAGS) \
+                $(OCAML_LIB_FLAGS) -a -o $@ $(OCamlLinkSort $(CMOFILES))
+
+   $(NATIVELIB) $(CLIB): $(CMXFILES) $(OFILES)
+        $(OCAMLFIND) $(OCAMLOPTLINK) $(LAZY_OCAMLFINDFLAGS) $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS) $(OCAMLOPTFLAGS) \
+                $(OCAML_LIB_FLAGS) -a -o $(NATIVELIB) $(OCamlLinkSort $(CMXFILES))
+
+   return $(array $(if $(NATIVE_ENABLED), $(NATIVELIB)), $(if $(NATIVE_ENABLED), $(CLIB)), $(if $(BYTE_ENABLED), $(BYTELIB)))
+
 Camlp4o(formula_dsl)
 
 MyOCamlProgram(ibct, scip solver main, scip_idl_stubs)
+OCamlLibrary(formula_dsl, formula_dsl)
 MyOCamlProgram(ibctdsl, dsl, scip_idl_stubs)
 
 .PHONY: clean

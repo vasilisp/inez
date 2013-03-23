@@ -1,18 +1,9 @@
 open Core.Std
 open Int63
-
-type op = O_Lt | O_Le | O_Eq | O_Ge | O_Gt
-
-type op' = O'_Le | O'_Eq
-
-type 't unop = 't -> 't
-
-type 't binop = 't -> 't -> 't
-
-type 't binop' = 't -> 't -> 't option
+open Terminology
 
 type 'l expr =
-  E_True     of  'l
+| E_True     of  'l
 | E_False    of  'l
 | E_Id       of  'l * string
 | E_Int      of  'l * Int63.t
@@ -44,11 +35,3 @@ let loc_of_expr = function
   | E_Minus (l, _, _)
   | E_Mult (l, _, _)
   | E_Cmp (l, _, _, _) -> l
-
-type ilp_type =
-  T_Int of Int63.t option * Int63.t option
-| T_Real of float option * float option
-
-type result = R_Opt | R_Unbounded | R_Sat | R_Unsat | R_Unknown
-
-type 't boption = X_True | X_False | X_Some of 't

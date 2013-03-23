@@ -1,5 +1,6 @@
 open Core.Std
 open Scip_idl
+open Terminology
 
 exception Int_Exn of string
 type ctx = {
@@ -112,11 +113,11 @@ let new_var ({r_ctx; r_var_d} as r) t =
   let id = Printf.sprintf "v%d" i in
   let k, v =
     match t with
-    | Expr.T_Int (lb, ub) ->
+    | T_Int (lb, ub) ->
       sCIPcreateVarBasic
         r_ctx id (scip_lb r lb) (scip_ub r ub)
         0. SCIP_VARTYPE_INTEGER
-    | Expr.T_Real (lb, ub) ->
+    | T_Real (lb, ub) ->
       sCIPcreateVarBasic
         r_ctx id (scip_lb_float r lb) (scip_ub_float r ub)
         0. SCIP_VARTYPE_CONTINUOUS in
@@ -165,13 +166,13 @@ let add_objective {r_ctx; r_has_objective; r_var_d} l =
 
 let result_of_status = function
   | SCIP_STATUS_OPTIMAL ->
-    Expr.R_Opt
+    R_Opt
   | SCIP_STATUS_UNBOUNDED ->
-    Expr.R_Unbounded
+    R_Unbounded
   | SCIP_STATUS_INFEASIBLE ->
-    Expr.R_Unsat
+    R_Unsat
   | _ ->
-    Expr.R_Unknown
+    R_Unknown
 
 let write_ctx {r_ctx} filename =
   let k = sCIPwriteOrigProblem r_ctx filename "lp" false in
@@ -182,7 +183,7 @@ let solve ({r_ctx} as r) =
   assert_ok "solve" k;
   let rval = result_of_status (sCIPgetStatus r_ctx) in
   (match rval with
-  | Expr.R_Opt | Expr.R_Unbounded | Expr.R_Sat ->
+  | R_Opt | R_Unbounded | R_Sat ->
     r.r_sol <- Some (sCIPgetBestSol r_ctx)
   | _ -> ());
   rval

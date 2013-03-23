@@ -11,8 +11,11 @@
 #require "comparelib.syntax"
 #require "core"
 
+(* extra stuff *)
+
 #require "camlp4"
 #require "camlp4.quotations"
+
 #load "formula_dsl.cmo"
 #load "formula.cmo"
 
