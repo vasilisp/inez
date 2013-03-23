@@ -45,7 +45,7 @@ struct
       l = LIST1 simplepatt ->
       expr_with_funs _loc
         (let l = expr_of_list_ids _loc l in
-         <:expr< Term.app $str:gensym ~prefix:"f" ()$ $l$ >>) l
+         <:expr< Formula.app $str:gensym ~prefix:"f" ()$ $l$ >>) l
     ]
   ];
 
@@ -74,9 +74,9 @@ struct
     | <:expr< false >> ->
       <:expr< Formula.false' >>
     | <:expr< $int:s$ >> ->
-      <:expr< Term.of_int63 (Int63.of_string $str:s$) >>
+      <:expr< Formula.of_int63 (Int63.of_string $str:s$) >>
     | <:expr< $int64:s$ >> ->
-      <:expr< Term.of_int63 (Int63.of_string $str:s$) >>
+      <:expr< Formula.of_int63 (Int63.of_string $str:s$) >>
     | e -> super#expr e
   end;;
 
@@ -85,7 +85,7 @@ struct
   expr: LEVEL "top" [
     [ "logic"; "("; e = SELF;
       ")" -> let e = (new logic_subst _loc)#expr e in
-             <:expr< Formula.(Term.($e$)) >>
+             <:expr< Formula.(Formula.($e$)) >>
     ]
   ];
   

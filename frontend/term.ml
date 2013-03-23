@@ -1,11 +1,5 @@
 open Core.Std
 
-type 't offset = 't * Int63.t
-
-type 't isum = (Int63.t * 't) list
-
-type 't iexpr = 't isum offset
-
 type ('f, 'v) term =
   M_Var   of  'v
 | M_Int   of  Int63.t

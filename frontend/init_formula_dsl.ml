@@ -13,14 +13,12 @@
 
 #require "camlp4"
 #require "camlp4.quotations"
-#load "dsl.cmo"
-#load "term.cmo"
+#load "formula_dsl.cmo"
 #load "formula.cmo"
 
 open Core.Std
 open Camlp4.PreCast
 
-module Term = (Term: Term_intf.S)
 module Formula = (Formula: Formula_intf.S)
 
 let _loc = Camlp4.PreCast.Loc.ghost

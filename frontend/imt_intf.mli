@@ -1,4 +1,4 @@
-module type Solver = sig
+module type S = sig
   
   (** context *)
   type ctx

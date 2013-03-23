@@ -1,6 +1,6 @@
 open Core.Std
 
-module Make (S: Imt_intf.Solver) = struct
+module Make (S: Imt_intf.S) = struct
 
   open Formula
 
@@ -13,6 +13,16 @@ module Make (S: Imt_intf.Solver) = struct
   type atom = term * Expr.op' option
 
   type formula = atom Formula.formula
+
+  (*
+  
+    type 't offset = 't * Int63.t
+
+    type 't isum = (Int63.t * 't) list
+
+    type 't iexpr = 't isum offset
+
+  *)
 
   type ctx =
     {r_ctx   : S.ctx;

@@ -95,9 +95,9 @@ public.MyOCamlProgram(name, files, cfiles) =
                    $(if $(NATIVE_ENABLED), $(OPTPROG)), \
            o        $(if $(BYTE_ENABLED), $(BYTEPROG)))
 
-Camlp4o(dsl)
+Camlp4o(formula_dsl)
 
-MyOCamlProgram(ibct, scip uflia main, scip_idl_stubs)
+MyOCamlProgram(ibct, scip solver main, scip_idl_stubs)
 MyOCamlProgram(ibctdsl, dsl, scip_idl_stubs)
 
 .PHONY: clean

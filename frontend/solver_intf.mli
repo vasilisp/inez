@@ -4,7 +4,7 @@ type 't binop = 't -> 't -> 't
 
 type 't binop' = 't -> 't -> 't option
 
-module type Solver = sig
+module type S = sig
 
   (** function identifiers *)
   type f
