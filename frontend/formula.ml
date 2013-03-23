@@ -1,20 +1,22 @@
 open Core.Std
 open Terminology
 
+type 'a formula =
+  F_True
+| F_Ground  of  'a
+| F_Not     of  'a formula
+| F_And     of  'a formula * 'a formula
+| F_Ite     of  'a formula * 'a formula * 'a formula
+
 type ('f, 'v) term =
   M_Var   of  'v
 | M_Int   of  Int63.t
 | M_App   of  'f * ('f, 'v) term list
 | M_Sum   of  ('f, 'v) term * ('f, 'v) term
 | M_Prod  of  Int63.t * ('f, 'v) term
-| M_Ite   of  ('f, 'v) formula * ('f, 'v) term * ('f, 'v) term
+| M_Ite   of  (('f, 'v) atom formula * ('f, 'v) term * ('f, 'v) term)
 
-and ('f, 'v) formula =
-  F_True
-| F_Ground  of  ('f, 'v) term * op' option
-| F_Not     of  ('f, 'v) formula
-| F_And     of  ('f, 'v) formula * ('f, 'v) formula
-| F_Ite     of  ('f, 'v) formula * ('f, 'v) formula * ('f, 'v) formula
+and ('f, 'v) atom = ('f, 'v) term * op' option
 
 (* term operators *)
 

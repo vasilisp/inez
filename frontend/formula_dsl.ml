@@ -3,13 +3,13 @@ open Core.Std
 
 exception Int_Exn
 
-module Uf_id : Sig.Id =
+module Id : Sig.Id =
 struct
-  let name = "pa_uf"
+  let name = "pa_logic"
   let version = "0.1"
 end
 
-module Uf_make (Syntax : Sig.Camlp4Syntax) =
+module Make (Syntax : Sig.Camlp4Syntax) =
 struct
   
   open Sig
@@ -34,37 +34,6 @@ struct
 
   let simplepatt = Gram.Entry.mk "simplepatt";;
 
-  EXTEND Gram
-
-  simplepatt:
-    [ [ "_" -> Ast.IdLid (_loc, gensym ()) ]
-    | [ id = LIDENT -> Ast.IdLid (_loc, id) ] ];
-  
-  expr: LEVEL "top" [
-    [ "uf";
-      l = LIST1 simplepatt ->
-      expr_with_funs _loc
-        (let l = expr_of_list_ids _loc l in
-         <:expr< Formula.app $str:gensym ~prefix:"f" ()$ $l$ >>) l
-    ]
-  ];
-
-  END
-
-end
-
-module Logic_id : Sig.Id =
-struct
-  let name = "pa_logic"
-  let version = "0.1"
-end
-
-module Logic_make (Syntax: Sig.Camlp4Syntax) =
-struct
-
-  open Sig
-  include Syntax
-
   class ['a] logic_subst _loc = object
     inherit Ast.map as super
     method _Loc_t (_: 'a) = _loc
@@ -81,17 +50,37 @@ struct
   end;;
 
   EXTEND Gram
-    
-  expr: LEVEL "top" [
-    [ "logic"; "("; e = SELF;
-      ")" -> let e = (new logic_subst _loc)#expr e in
-             <:expr< Formula.(Formula.($e$)) >>
-    ]
-  ];
+
+  simplepatt:
+    [ [ "_" -> Ast.IdLid (_loc, gensym ()) ]
+    | [ id = LIDENT -> Ast.IdLid (_loc, id) ] ];
+
+  str_item:
+    LEVEL "top" [
+      [ "sort";
+        id = LIDENT ->
+        ignore id;
+        let module_id = gensym ~prefix:"S_" () in
+        <:str_item< module $uid:module_id$ =
+                      (struct type t = unit end:
+                         sig type t end) >>
+      ]
+    ];
   
+  expr:
+    LEVEL "top" [
+      [ "uf";
+        l = LIST1 simplepatt ->
+        expr_with_funs _loc
+          (let l = expr_of_list_ids _loc l in
+           <:expr< Formula.app $str:gensym ~prefix:"f" ()$ $l$ >>) l
+      | "logic"; "("; e = SELF;
+        ")" -> let e = (new logic_subst _loc)#expr e in
+               <:expr< Formula.(Formula.($e$)) >> ]
+    ];
+
   END
 
 end
 
-module M = Register.OCamlSyntaxExtension(Uf_id)(Uf_make)
-module M' = Register.OCamlSyntaxExtension(Logic_id)(Logic_make)
+module M = Register.OCamlSyntaxExtension(Id)(Make)

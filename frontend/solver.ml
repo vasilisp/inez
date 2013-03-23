@@ -9,7 +9,7 @@ module Make (S: Imt_intf.S) = struct
 
   type term = (f, var) Formula.term
 
-  type formula = (f, var) Formula.formula
+  type formula = (f, var) Formula.atom Formula.formula
 
   type ctx =
     {r_ctx   : S.ctx;
