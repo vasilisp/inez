@@ -32,11 +32,14 @@ struct
     List.fold_right ~init
       ~f:(fun id acc -> <:expr< fun $id:id$ -> $acc$ >>)
 
-  let simplepatt = Gram.Entry.mk "simplepatt";;
+  let lpatt = Gram.Entry.mk "lpatt";;
 
   class ['a] logic_subst _loc = object
+  
     inherit Ast.map as super
+    
     method _Loc_t (_: 'a) = _loc
+    
     method expr = function
     | <:expr< true >> ->
       <:expr< Formula.true' >>
@@ -46,12 +49,14 @@ struct
       <:expr< Formula.of_int63 (Int63.of_string $str:s$) >>
     | <:expr< $int64:s$ >> ->
       <:expr< Formula.of_int63 (Int63.of_string $str:s$) >>
-    | e -> super#expr e
+    | e ->
+      super#expr e
+  
   end;;
 
   EXTEND Gram
 
-  simplepatt:
+  lpatt:
     [ [ "_" -> Ast.IdLid (_loc, gensym ()) ]
     | [ id = LIDENT -> Ast.IdLid (_loc, id) ] ];
 
@@ -70,7 +75,7 @@ struct
   expr:
     LEVEL "top" [
       [ "uf";
-        l = LIST1 simplepatt ->
+        l = LIST1 lpatt ->
         expr_with_funs _loc
           (let l = expr_of_list_ids _loc l in
            <:expr< Formula.app $str:gensym ~prefix:"f" ()$ $l$ >>) l

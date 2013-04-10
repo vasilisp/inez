@@ -16,12 +16,13 @@
 #require "camlp4"
 #require "camlp4.quotations"
 
-#load "formula_dsl.cmo"
 #load "formula.cmo"
+#load "inez_lang.cmo"
+#load "inez_logic.cmo"
 
 open Core.Std
 open Camlp4.PreCast
 
-module Formula = (Formula: Formula_intf.S)
+module Formula = (Inez_logic: Inez_logic_intf.S)
 
 let _loc = Camlp4.PreCast.Loc.ghost
