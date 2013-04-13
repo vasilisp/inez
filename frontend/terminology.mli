@@ -23,4 +23,4 @@ type mip_type     =  T_Int of (Core.Std.Int63.t option *
 type result       =  R_Opt | R_Unbounded | R_Sat
                      | R_Unsat | R_Unknown
 
-type 't boption   =  X_True | X_False | X_Pos of 't | X_Neg of 't
+type 't signed    =  S_Pos of 't | S_Neg of 't

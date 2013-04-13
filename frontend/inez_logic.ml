@@ -1,3 +1,4 @@
+
 open Core.Std
 open Terminology
 
@@ -55,14 +56,14 @@ let one = M_Int Int63.one
 
 (* LIA predicates *)
 
-let (<) a b = F_Ground ((a + M_Int Int63.one) - b, Some O'_Le)
+let (<) a b = F_Atom ((a + M_Int Int63.one) - b, Some O'_Le)
 
-let (<=) a b = F_Ground (a - b, Some O'_Le)
+let (<=) a b = F_Atom (a - b, Some O'_Le)
 
-let (=) a b = F_Ground (a - b, Some O'_Eq)
+let (=) a b = F_Atom (a - b, Some O'_Eq)
 
-let (>=) a b = F_Ground (b - a, Some O'_Le)
+let (>=) a b = F_Atom (b - a, Some O'_Le)
 
-let (>) a b = F_Ground ((b + M_Int Int63.one) - a, Some O'_Le)
+let (>) a b = F_Atom ((b + M_Int Int63.one) - a, Some O'_Le)
 
 let iite c a b = M_Ite (c, a, b)

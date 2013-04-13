@@ -10,6 +10,9 @@ module type S = sig
 
   (** function identifiers *)
   type f
+  
+  (** dummy function symbol *)
+  val dummy_f: f
 
   val new_ctx: unit -> ctx
 
@@ -18,11 +21,14 @@ module type S = sig
   (** define a variable with optional lower and upper bounds *)
   val new_var: ctx -> mip_type -> var
 
-  (** [add_eq op i] enforces i = 0 *) 
+  (** [add_eq ctx i] asserts i = 0 *) 
   val add_eq: ctx -> var iexpr -> unit
 
-  (** [add_le op i] enforces i <= 0 *) 
+  (** [add_le ctx i] asserts i <= 0 *) 
   val add_le: ctx -> var iexpr -> unit
+
+  (** [add_clause ctx l] asserts l (viewed as a clause) *)
+  val add_clause: ctx -> var signed list -> unit
 
   (** [add_call v f l] enforces v = f(l) *)
   val add_call:

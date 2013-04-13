@@ -14,6 +14,8 @@ type ctx = {
 
 type f = string
 
+let dummy_f = ""
+
 type var = Scip_idl.var
 
 type named_constraint = cons
@@ -129,26 +131,40 @@ let new_var ({r_ctx; r_var_d} as r) t =
 let iexpr_vars (l, o) =
   Array.of_list (List.map l ~f:snd)
 
-let create_constraint ({r_ctx; r_constraints_n} as r) eq (l, o) =
+let make_constraint_id {r_constraints_n} =
+  let id = Printf.sprintf "c%d" r_constraints_n in
+  r.r_constraints_n <- r_constraints_n + 1;
+  id
+
+let create_constraint ({r_ctx} as r) eq (l, o) =
   let k, c =
     sCIPcreateConsBasicLinear r_ctx
-      (Printf.sprintf "c%d" r_constraints_n)
+      (make_constraint_id r)
       (Array.of_list_map ~f:snd l)
       (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
       (-. (if eq then Int63.to_float o else sCIPinfinity r_ctx))
       (Int63.to_float (Int63.neg o)) in
   assert_ok "createConsBasicLinear" k;
-  r.r_constraints_n <- r_constraints_n + 1; c
+  c
 
-let add_le ({r_ctx} as ctx) e =
-  let c = create_constraint ctx false e in
+let add_eq ({r_ctx} as r) e =
+  let c = create_constraint r true e in
   let k = sCIPaddCons r_ctx c in
   assert_ok "addCons" k
 
-let add_eq ({r_ctx} as ctx) e =
-  let c = create_constraint ctx true e in
+let add_le ({r_ctx} as r) e =
+  let c = create_constraint r false e in
   let k = sCIPaddCons r_ctx c in
   assert_ok "addCons" k
+
+let add_clause ({r_ctx; r_constraints_n} as r) l =
+  let k, c =
+    sCIPcreateConsBasicLogicor r_ctx
+      (make_constraint_id r)
+      (Array.of_list l) in
+  assert_ok "createConsBasicLogicor" k;
+  let k = sCIPaddCons r_ctx c in
+  assert_ok "addCons" k; c
 
 let add_call {r_cch} (v, o) f l =
   Scip_idl.cc_handler_call r_cch v (Int63.to_int64 o) f
