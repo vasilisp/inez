@@ -95,6 +95,8 @@ retcode SCIPaddVar([in] scip s, [in] var v);
 
 retcode SCIPreleaseVar([in] scip s, [in,ref] var *v);
 
+retcode SCIPgetNegatedVar([in] scip s, [in] var orig, [out] var* v);
+
 retcode SCIPsetEmphasis
 ([in] scip s,
  [in] param_emphasis p,

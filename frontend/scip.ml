@@ -131,7 +131,7 @@ let new_var ({r_ctx; r_var_d} as r) t =
 let iexpr_vars (l, o) =
   Array.of_list (List.map l ~f:snd)
 
-let make_constraint_id {r_constraints_n} =
+let make_constraint_id ({r_constraints_n} as r) =
   let id = Printf.sprintf "c%d" r_constraints_n in
   r.r_constraints_n <- r_constraints_n + 1;
   id
@@ -159,12 +159,17 @@ let add_le ({r_ctx} as r) e =
 
 let add_clause ({r_ctx; r_constraints_n} as r) l =
   let k, c =
-    sCIPcreateConsBasicLogicor r_ctx
-      (make_constraint_id r)
-      (Array.of_list l) in
+    let l =
+      Array.of_list_map l
+        ~f:(function
+        | S_Pos v -> v
+        | S_Neg v ->
+          let k, v = sCIPgetNegatedVar r_ctx v in
+          assert_ok "getNegatedVar" k; v) in
+    sCIPcreateConsBasicLogicor r_ctx (make_constraint_id r) l in
   assert_ok "createConsBasicLogicor" k;
   let k = sCIPaddCons r_ctx c in
-  assert_ok "addCons" k; c
+  assert_ok "addCons" k
 
 let add_call {r_cch} (v, o) f l =
   Scip_idl.cc_handler_call r_cch v (Int63.to_int64 o) f

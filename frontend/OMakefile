@@ -97,7 +97,7 @@ public.MyOCamlProgram(name, files, cfiles) =
 
 Camlp4o(inez_lang)
 
-MyOCamlProgram(ibct, scip solver main, scip_idl_stubs)
+MyOCamlProgram(ibct, scip formula inez_logic solver main, scip_idl_stubs)
 
 .PHONY: clean
 
