@@ -20,9 +20,16 @@
 #load "inez_lang.cmo"
 #load "inez_logic.cmo"
 
+#load "solver.cmo"
+#load "scip_idl_stubs.o"
+#load "scip_idl.cmo"
+#load "scip.cmo"
+
+
 open Core.Std
 open Camlp4.PreCast
 
 module Formula = (Inez_logic: Inez_logic_intf.S)
 
 let _loc = Camlp4.PreCast.Loc.ghost
+

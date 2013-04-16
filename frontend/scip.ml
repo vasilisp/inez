@@ -157,6 +157,25 @@ let add_le ({r_ctx} as r) e =
   let k = sCIPaddCons r_ctx c in
   assert_ok "addCons" k
 
+let var_of_var_signed {r_ctx} = function
+  | S_Pos v ->
+    v
+  | S_Neg v ->
+    let k, v = sCIPgetNegatedVar r_ctx v in
+    assert_ok "getNegatedVar" k; v
+
+let add_indicator ({r_ctx} as r) v (l, o) =
+  let k, c =
+    sCIPcreateConsBasicIndicator r_ctx
+      (make_constraint_id r)
+      (var_of_var_signed r v)
+      (Array.of_list_map ~f:snd l)
+      (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
+      (Int63.to_float (Int63.neg o)) in
+  assert_ok "createConsBasicIndicator" k;
+  let k = sCIPaddCons r_ctx c in
+  assert_ok "addCons" k
+
 let add_clause ({r_ctx; r_constraints_n} as r) l =
   let k, c =
     let l =
@@ -171,9 +190,13 @@ let add_clause ({r_ctx; r_constraints_n} as r) l =
   let k = sCIPaddCons r_ctx c in
   assert_ok "addCons" k
 
-let add_call {r_cch} (v, o) f l =
-  Scip_idl.cc_handler_call r_cch v (Int63.to_int64 o) f
-    (Array.of_list_map l ~f:fst)
+let var_of_var_option {r_cch} =
+  Option.value_map ~f:Fn.id ~default:(cc_handler_zero_var r_cch)
+
+let add_call ({r_cch} as r) (v, o) f l =
+  Scip_idl.cc_handler_call r_cch
+    (var_of_var_option r v) (Int63.to_int64 o) f
+    (Array.of_list_map l ~f:(Fn.compose (var_of_var_option r) fst))
     (Array.of_list_map l ~f:(Fn.compose Int63.to_int64 snd))
 
 let add_objective {r_ctx; r_has_objective; r_var_d} l =

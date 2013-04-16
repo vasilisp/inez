@@ -174,3 +174,6 @@ void cc_handler_call([in] cch c,
 void cc_handler_finalize([in] cch c);
 
 void cc_handler_include([in] cch c);
+
+/* simply returns NULL */
+var cc_handler_zero_var([in] cch c);

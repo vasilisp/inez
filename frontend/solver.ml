@@ -122,6 +122,9 @@ module Make (S: Imt_intf.S) = struct
   let mip_type_bool =
     T_Int (Some Int63.zero, Some Int63.one)
 
+  let mip_type_int =
+    T_Int (None, None)
+
   (* flatten terms *)
 
   (* linearizing terms and formulas: utilities before we get into the
@@ -131,48 +134,91 @@ module Make (S: Imt_intf.S) = struct
     | S_Pos x -> S_Neg x
     | S_Neg x -> S_Pos x
 
+  let negate_isum =
+    List.map ~f:(Tuple.T2.map1 ~f:Int63.neg)
+
   (* linearizing terms and formulas: mutual recursion, because terms
      contain formulas and vice versa *)
 
-  let rec ovar_of_flat_term_base ({r_ctx} as r) = function
+  let rec iexpr_of_sum r l o =
+    let f (l, o) (c, t) =
+      match ovar_of_flat_term_base r t with
+      | Some v, x ->
+        (c, v) :: l, Int63.(o + c * x)
+      | None, x ->
+        l, Int63.(o + c * x)
+    and init = [], o in
+    List.fold_left ~init ~f l
+
+  and blast_le ({r_ctx} as r) s o =
+    let ie = iexpr_of_sum r s o
+    and v = S.new_var r_ctx mip_type_bool in
+    S.add_indicator r_ctx (S_Pos v) ie;
+    S_Pos (Some v)
+
+  and blast_eq ({r_ctx} as r) s o =
+    let ((s, o) as ie) = iexpr_of_sum r s o in
+    let neg_sum = negate_isum s
+    and v = S.new_var r_ctx mip_type_bool
+    and v_lt = S_Pos (S.new_var r_ctx mip_type_bool)
+    and v_gt = S_Pos (S.new_var r_ctx mip_type_bool) in
+    S.add_indicator r_ctx (S_Pos v) ie;
+    S.add_indicator r_ctx (S_Neg v) (neg_sum, Int63.neg o);
+    S.add_indicator r_ctx v_lt (s, Int63.(o + one));
+    S.add_indicator r_ctx v_gt (s, Int63.(one - o));
+    S.add_clause r_ctx [S_Pos v; v_lt; v_gt];
+    S_Pos (Some v)
+
+  and ovar_of_flat_term_base ({r_ctx} as r) = function
     | B_Var v ->
-      ignore r;
       Some v, Int63.zero
-    | B_App _ ->
-      (* FIXME *)
-      None, Int63.zero
+    | B_App (f, l) ->
+      let v = S.new_var r_ctx mip_type_int in
+      S.add_call  r_ctx (Some v, Int63.zero) f
+        (List.map l ~f:(ovar_of_flat_term r));
+      Some v, Int63.zero
     | B_Ite (g, s, t) ->
       (* FIXME *)
       None, Int63.zero
 
   and ovar_of_flat_term ({r_ctx} as r) = function
     | L_Base b ->
-      ignore r;
       ovar_of_flat_term_base r b
     | L_Sum (l, o) ->
-      (* FIXME *)
-      None, Int63.zero
+      let l, o = iexpr_of_sum r l o
+      and v = S.new_var r_ctx mip_type_int in
+      S.add_eq r_ctx ((Int63.minus_one, v) :: l, o);
+      Some v, Int63.zero
 
-  and blast_atom ({r_ctx} as r) t o =
-    (* FIXME *)
-    ignore r;
-    S_Pos None
+  and blast_atom ({r_ctx} as r) = function
+    | L_Base t, Some O'_Le ->
+      blast_le r [Int63.one, t] Int63.zero
+    | L_Sum (s, o), Some O'_Le ->
+      blast_eq r s o
+    | L_Base t, Some O'_Eq ->
+      blast_le r [Int63.one, t] Int63.zero
+    | L_Sum (s, o), Some O'_Eq ->
+      blast_eq r s o
+    | L_Base t, None ->
+      S_Pos None
+    | L_Sum (s, o), None ->
+      S_Pos None
 
-  and blast_and_map r acc = function
+  and blast_conjunction_map r acc = function
     | g :: tail ->
       (match blast_formula r g with
       | S_Pos (Some x) ->
-        blast_and_map r ((S_Pos x) :: acc) tail
+        blast_conjunction_map r ((S_Pos x) :: acc) tail
       | S_Pos None ->
-        blast_and_map r acc tail
+        blast_conjunction_map r acc tail
       | S_Neg (Some x) ->
-        blast_and_map r ((S_Neg x) :: acc) tail
+        blast_conjunction_map r ((S_Neg x) :: acc) tail
       | S_Neg None ->
         None)
     | [] ->
       Some (acc: var signed list)
 
-  and blast_and_reduce {r_ctx} l =
+  and blast_conjunction_reduce {r_ctx} l =
     match l with
     | [] ->
       xtrue
@@ -187,18 +233,18 @@ module Make (S: Imt_intf.S) = struct
       S.add_clause r_ctx (S_Pos rval :: List.map l ~f:snot);
       S_Pos (Some rval)
 
-  and blast_and r l =
-    Option.value_map (blast_and_map r [] l)
-      ~f:(blast_and_reduce r)
+  and blast_conjunction r l =
+    Option.value_map (blast_conjunction_map r [] l)
+      ~f:(blast_conjunction_reduce r)
       ~default:xfalse
 
   and blast_formula ({r_ctx} as r) = function
     | U_Atom (t, o) ->
-      blast_atom r t o
+      blast_atom r (t, o)
     | U_Not g ->
       snot (blast_formula r g)
     | U_And l ->
-      blast_and r l
+      blast_conjunction r l
     | U_Ite (q, g, h) ->
       blast_formula r (ff_ite q g h)
 

@@ -278,12 +278,14 @@ extern "C" {
 				    unsigned int, SCIP_VAR**, llint*);
 	extern void cc_handler_finalize(cc_handler*);
 	extern void cc_handler_include(cc_handler*);
+	extern SCIP_VAR* cc_handler_zero_var(cc_handler*);
 #else // K&R style prototypes
 	extern cc_handler* new_cc_handler();
 	extern void delete_cc_handler();
 	extern void cc_handler_call();
 	extern void cc_handler_finalize();
 	extern void cc_handler_include();
+	extern SCIP_VAR* cc_handler_zero_var();
 #endif
 
 #ifdef __cplusplus

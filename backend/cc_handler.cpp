@@ -1343,3 +1343,8 @@ void cc_handler_include(cc_handler* c)
 {
   c->include();
 }
+
+SCIP_VAR* cc_handler_zero_var(cc_handler* c)
+{
+  return NULL;
+}
