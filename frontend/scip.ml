@@ -232,9 +232,15 @@ let solve ({r_ctx} as r) =
   | _ -> ());
   rval
 
-let assignment {r_ctx; r_var_d; r_sol} i =
-  Option.map2 r_sol (Dequeue.get_exn r_var_d i)
-    ~f:(sCIPgetSolVal r_ctx)
+let deref {r_ctx; r_var_d; r_sol} v =
+  let f sol =
+    let x = sCIPgetSolVal r_ctx sol v in
+    let i = Int63.of_float x in
+    if Float.(x > Int63.to_float i + 0.5) then
+      Int63.succ i
+    else
+      i in
+  Option.map r_sol ~f
 
 let variables_number {r_var_d} = Dequeue.length r_var_d
 

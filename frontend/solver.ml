@@ -108,15 +108,17 @@ module Make (S: Imt_intf.S) = struct
       U_And (flatten_formula_aux [] g)
 
   type ctx = {
-    r_ctx    : S.ctx;
-    r_xvar_m : (flat_formula, xvar) Hashtbl.Poly.t;
-    r_q      : flat_formula Dequeue.t
+    r_ctx           : S.ctx;
+    r_xvar_m        : (flat_formula, xvar) Hashtbl.Poly.t;
+    r_q             : flat_formula Dequeue.t;
+    mutable r_unsat : bool
   }
 
   let make_ctx () = {
     r_ctx    = S.new_ctx ();
     r_xvar_m = Hashtbl.Poly.create ~size:10240 ();
     r_q      = Dequeue.create () ~dummy:(U_And []);
+    r_unsat  = false
   }
 
   let mip_type_bool =
@@ -253,12 +255,37 @@ module Make (S: Imt_intf.S) = struct
     let default () = blast_formula r g in
     Hashtbl.find_or_add r_xvar_m g ~default
 
+  let finally_assert_formula ({r_ctx} as r) = function
+    | S_Pos (Some v) ->
+      S.add_eq r_ctx ([Int63.one, v], Int63.minus_one)
+    | S_Neg (Some v) ->
+      S.add_eq r_ctx ([Int63.one, v], Int63.zero)
+    | S_Pos None ->
+      ()
+    | S_Neg None ->
+      r.r_unsat <- true
+
+  let get_int_var {r_ctx} =
+    S.new_var r_ctx mip_type_int
+
+  let get_bool_var {r_ctx} =
+    S.new_var r_ctx mip_type_bool
+
   let assert_formula {r_q} g =
     Dequeue.push_back r_q (flatten_formula g)
 
-  let solve ({r_q} as r) =
-    Dequeue.iter r_q ~f:(Fn.compose ignore (blast_formula r));
+  let solve ({r_q; r_ctx} as r) =
+    Dequeue.iter r_q
+      ~f:(Fn.compose
+            (finally_assert_formula r)
+            (blast_formula r));
     Dequeue.clear r_q;
-    R_Sat
+    if r.r_unsat then
+      R_Unsat
+    else
+      S.solve r_ctx
+
+  let deref {r_ctx} =
+    S.deref r_ctx    
 
 end

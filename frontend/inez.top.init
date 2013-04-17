@@ -1,5 +1,9 @@
 #use "topfind";;
 #require "core";;
 
+module S = Solver.Make(Scip);;
 module Formula = Inez_logic;;
-open Core.Std
+
+open Core.Std;;
+
+let ctx = S.make_ctx ();;

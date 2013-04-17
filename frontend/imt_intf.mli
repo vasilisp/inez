@@ -1,5 +1,6 @@
 module type S = sig
 
+  open Core.Std
   open Terminology
   
   (** context *)
@@ -40,6 +41,8 @@ module type S = sig
   val add_objective: ctx -> var isum -> unit
 
   val solve: ctx -> result
+
+  val deref: ctx -> var -> Int63.t option
 
   val write_ctx: ctx -> string -> unit
 
