@@ -1,6 +1,5 @@
-#use "topfind"
-#thread
+#use "topfind";;
+#require "core";;
 
-#require "core"
-
+module Formula = Inez_logic;;
 open Core.Std
