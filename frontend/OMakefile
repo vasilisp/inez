@@ -95,12 +95,56 @@ public.MyOCamlProgram(name, files, cfiles) =
                    $(if $(NATIVE_ENABLED), $(OPTPROG)), \
                    $(if $(BYTE_ENABLED), $(BYTEPROG)))
 
+public.OCamlTop(name, files, cfiles) =
+
+    private.CMOFILES = $(addsuffix .cmo, $(files))
+    private.OFILES = $(addsuffix $(EXT_OBJ), $(files))
+
+    private.COFILES = $(addsuffix $(EXT_COBJ), $(cfiles))
+
+    private.CMAFILES = $(addsuffix .cma,  $(OCAML_LIBS))
+    private.ARFILES = $(addsuffix $(EXT_LIB), $(OCAML_LIBS))
+    private.CMA_OTHER_FILES = $(addsuffix .cma, $(OCAML_OTHER_LIBS))
+
+    private.CLIBS = $(addsuffix $(EXT_LIB), $(OCAML_CLIBS))
+    private.OCAMLPACKS = $(filter-out camlp4%, $(OCAMLPACKS))
+    private.PREFIXED_OCAMLPACKS =\
+        $`(if $(and $(USE_OCAMLFIND) $(gt $(length $(OCAMLPACKS)), 0)),\
+            -package $(string $(concat \,, $(OCAMLPACKS))),\
+            $(EMPTY))
+
+    private.name = $(file $(name))
+    private.PROG = $(file $(name).top)
+
+    # FIXME: hardcoded dynlink.cma and camlp4o.cma
+
+    $(PROG): $(CMAFILES) $(CMOFILES) $(CLIBS) $(COFILES)
+        $(OCAMLFIND) $(OCAMLMKTOP) $(LAZY_OCAMLFINDFLAGS) dynlink.cma	\
+        -I +camlp4 camlp4o.cma $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS)	\
+        $(OCAMLCFLAGS) $(PREFIXED_OCAMLINCLUDES) -o $@			\
+        $(CMA_OTHER_FILES) $(CMAFILES) $(OCamlLinkSort $(CMOFILES))	\
+        $(COFILES) $(CLIBS) $(OCAML_LINK_FLAGS)				\
+        $(OCAML_BYTE_LINK_FLAGS)
+
+    return $(PROG)
+
+# TODO: add target for preloaded camlp4; the recipe is
+# OCAMLFIND_COMMANDS='ocamlmktop=mkcamlp4' \
+# ocamlfind ocamlmktop \
+#     -thread -linkpkg -package compiler-libs.toplevel,core \
+#     -I +camlp4 camlp4o.cma inez_lang.cmo \
+#     -o inez.pp -custom
+
 Camlp4o(inez_lang)
 
-MyOCamlProgram(ibct, scip formula inez_logic solver main, scip_idl_stubs)
+MyOCamlProgram(inez, scip formula inez_logic solver main, scip_idl_stubs)
+
+OCamlTop(inez, scip formula inez_logic inez_lang solver,  \
+	 camlidl_dummy scip_idl_stubs)
 
 .PHONY: clean
 
 clean:
-    rm -f *.o *.cm[iox] smtlib_lexer.ml ibct ibct.opt ibct.run *.omc	\
-            scip_idl.ml scip_idl.mli scip_idl.h scip_idl_stubs.c
+    rm -f *.o *.cm[iox] smtlib_lexer.ml inez inez.opt inez.run	\
+            inez.top *.omc scip_idl.ml scip_idl.mli scip_idl.h	\
+            scip_idl_stubs.c

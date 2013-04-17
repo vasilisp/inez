@@ -158,15 +158,16 @@ module Make (S: Imt_intf.S) = struct
 
   and blast_eq ({r_ctx} as r) s o =
     let ((s, o) as ie) = iexpr_of_sum r s o in
-    let neg_sum = negate_isum s
-    and v = S.new_var r_ctx mip_type_bool
-    and v_lt = S_Pos (S.new_var r_ctx mip_type_bool)
-    and v_gt = S_Pos (S.new_var r_ctx mip_type_bool) in
-    S.add_indicator r_ctx (S_Pos v) ie;
-    S.add_indicator r_ctx (S_Neg v) (neg_sum, Int63.neg o);
-    S.add_indicator r_ctx v_lt (s, Int63.(o + one));
-    S.add_indicator r_ctx v_gt (s, Int63.(one - o));
-    S.add_clause r_ctx [S_Pos v; v_lt; v_gt];
+    let neg_sum = negate_isum s in
+    let v = S.new_var r_ctx mip_type_bool in
+    let vp_lt = S_Pos (S.new_var r_ctx mip_type_bool)
+    and vp_gt = S_Pos (S.new_var r_ctx mip_type_bool)
+    and vp = S_Pos v in
+    S.add_indicator r_ctx vp ie;
+    S.add_indicator r_ctx vp (neg_sum, Int63.neg o);
+    S.add_indicator r_ctx vp_lt (s, Int63.(o + one));
+    S.add_indicator r_ctx vp_gt (s, Int63.(one - o));
+    S.add_clause r_ctx [vp; vp_lt; vp_gt];
     S_Pos (Some v)
 
   and ovar_of_flat_term_base ({r_ctx} as r) = function
