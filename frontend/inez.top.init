@@ -7,3 +7,6 @@ module Formula = Inez_logic;;
 open Core.Std;;
 
 let ctx = S.make_ctx ();;
+
+let i_assert g = S.assert_formula ctx g
+let i_solve () = S.solve ctx
