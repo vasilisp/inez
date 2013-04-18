@@ -9,20 +9,26 @@ module type S = sig
   (** context *)
   type ctx
 
-  type var
+  (** integer variable *)
+  type ivar
 
-  val get_int_var: ctx -> var
+  (** boolean variable *)
+  type bvar
+  
+  val get_ivar: ctx -> ivar
 
-  val get_bool_var: ctx -> var
+  val get_bvar: ctx -> bvar
 
   (** assert constraint *)
   val assert_formula:
     ctx ->
-    (f, var) Inez_logic.atom Formula.formula ->
+    (bvar, ivar) Inez_logic.atom Formula.formula ->
     unit
 
   val solve: ctx -> result
 
-  val deref: ctx -> var -> Int63.t option
+  val deref_int: ctx -> ivar -> Int63.t option
+
+  val deref_bool: ctx -> bvar -> bool option
 
 end

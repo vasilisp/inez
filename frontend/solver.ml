@@ -5,19 +5,23 @@ module Make (S: Imt_intf.S) = struct
 
   module IL = Inez_logic
 
+  type ivar = S.var
+  type bvar = S.var
   type var = S.var
 
   type f = S.f
 
-  type term = (f, var) IL.term
+  type 't term = (bvar, ivar, 't) IL.term
 
-  type formula = (f, var) IL.atom Formula.formula
+  type formula = (bvar, ivar) IL.atom Formula.formula
 
-  (* Flat internal representation of terms and formulas. *)
+  (* flat internal representation of terms and formulas *)
 
-  type flat_term =
+  type flat_term_sum = (Int63.t * flat_term_base) list
+
+  and flat_term =
     L_Base  of  flat_term_base
-  | L_Sum   of  (Int63.t * flat_term_base) list * Int63.t
+  | L_Sum   of  flat_term_sum offset
 
   and flat_term_base =
     B_Var  of  var
@@ -46,15 +50,17 @@ module Make (S: Imt_intf.S) = struct
   let xfalse = S_Neg None
 
   (* flatten terms and formulas; SCC impractical to break *)
-
-  let rec flatten_term_aux_aux (d, r) k = function
-    | IL.M_Var v ->
+   
+  let rec flatten_term_aux_aux :
+  type t . flat_term_sum offset -> Int63.t -> t term ->
+    flat_term_sum offset = fun (d, r) k -> function
+    | IL.M_Ivar v ->
       (k, B_Var v) :: d, r
     | IL.M_Int i ->
       d, Int63.(r + k * i)
-    | IL.M_App (ff, l) ->
-      let l = List.map l ~f:flatten_term in
-      (k, B_App (ff, l)) :: d, r
+    | IL.M_App (f, t) ->
+      (* FIXME *)
+      d, Int63.zero
     | IL.M_Sum (s, t) ->
       let d, r = flatten_term_aux_aux (d, r) k s in
       flatten_term_aux_aux (d, r) k t
@@ -65,17 +71,17 @@ module Make (S: Imt_intf.S) = struct
                  flatten_term s,
                  flatten_term t)) :: d, r
 
-  and flatten_term_aux term =
+  and flatten_term_aux : type t . t term -> flat_term = fun t ->
     let d, r = [], Int63.zero in
-    let d, r = flatten_term_aux_aux (d, r) Int63.one term in
+    let d, r = flatten_term_aux_aux (d, r) Int63.one t in
     (* dedup / sort / hash d here *)
     L_Sum (d, r)
 
-  and flatten_term = function
-    | IL.M_Var v ->
+  and flatten_term : type t . t term -> flat_term  = function
+    | IL.M_Ivar v ->
       L_Base (B_Var v)
-    | IL.M_App (f, l) ->
-      L_Base (B_App (f, List.map l ~f:(flatten_term)))
+    (* | IL.M_App (f, l) -> *)
+    (*   L_Base (B_App (f, List.map l ~f:(flatten_term))) *)
     | IL.M_Ite (c, s, t) ->
       L_Base
         (B_Ite (flatten_formula c, 
@@ -96,8 +102,14 @@ module Make (S: Imt_intf.S) = struct
   and flatten_formula = function
     | Formula.F_True ->
       U_And []
-    | Formula.F_Atom (a, op) ->
-      U_Atom (flatten_term a, op)
+    | Formula.F_Atom (IL.A_Le t) ->
+      U_Atom (flatten_term t, Some O'_Le)
+    | Formula.F_Atom (IL.A_Eq t) ->
+      U_Atom (flatten_term t, Some O'_Eq)
+    | Formula.F_Atom (IL.A_Bool t) ->
+      U_Atom (flatten_term t, None)
+    | Formula.F_Atom (IL.A_Bvar v) ->
+      U_Atom (L_Base (B_Var v), None)
     | Formula.F_Not g ->
       U_Not (flatten_formula g)
     | Formula.F_Ite (q, g, h) ->
@@ -265,10 +277,10 @@ module Make (S: Imt_intf.S) = struct
     | S_Neg None ->
       r.r_unsat <- true
 
-  let get_int_var {r_ctx} =
+  let get_ivar {r_ctx} =
     S.new_var r_ctx mip_type_int
 
-  let get_bool_var {r_ctx} =
+  let get_bvar {r_ctx} =
     S.new_var r_ctx mip_type_bool
 
   let assert_formula {r_q} g =
@@ -285,7 +297,10 @@ module Make (S: Imt_intf.S) = struct
     else
       S.solve r_ctx
 
-  let deref {r_ctx} =
-    S.deref r_ctx    
+  let deref_int {r_ctx} =
+    S.deref r_ctx
+
+  let deref_bool r v =
+    Option.map ~f:Int63.((>) one) (deref_int r v)
 
 end
