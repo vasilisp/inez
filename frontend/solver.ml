@@ -3,7 +3,7 @@ open Terminology
 
 module Make (S: Imt_intf.S) = struct
 
-  module IL = Inez_logic
+  module LA = Lang_abstract
 
   type ivar = S.var
   type bvar = S.var
@@ -11,9 +11,9 @@ module Make (S: Imt_intf.S) = struct
 
   type f = S.f
 
-  type 't term = (bvar, ivar, 't) IL.term
+  type 't term = (bvar, ivar, 't) LA.term
 
-  type formula = (bvar, ivar) IL.atom Formula.formula
+  type formula = (bvar, ivar) LA.atom Formula.formula
 
   (* flat internal representation of terms and formulas *)
 
@@ -54,19 +54,19 @@ module Make (S: Imt_intf.S) = struct
   let rec flatten_term_aux_aux :
   type t . flat_term_sum offset -> Int63.t -> t term ->
     flat_term_sum offset = fun (d, r) k -> function
-    | IL.M_Ivar v ->
+    | LA.M_Ivar v ->
       (k, B_Var v) :: d, r
-    | IL.M_Int i ->
+    | LA.M_Int i ->
       d, Int63.(r + k * i)
-    | IL.M_App (f, t) ->
+    | LA.M_App (f, t) ->
       (* FIXME *)
       d, Int63.zero
-    | IL.M_Sum (s, t) ->
+    | LA.M_Sum (s, t) ->
       let d, r = flatten_term_aux_aux (d, r) k s in
       flatten_term_aux_aux (d, r) k t
-    | IL.M_Prod (k2, t) ->
+    | LA.M_Prod (k2, t) ->
       flatten_term_aux_aux (d, r) Int63.(k * k2) t
-    | IL.M_Ite (c, s, t) ->
+    | LA.M_Ite (c, s, t) ->
       (k, B_Ite (flatten_formula c,
                  flatten_term s,
                  flatten_term t)) :: d, r
@@ -78,11 +78,11 @@ module Make (S: Imt_intf.S) = struct
     L_Sum (d, r)
 
   and flatten_term : type t . t term -> flat_term  = function
-    | IL.M_Ivar v ->
+    | LA.M_Ivar v ->
       L_Base (B_Var v)
-    (* | IL.M_App (f, l) -> *)
+    (* | LA.M_App (f, l) -> *)
     (*   L_Base (B_App (f, List.map l ~f:(flatten_term))) *)
-    | IL.M_Ite (c, s, t) ->
+    | LA.M_Ite (c, s, t) ->
       L_Base
         (B_Ite (flatten_formula c, 
                 flatten_term s,
@@ -102,13 +102,13 @@ module Make (S: Imt_intf.S) = struct
   and flatten_formula = function
     | Formula.F_True ->
       U_And []
-    | Formula.F_Atom (IL.A_Le t) ->
+    | Formula.F_Atom (LA.A_Le t) ->
       U_Atom (flatten_term t, Some O'_Le)
-    | Formula.F_Atom (IL.A_Eq t) ->
+    | Formula.F_Atom (LA.A_Eq t) ->
       U_Atom (flatten_term t, Some O'_Eq)
-    | Formula.F_Atom (IL.A_Bool t) ->
+    | Formula.F_Atom (LA.A_Bool t) ->
       U_Atom (flatten_term t, None)
-    | Formula.F_Atom (IL.A_Bvar v) ->
+    | Formula.F_Atom (LA.A_Bvar v) ->
       U_Atom (L_Base (B_Var v), None)
     | Formula.F_Not g ->
       U_Not (flatten_formula g)

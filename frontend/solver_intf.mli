@@ -22,7 +22,7 @@ module type S = sig
   (** assert constraint *)
   val assert_formula:
     ctx ->
-    (bvar, ivar) Inez_logic.atom Formula.formula ->
+    (bvar, ivar) Lang_abstract.atom Formula.formula ->
     unit
 
   val solve: ctx -> result

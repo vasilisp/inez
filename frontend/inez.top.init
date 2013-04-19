@@ -2,7 +2,7 @@
 #require "core";;
 
 module S = Solver.Make(Scip);;
-module Formula = Inez_logic;;
+module Formula = Lang_abstract;;
 
 open Core.Std;;
 
