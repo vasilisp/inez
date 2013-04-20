@@ -2,7 +2,10 @@
 #require "core";;
 
 module S = Solver.Make(Scip);;
-module Formula = Lang_abstract;;
+module Formula = struct
+  include Lang_types;;
+  include Lang_abstract;;
+end;;
 
 open Core.Std;;
 
