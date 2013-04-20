@@ -3,9 +3,6 @@ module type S = sig
   open Core.Std
   open Terminology
 
-  (** function identifiers *)
-  type f
-
   (** context *)
   type ctx
 

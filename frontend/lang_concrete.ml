@@ -19,9 +19,7 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
   open Sig
   include Syntax
 
-  type ground_type = G_Bool | G_Int
-
-  type uf_type = ground_type list * ground_type
+  type uf_type = Lang_types.ibtype list * Lang_types.ibtype
 
   let gensym =
     let cnt = ref 0 in
@@ -41,22 +39,22 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
   let uf_ast_fun _loc ((l, rtype) as p: uf_type) =
     let fold l init =
       let f acc = function
-        | G_Int ->
+        | Lang_types.E_Int ->
           <:expr< Formula.Y_Int_Arrow $acc$ >>
-        | G_Bool ->
+        | Lang_types.E_Bool ->
           <:expr< Formula.Y_Bool_Arrow $acc$ >> in
       List.fold_left l ~f ~init
     and ret e =
       let i = gen_function_id p in
       <:expr< Formula.M_Fun ($`int:i$, $e$) >> in
     match rtype, List.rev l with
-    | G_Int, G_Int :: l ->
+    | Lang_types.E_Int, Lang_types.E_Int :: l ->
       ret (fold l <:expr< Formula.Y_Int_Arrow_Int >>)
-    | G_Int, G_Bool :: l ->
+    | Lang_types.E_Int, Lang_types.E_Bool :: l ->
       ret (fold l <:expr< Formula.Y_Bool_Arrow_Int >>)
-    | G_Bool, G_Int :: l ->
+    | Lang_types.E_Bool, Lang_types.E_Int :: l ->
       ret (fold l <:expr< Formula.Y_Int_Arrow_Bool >>)
-    | G_Bool, G_Bool :: l ->
+    | Lang_types.E_Bool, Lang_types.E_Bool :: l ->
       ret (fold l <:expr< Formula.Y_Bool_Arrow_Bool >>)
     | _, _ ->
       raise (Exn_unreachable "fun_type_ast_of_list")
@@ -66,9 +64,9 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
       ~f:(fun acc (id, t) ->
         let t =
           match t with
-          | G_Int ->
+          | Lang_types.E_Int ->
             <:expr< $id:id$ >>
-          | G_Bool ->
+          | Lang_types.E_Bool ->
             <:expr< Formula.M_Bool $id:id$ >> in
         <:expr< Formula.M_App ($acc$, $t$) >>)
 
@@ -78,17 +76,17 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
 
   let ground_type_of_id _loc = function
     | "int" ->
-      G_Int
+      Lang_types.E_Int
     | "bool" ->
-      G_Bool
+      Lang_types.E_Bool
     | id ->
       Loc.raise _loc (Exn_uf_type ("unknown type: " ^ id))
 
   let uf_maybe_convert _loc r e =
     match r with
-    | G_Bool ->
+    | Lang_types.E_Bool ->
       <:expr< Formula.F_Atom (Formula.A_Bool ($e$)) >>
-    | G_Int ->
+    | Lang_types.E_Int ->
       e
 
   let uf_ast loc l r =

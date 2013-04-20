@@ -43,3 +43,20 @@ type t . t fun_type -> ibtype =
   | Y_Bool_Arrow_Bool -> E_Bool
   | Y_Int_Arrow y -> rightmost_ibtype_of_fun_type y
   | Y_Bool_Arrow y -> rightmost_ibtype_of_fun_type y
+
+let rec rightmost_ibtype_of_fun_type' = function
+  | N_Int_Arrow_Int -> E_Int
+  | N_Bool_Arrow_Int -> E_Int
+  | N_Int_Arrow_Bool -> E_Bool
+  | N_Bool_Arrow_Bool -> E_Bool
+  | N_Int_Arrow y -> rightmost_ibtype_of_fun_type' y
+  | N_Bool_Arrow y -> rightmost_ibtype_of_fun_type' y
+
+let count_arrows' =
+  let rec ca_aux acc = function
+    | N_Int_Arrow_Int | N_Bool_Arrow_Bool
+    | N_Int_Arrow_Bool | N_Bool_Arrow_Int ->
+      1 + acc
+    | N_Int_Arrow y | N_Bool_Arrow y ->
+      ca_aux (1 + acc) y
+  in ca_aux 0
