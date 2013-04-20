@@ -128,6 +128,10 @@ let new_var ({r_ctx; r_var_d} as r) t =
   assert_ok "addVar" k;
   Dequeue.push_back r_var_d (Some v); v
 
+let get_negated_var {r_ctx} v =
+  let k, v = sCIPgetNegatedVar r_ctx v in
+  assert_ok "getNegatedVar" k; v
+
 let iexpr_vars (l, o) =
   Array.of_list (List.map l ~f:snd)
 
@@ -157,12 +161,11 @@ let add_le ({r_ctx} as r) e =
   let k = sCIPaddCons r_ctx c in
   assert_ok "addCons" k
 
-let var_of_var_signed {r_ctx} = function
+let var_of_var_signed r = function
   | S_Pos v ->
     v
   | S_Neg v ->
-    let k, v = sCIPgetNegatedVar r_ctx v in
-    assert_ok "getNegatedVar" k; v
+    get_negated_var r v
 
 let add_indicator ({r_ctx} as r) v (l, o) =
   let k, c =

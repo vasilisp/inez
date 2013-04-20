@@ -3,22 +3,6 @@ open Terminology
 
 include Formula
 
-type _ fun_type =
-| Y_Int_Arrow_Int    :  (int -> int) fun_type
-| Y_Int_Arrow_Bool   :  (int -> bool) fun_type
-| Y_Bool_Arrow_Int   :  (bool -> int) fun_type
-| Y_Bool_Arrow_Bool  :  (bool -> bool) fun_type
-| Y_Int_Arrow        :  'a fun_type -> (int -> 'a) fun_type
-| Y_Bool_Arrow       :  'a fun_type -> (bool -> 'a) fun_type
-
-type fun_type' =
-| N_Int_Arrow_Int
-| N_Int_Arrow_Bool
-| N_Bool_Arrow_Int
-| N_Bool_Arrow_Bool
-| N_Int_Arrow of fun_type'
-| N_Bool_Arrow of fun_type'
-
 type ('b, 'i, _) term =
 | M_Bool  :  ('b, 'i) atom formula -> ('b, 'i, bool) term
 | M_Int   :  Int63.t -> ('b, 'i, int) term
@@ -26,7 +10,7 @@ type ('b, 'i, _) term =
 | M_Sum   :  ('b, 'i, int) term * ('b, 'i, int) term ->
   ('b, 'i, int) term
 | M_Prod  :  Int63.t * ('b, 'i, int) term -> ('b, 'i, int) term
-| M_Fun   :  int * 's fun_type -> ('b, 'i, 's) term
+| M_Fun   :  int * 's Types.fun_type -> ('b, 'i, 's) term
 | M_App   :  ('b, 'i, 'r -> 's) term * ('b, 'i, 'r) term ->
   ('b, 'i, 's) term
 | M_Ite   :  ('b, 'i) atom formula *
@@ -39,21 +23,19 @@ and ('b, 'i) atom =
 | A_Bool  of  ('b, 'i, bool) term
 | A_Bvar  of  'b
 
-(* convert fun_type to non-GADT version (for hashing purposes) *)
+(* type utilities *)
 
-let rec ungadt_fun_type: type t . t fun_type -> fun_type' = function
-  | Y_Int_Arrow_Int ->
-    N_Int_Arrow_Int
-  | Y_Int_Arrow_Bool ->
-    N_Int_Arrow_Bool
-  | Y_Bool_Arrow_Int ->
-    N_Bool_Arrow_Int 
-  | Y_Bool_Arrow_Bool ->
-    N_Bool_Arrow_Bool
-  | Y_Int_Arrow t ->
-    N_Int_Arrow (ungadt_fun_type t)
-  | Y_Bool_Arrow t ->
-    N_Bool_Arrow (ungadt_fun_type t)
+let rec rightmost_ibtype_of_term :
+type t . ('b, 'i, t) term -> Types.ibtype =
+  function
+  | M_Bool _ -> Types.E_Bool
+  | M_Int _ -> Types.E_Int
+  | M_Ivar _ -> Types.E_Int
+  | M_Sum (_, _) -> Types.E_Int
+  | M_Prod (_, _) -> Types.E_Int
+  | M_Fun (_, y) -> Types.rightmost_ibtype_of_fun_type y
+  | M_App (t, _) -> rightmost_ibtype_of_term t
+  | M_Ite (_, _, _) -> Types.E_Int
 
 (* LIA functions *)
 

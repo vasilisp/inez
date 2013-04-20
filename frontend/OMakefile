@@ -140,7 +140,7 @@ Camlp4o(lang_concrete)
 MyOCamlProgram(inez, scip formula lang_abstract solver main,  \
                scip_idl_stubs)
 
-OCamlTop(inez, scip formula lang_abstract lang_concrete,  \
+OCamlTop(inez, scip formula types lang_abstract lang_concrete,  \
 	 camlidl_dummy scip_idl_stubs)
 
 .PHONY: clean
