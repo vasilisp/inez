@@ -253,7 +253,7 @@ module Make (S: Imt_intf.S) = struct
     S.add_indicator r_ctx vp ie;
     S.add_indicator r_ctx vp (neg_sum, Int63.neg o);
     S.add_indicator r_ctx vp_lt (s, Int63.(o + one));
-    S.add_indicator r_ctx vp_gt (s, Int63.(one - o));
+    S.add_indicator r_ctx vp_gt (neg_sum, Int63.(one - o));
     S.add_clause r_ctx [vp; vp_lt; vp_gt];
     S_Pos (Some v)
 
@@ -323,8 +323,8 @@ module Make (S: Imt_intf.S) = struct
       S_Neg (Some x)
     | _ ->
       let rval = S.new_var r_ctx mip_type_bool in
-      let f v = S.add_clause r_ctx [S_Neg rval; v] in
-      List.iter l ~f;
+      (let f v = S.add_clause r_ctx [S_Neg rval; v] in
+       List.iter l ~f);
       S.add_clause r_ctx (S_Pos rval :: List.map l ~f:snot);
       S_Pos (Some rval)
 
@@ -384,6 +384,9 @@ module Make (S: Imt_intf.S) = struct
       R_Unsat
     else
       S.solve r_ctx
+
+  let write_bg_ctx {r_ctx} =
+    S.write_ctx r_ctx
 
   let deref_int {r_ctx} =
     S.deref r_ctx

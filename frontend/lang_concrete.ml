@@ -138,10 +138,8 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
       [ "sort";
         id = LIDENT ->
         ignore id;
-        let module_id = gensym ~prefix:"S_" () in
-        <:str_item< module $uid:module_id$ =
-                      (struct type t = unit end:
-                        sig type t end) >>
+        let type_id = gensym ~prefix:"sort_" () in
+        <:str_item< type $lid:type_id$ >>
       ]
     ];
   

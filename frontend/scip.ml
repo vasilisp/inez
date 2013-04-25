@@ -86,6 +86,8 @@ let new_ctx () =
   assert_ok "setEmphasis" k;
   let k = sCIPsetIntParam r_ctx "display/verblevel" 0 in
   assert_ok "setIntParam" k;
+  let k = sCIPsetPresolving r_ctx SCIP_PARAMSETTING_OFF true in
+  assert_ok "setPresolving" k;
   let r_var_d = Dequeue.create () ~dummy:None
   and r_constraints_n = 0
   and r_has_objective = false

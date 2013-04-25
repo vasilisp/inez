@@ -2,82 +2,89 @@
  
   open Core.Std
 
-  type ctx = 
-    { mutable c_n_lines: int }
+  type ctx = {
+    mutable c_n_lines: int
+  }
 
   let make_ctx () = { c_n_lines = 0}
+    
+  type token' =
+    K_Int of Int63.t
+  | K_Decimal of float
+  | K_String of string
+  | K_Symbol of string
+  | K_Quoted of string
+  | K_Key of string
+  | K_Let
+  | K_Par
+  | K_Underscore
+  | K_Bang
+  | K_As
+  | K_Forall
+  | K_Exists
+  | K_Set_Logic
+  | K_Set_Option
+  | K_Set_Info
+  | K_Declare_Sort
+  | K_Define_Sort
+  | K_Declare_Fun
+  | K_Define_Fun
+  | K_Push
+  | K_Pop
+  | K_Assert
+  | K_Check_Sat
+  | K_Get_Assertions
+  | K_Get_Proof
+  | K_Get_Unsat_Core
+  | K_Get_Value
+  | K_Get_Assignment
+  | K_Get_Option
+  | K_Get_Info
+  | K_Exit
 
   type token =
     T_LParen
   | T_RParen
-  | T_Int of int
-  | T_Decimal of float
-  | T_String of string
-  | T_Symbol of string
-  | T_Quoted of string
-  | T_Key of string
-  | T_Let
-  | T_Par
-  | T_Underscore
-  | T_Bang
-  | T_As
-  | T_Forall
-  | T_Exists
-  | T_Set_Logic
-  | T_Set_Option
-  | T_Set_Info
-  | T_Declare_Sort
-  | T_Define_Sort
-  | T_Declare_Fun
-  | T_Define_Fun
-  | T_Push
-  | T_Pop
-  | T_Assert
-  | T_Check_Sat
-  | T_Get_Assertions
-  | T_Get_Proof
-  | T_Get_Unsat_Core
-  | T_Get_Value
-  | T_Get_Assignment
-  | T_Get_Option
-  | T_Get_Info
-  | T_Exit
+  | T_Other of token'
+
+  let string_of_token' = function
+    | K_Int i -> Int63.to_string i
+    | K_Decimal d -> Float.to_string d
+    | K_String s -> s
+    | K_Symbol s -> s
+    | K_Quoted q -> "blah"
+    | K_Key key -> ":" ^ key
+    | K_Let -> "let"
+    | K_Par -> "par"
+    | K_Underscore -> "_"
+    | K_Bang -> "!"
+    | K_As -> "as"
+    | K_Forall -> "forall"
+    | K_Exists -> "exists"
+    | K_Set_Logic -> "set-logic"
+    | K_Set_Option -> "set-option"
+    | K_Set_Info -> "set-info"
+    | K_Declare_Sort -> "declare-sort"
+    | K_Define_Sort -> "define-sort"
+    | K_Declare_Fun -> "declare-fun"
+    | K_Define_Fun -> "define-fun"
+    | K_Push -> "push"
+    | K_Pop -> "pop"
+    | K_Assert -> "assert"
+    | K_Check_Sat -> "check-sat"
+    | K_Get_Assertions -> "get-assertions"
+    | K_Get_Proof -> "get-proof"
+    | K_Get_Unsat_Core -> "get-unsat-core"
+    | K_Get_Value -> "get-value"
+    | K_Get_Assignment -> "get-assignment"
+    | K_Get_Option -> "get-option"
+    | K_Get_Info -> "get-info"
+    | K_Exit -> "exit"
 
   let string_of_token = function
     | T_LParen -> "("
     | T_RParen -> ")"
-    | T_Int i -> string_of_int i
-    | T_Decimal d -> Float.to_string d
-    | T_String s -> s
-    | T_Symbol s -> s
-    | T_Quoted q -> "blah"
-    | T_Key key -> ":" ^ key
-    | T_Let -> "let"
-    | T_Par -> "par"
-    | T_Underscore -> "_"
-    | T_Bang -> "!"
-    | T_As -> "as"
-    | T_Forall -> "forall"
-    | T_Exists -> "exists"
-    | T_Set_Logic -> "set-logic"
-    | T_Set_Option -> "set-option"
-    | T_Set_Info -> "set-info"
-    | T_Declare_Sort -> "declare-sort"
-    | T_Define_Sort -> "define-sort"
-    | T_Declare_Fun -> "declare-fun"
-    | T_Define_Fun -> "define-fun"
-    | T_Push -> "push"
-    | T_Pop -> "pop"
-    | T_Assert -> "assert"
-    | T_Check_Sat -> "check-sat"
-    | T_Get_Assertions -> "get-assertions"
-    | T_Get_Proof -> "get-proof"
-    | T_Get_Unsat_Core -> "get-unsat-core"
-    | T_Get_Value -> "get-value"
-    | T_Get_Assignment -> "get-assignment"
-    | T_Get_Option -> "get-option"
-    | T_Get_Info -> "get-info"
-    | T_Exit -> "exit"
+    | T_Other k -> string_of_token' k
 
 }
 
@@ -114,46 +121,46 @@ rule token ctx = parse
   | "("                { T_LParen }
   | ")"                { T_RParen }
   (* reserved *)
-  | "let"              { T_Let }
-  | "par"              { T_Par }
-  | "_"                { T_Underscore }
-  | "!"                { T_Bang }
-  | "as"               { T_As }
-  | "let"              { T_Let }
-  | "forall"           { T_Forall }
-  | "exists"           { T_Exists }
-  | "set-logic"        { T_Set_Logic }
-  | "set-option"       { T_Set_Option }
-  | "set-info"         { T_Set_Info }
-  | "declare-sort"     { T_Declare_Sort }
-  | "define-sort"      { T_Define_Sort }
-  | "declare-fun"      { T_Declare_Fun }
-  | "define-fun"       { T_Define_Fun }
-  | "push"             { T_Push }
-  | "pop"              { T_Pop }
-  | "assert"           { T_Assert }
-  | "check-sat "       { T_Check_Sat }
-  | "get-assertions"   { T_Get_Assertions }
-  | "get-proof"        { T_Get_Proof }
-  | "get-unsat-core"   { T_Get_Unsat_Core }
-  | "get-value"        { T_Get_Value }
-  | "get-assignment"   { T_Get_Assignment }
-  | "get-option"       { T_Get_Option }
-  | "get-info"         { T_Get_Info }
-  | "exit"             { T_Exit }
+  | "let"              { T_Other K_Let }
+  | "par"              { T_Other K_Par }
+  | "_"                { T_Other K_Underscore }
+  | "!"                { T_Other K_Bang }
+  | "as"               { T_Other K_As }
+  | "let"              { T_Other K_Let }
+  | "forall"           { T_Other K_Forall }
+  | "exists"           { T_Other K_Exists }
+  | "set-logic"        { T_Other K_Set_Logic }
+  | "set-option"       { T_Other K_Set_Option }
+  | "set-info"         { T_Other K_Set_Info }
+  | "declare-sort"     { T_Other K_Declare_Sort }
+  | "define-sort"      { T_Other K_Define_Sort }
+  | "declare-fun"      { T_Other K_Declare_Fun }
+  | "define-fun"       { T_Other K_Define_Fun }
+  | "push"             { T_Other K_Push }
+  | "pop"              { T_Other K_Pop }
+  | "assert"           { T_Other K_Assert }
+  | "check-sat "       { T_Other K_Check_Sat }
+  | "get-assertions"   { T_Other K_Get_Assertions }
+  | "get-proof"        { T_Other K_Get_Proof }
+  | "get-unsat-core"   { T_Other K_Get_Unsat_Core }
+  | "get-value"        { T_Other K_Get_Value }
+  | "get-assignment"   { T_Other K_Get_Assignment }
+  | "get-option"       { T_Other K_Get_Option }
+  | "get-info"         { T_Other K_Get_Info }
+  | "exit"             { T_Other K_Exit }
   (* numbers *)
-  | numeral as n       { T_Int (int_of_string n) }
+  | numeral as n       { T_Other (K_Int (Int63.of_string n)) }
   | binary as b        { let s = String.copy b in
                          String.set s 0 '0';
-                         T_Int (int_of_string s) }
+                         T_Other (K_Int (Int63.of_string s)) }
   | hex as h           { let s = String.copy h in
                          String.set h 0 '0';
-                         T_Int (int_of_string s) }
-  | decimal as d       { T_Decimal (Float.of_string d) }
+                         T_Other (K_Int (Int63.of_string s)) }
+  | decimal as d       { T_Other (K_Decimal (Float.of_string d)) }
   (* symbols and keywords*)
-  | simple_symbol as s { T_Symbol s }
+  | simple_symbol as s { T_Other (K_Symbol s) }
   | keyword as kwd     { let len = String.length kwd - 1 in
-                         T_Key (String.sub kwd ~pos:1 ~len) }
+                         T_Other (K_Key (String.sub kwd ~pos:1 ~len)) }
   (* modes and counting *)
   | "\""               { string_token ctx lexbuf }
   | '|'                { quoted_token ctx lexbuf }
@@ -178,21 +185,4 @@ and quoted_token ctx = parse
                          quoted_token ctx lexbuf }
     | '|'              { token ctx lexbuf }
 
-{
-
-  let main () =
-    let cin =
-      if Array.length Sys.argv > 1 then
-        open_in Sys.argv.(1)
-      else
-        stdin in
-    let lexbuf = Lexing.from_channel cin in
-    let ctx = make_ctx () in
-    let rec do_stuff () =
-      print_endline (string_of_token (token ctx lexbuf));
-      do_stuff () in
-    do_stuff ()
-
-  let _ = main ()
-
-}
+{}

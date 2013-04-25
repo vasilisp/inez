@@ -152,6 +152,7 @@ cc_handler::cc_handler(SCIP* scip):
   uf_call_cnt(0),
   bound_changed(false),
   seen_node(false),
+  node_infeasible(false),
   dvar_m(new dvar_map()),
   cback(new scip_callback(scip, dvar_m.get(), &node_infeasible,
                           &bound_changed)),
@@ -618,6 +619,10 @@ SCIP_RESULT cc_handler::scip_prop_impl(bool stateless = true)
   if (node_infeasible || !ctx.get_consistent()) {
 #ifdef DEBUG
     cout << "[W!] prop called, although we are infeasible\n";
+    if (node_infeasible)
+      cout << "[W!] node_infeasible\n";
+    if (!ctx.get_consistent())
+      cout << "[W!] !ctx.get_consistent()\n";
     cout << "[W!] ... this is probably fine; double-check\n";
 #endif
     // return SCIP_CUTOFF;

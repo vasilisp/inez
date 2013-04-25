@@ -139,7 +139,9 @@ Camlp4o(lang_concrete)
 
 MyOCamlProgram(inez, \
                scip formula \
-               lang_types lang_abstract solver main,  \
+               lang_types lang_abstract solver \
+	       smtlib_lexer smtlib_parser \
+               main,  \
                scip_idl_stubs)
 
 OCamlTop(inez, \

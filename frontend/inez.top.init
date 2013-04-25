@@ -11,7 +11,24 @@ open Core.Std;;
 
 let ctx = S.make_ctx ();;
 
-let iassert g = S.assert_formula ctx g;;
+let constrain g = S.assert_formula ctx g;;
+
 let solve () = S.solve ctx;;
-let ifv () = Formula.M_Ivar (S.new_ivar ctx);;
-let bfv () = Formula.F_Atom (Formula.A_Bvar (S.new_bvar ctx));;
+
+let fresh_int_var () =
+  Formula.M_Ivar (S.new_ivar ctx);;
+
+let fresh_bool_var () =
+  Formula.F_Atom (Formula.A_Bvar (S.new_bvar ctx));;
+
+let ideref = function
+  | Formula.M_Ivar v ->
+    S.deref_int ctx v
+  | _ ->
+    None;;
+
+let bderef = function
+  | Formula.F_Atom (Formula.A_Bvar v) ->
+    S.deref_bool ctx v
+  | _ ->
+    None;;

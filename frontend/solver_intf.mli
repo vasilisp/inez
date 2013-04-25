@@ -28,4 +28,6 @@ module type S = sig
 
   val deref_bool: ctx -> bvar -> bool option
 
+  val write_bg_ctx: ctx -> string -> unit
+
 end

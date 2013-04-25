@@ -72,6 +72,14 @@ typedef enum
   SCIP_PARAMEMPHASIS_COUNTER = 6
 } param_emphasis;
 
+typedef enum
+{
+  SCIP_PARAMSETTING_DEFAULT = 0,
+  SCIP_PARAMSETTING_AGGRESSIVE = 1,
+  SCIP_PARAMSETTING_FAST = 2,
+  SCIP_PARAMSETTING_OFF = 3
+} param_setting;
+
 retcode SCIPcreate([out] scip *s);
 
 retcode SCIPcreateProbBasic
@@ -149,6 +157,10 @@ retcode SCIPchgVarObj([in] scip s, [in] var v, [in] double newobj);
 
 retcode SCIPsetIntParam([in] scip s, [in,string] const char* name,
                         [in] int val);
+
+retcode SCIPsetPresolving([in] scip s,
+                          [in] param_setting ps,
+                          [in] boolean b);
 
 retcode SCIPwriteOrigProblem([in] scip s,
                              [in,string] const char* file,
