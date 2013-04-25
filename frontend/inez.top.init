@@ -11,5 +11,7 @@ open Core.Std;;
 
 let ctx = S.make_ctx ();;
 
-let i_assert g = S.assert_formula ctx g
-let i_solve () = S.solve ctx
+let iassert g = S.assert_formula ctx g;;
+let solve () = S.solve ctx;;
+let ifv () = Formula.M_Ivar (S.new_ivar ctx);;
+let bfv () = Formula.F_Atom (Formula.A_Bvar (S.new_bvar ctx));;

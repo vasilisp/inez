@@ -12,9 +12,9 @@ module type S = sig
   (** boolean variable *)
   type bvar
   
-  val get_ivar: ctx -> ivar
+  val new_ivar: ctx -> ivar
 
-  val get_bvar: ctx -> bvar
+  val new_bvar: ctx -> bvar
 
   (** assert constraint *)
   val assert_formula:

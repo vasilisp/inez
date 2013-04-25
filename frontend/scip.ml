@@ -128,7 +128,7 @@ let new_var ({r_ctx; r_var_d} as r) t =
   assert_ok "addVar" k;
   Dequeue.push_back r_var_d (Some v); v
 
-let get_negated_var {r_ctx} v =
+let negate_var {r_ctx} v =
   let k, v = sCIPgetNegatedVar r_ctx v in
   assert_ok "getNegatedVar" k; v
 
@@ -165,7 +165,7 @@ let var_of_var_signed r = function
   | S_Pos v ->
     v
   | S_Neg v ->
-    get_negated_var r v
+    negate_var r v
 
 let add_indicator ({r_ctx} as r) v (l, o) =
   let k, c =

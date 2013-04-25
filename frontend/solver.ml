@@ -283,7 +283,7 @@ module Make (S: Imt_intf.S) = struct
       | S_Pos (Some v) ->
         Some v, Int63.zero
       | S_Neg (Some v) ->
-        Some (S.get_negated_var r_ctx v), Int63.zero
+        Some (S.negate_var r_ctx v), Int63.zero
       | S_Pos None ->
         None, Int63.one
       | S_Neg None ->
@@ -365,10 +365,10 @@ module Make (S: Imt_intf.S) = struct
     | S_Neg None ->
       r.r_unsat <- true
 
-  let get_ivar {r_ctx} =
+  let new_ivar {r_ctx} =
     S.new_var r_ctx mip_type_int
 
-  let get_bvar {r_ctx} =
+  let new_bvar {r_ctx} =
     S.new_var r_ctx mip_type_bool
 
   let assert_formula {r_q} g =

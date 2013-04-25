@@ -1,5 +1,4 @@
 module Make: functor (S: Imt_intf.S) -> sig
-  type ctx
-  include Solver_intf.S with type ctx := ctx
+  include Solver_intf.S
   val make_ctx: unit -> ctx
 end

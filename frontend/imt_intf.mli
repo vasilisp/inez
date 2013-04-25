@@ -22,8 +22,8 @@ module type S = sig
   (** define a variable with optional lower and upper bounds *)
   val new_var: ctx -> mip_type -> var
 
-  (** [get_negated_var ctx v] = not v *)
-  val get_negated_var: ctx -> var -> var
+  (** [negate_var ctx v] = not v *)
+  val negate_var: ctx -> var -> var
 
   (** [add_eq ctx i] asserts i = 0 *) 
   val add_eq: ctx -> var iexpr -> unit
