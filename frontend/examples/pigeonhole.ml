@@ -29,19 +29,13 @@ assert (n >= 1);;
 
 (* entities *)
 
-type hole = {
-  h_id: int
-};;
-
-type pigeon = {
-  p_id: int
-};;
+type hole    =  { h_id: int };;
+type pigeon  =  { p_id: int };;
 
 (* entity instances *)
 
-let holes = make_n (n - 1) ~f:(fun h_id -> {h_id});;
-
-let pigeons = make_n n ~f:(fun p_id -> {p_id});;
+let holes    =  make_n (n - 1) ~f:(fun h_id -> {h_id});;
+let pigeons  =  make_n n       ~f:(fun p_id -> {p_id});;
 
 (* map from pigeons to holes *)
 
@@ -60,5 +54,3 @@ constrain
      ~f:(fun h -> logic (sum pigeons ~f:(Fn.flip m h) = 1)));;
 
 solve ();;
-
-S.write_bg_ctx ctx "/home/vpap/foo.lp";;

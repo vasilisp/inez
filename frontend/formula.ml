@@ -48,7 +48,7 @@ let forall l ~f =
   let rec forall_aux acc = function
     | h :: t ->
       (match  acc && f h with
-      | (F_Not F_True) as g ->
+      | F_Not F_True as g ->
         g
       | acc ->
         forall_aux acc t)

@@ -3,6 +3,7 @@ open Scip_idl
 open Terminology
 
 exception Int_Exn of string
+
 type ctx = {
   r_ctx: scip;
   r_cch: cch;
