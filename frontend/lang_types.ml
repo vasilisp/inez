@@ -14,7 +14,9 @@ type fun_type' =
 | N_Int_Arrow of fun_type'
 | N_Bool_Arrow of fun_type'
 
-type ibtype = E_Bool | E_Int
+type ibtype = E_Int | E_Bool
+
+type ('i, 'b) ibeither = H_Int of 'i | H_Bool of 'b
 
 (* convert fun_type to non-GADT version (for hashing purposes) *)
 
