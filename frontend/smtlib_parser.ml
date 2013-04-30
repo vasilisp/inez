@@ -203,3 +203,60 @@ and parse m = function
     H_Bool (F_Not (parse_eq m e1 e2))
   | _ ->
     raise (Smtlib_exn "syntax error")
+
+module Make (S: Solver_intf.S) = struct
+
+  type 'r response = P_Ok of 'r | P_Unsupported | P_Syntax
+
+  type logic = Q_Lia | Q_Uflia | Q_Idl | Q_Ufidl
+
+  type ctx = {
+    mutable r_logic       :  logic option;
+    mutable r_sat_called  :  bool;
+    mutable r_map         :  (int, int) ibterm String.Map.t;
+    r_ctx                 :  S.ctx;
+  }
+
+  let make_ctx r_ctx = {
+    r_logic       =  None;
+    r_sat_called  =  false;
+    r_map         =  String.Map.empty;
+    r_ctx
+  }
+
+  let check_logic ({r_logic} as r) s x =
+    match r_logic, s with
+    | Some _, _ ->
+      P_Syntax
+    | None, "QF_LIA" ->
+      r.r_logic <- Some Q_Lia;
+      P_Ok x
+    | None, "QF_UFLIA" ->
+      r.r_logic <- Some Q_Uflia;
+      P_Ok x
+    | None, "QF_IDL" ->
+      r.r_logic <- Some Q_Idl;
+      P_Ok x
+    | None, "QF_UFIDL" ->
+      r.r_logic <- Some Q_Ufidl;
+      P_Ok x
+    | _ ->
+      P_Unsupported
+
+  let parse_cmd r = function
+    | [L.K_Set_Logic; L.K_Symbol s] ->
+      check_logic r s None
+    | [L.K_Push; L.K_Int _]
+    | [L.K_Pop; L.K_Int _] ->
+      P_Unsupported
+    | [L.K_Check_Sat] when r.r_sat_called ->
+      P_Unsupported
+    | [L.K_Check_Sat] ->
+      (* FIXME: solve *)
+      P_Ok None
+    | [L.K_Get_Unsat_Core] ->
+      P_Unsupported
+    | _ ->
+      P_Syntax
+
+end
