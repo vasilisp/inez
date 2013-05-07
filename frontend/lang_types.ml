@@ -54,3 +54,5 @@ let count_arrows t =
     | Y_Bool_Arrow y ->
       ca_aux (1 + acc) y in
   ca_aux 0 t
+
+type t_box = Box : _ t -> t_box

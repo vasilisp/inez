@@ -18,6 +18,42 @@ and 'i atom =
 | A_Le    of  ('i, int) term
 | A_Eq    of  ('i, int) term
 
+(* type utilities *)
+
+let type_of_app :
+type s t . (s -> t) Lang_types.t -> s Lang_types.t -> t Lang_types.t =
+  fun x y -> match x, y with
+  | Lang_types.Y_Int_Arrow x, Lang_types.Y_Int ->
+    x
+  | Lang_types.Y_Bool_Arrow x, Lang_types.Y_Bool ->
+    x
+
+let rec type_of_term :
+type t . ('i, t) term -> f:('i Lang_ids.t_arrow_type) ->
+  t Lang_types.t =
+  fun x ~f:({Lang_ids.a_f} as f) ->
+    match x with
+    | M_Bool _ ->
+      Lang_types.Y_Bool
+    | M_Int _ ->
+      Lang_types.Y_Int
+    | M_Sum (_, _) ->
+      Lang_types.Y_Int
+    | M_Prod (_, _) ->
+      Lang_types.Y_Int
+    | M_Ite (_, _, _) ->
+      Lang_types.Y_Int
+    | M_Var id ->
+      a_f id
+    | M_App (a, b) ->
+      let t_a = type_of_term a ~f
+      and t_b = type_of_term b ~f in
+      type_of_app t_a t_b
+
+(* boxed term *)
+
+type 'i term_box = Box : ('i, _) term -> 'i term_box
+
 (* LIA functions *)
 
 let (+) a b =
