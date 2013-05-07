@@ -35,7 +35,7 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
         | Lang_types.E_Bool ->
           <:expr< Formula.Y_Bool_Arrow $acc$ >> in
       List.fold_left l ~f ~init
-    and ret e = <:expr< Formula.M_Var (gen_id $e$, $e$) >> in
+    and ret e = <:expr< Formula.M_Var (gen_id $e$) >> in
     match rtype, List.rev l with
     | Lang_types.E_Int, Lang_types.E_Int :: l ->
       ret (fold l <:expr< Formula.Y_Int_Arrow Formula.Y_Int >>)

@@ -31,13 +31,13 @@ let fresh_bool_var () =
           (Id.gen_id Formula.Y_Bool)));;
 
 let ideref = function
-  | Formula.M_Var (v, _) ->
+  | Formula.M_Var v ->
     S.deref_int ctx v
   | _ ->
     None;;
 
 let bderef = function
-  | Formula.F_Atom (Formula.A_Bool (Formula.M_Var (v, _))) ->
+  | Formula.F_Atom (Formula.A_Bool (Formula.M_Var v)) ->
     S.deref_bool ctx v
   | _ ->
     None;;

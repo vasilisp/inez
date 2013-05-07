@@ -10,18 +10,18 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   type c = I.c
 
-  type 't term = (c, 't) LA.term
+  type 't term = (I.c, 't) LA.term
 
   type ibterm = C_Bool of bool term | C_Int of int term
 
-  type formula = c LA.atom Formula.formula
+  type formula = I.c LA.atom Formula.formula
 
   type fun_id =
-    F_Id : (c, 's -> 't) Lang_ids.t -> fun_id
+    F_Id : (I.c, 's -> 't) Lang_ids.t -> fun_id
 
-  type int_id = (c, int) Lang_ids.t
+  type int_id = (I.c, int) Lang_ids.t
 
-  type bool_id = (c, bool) Lang_ids.t
+  type bool_id = (I.c, bool) Lang_ids.t
 
   (* flat internal representation of terms and formulas *)
 
@@ -387,12 +387,6 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
       ()
     | S_Neg None ->
       r.r_unsat <- true
-
-  let new_ivar {r_ctx} =
-    S.new_var r_ctx mip_type_int
-
-  let new_bvar {r_ctx} =
-    S.new_var r_ctx mip_type_bool
 
   let assert_formula ({r_q} as r) g =
     Dequeue.push_back r_q (flatten_formula r g)

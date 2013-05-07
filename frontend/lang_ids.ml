@@ -6,12 +6,12 @@ type ('c, 'u) t = Id.t * 'u Lang_types.t
 
 module type Generators = sig
   type c
-  val gen_id  : 'u Lang_types.t -> (c, 'u) t
+  val gen_id  :  'u Lang_types.t -> (c, 'u) t
 end
 
 module type Accessors = sig
   type c
-  val type_of_t  : (c, 'u) t -> 'u Lang_types.t
+  val type_of_t  :  (c, 'u) t -> 'u Lang_types.t
 end
 
 module type S = sig

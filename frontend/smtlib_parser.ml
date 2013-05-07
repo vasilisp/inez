@@ -58,12 +58,11 @@ and get_smtlib_sexp ?token r =
 
 *)
 
-type ('b, 'i) ibterm =
-  (('b, 'i, int) term,
-   ('b, 'i) atom formula) Lang_types.ibeither
+type 'c ibterm =
+  (('c, int) term, 'c atom formula) Lang_types.ibeither
 
 (* utilities *)
-  
+    
 let term_of_formula = function
   | F_Atom (A_Bool t) ->
     t
@@ -129,31 +128,19 @@ and parse_eq m e1 e2 =
     ~fb:(fun e1 e2 -> (e1 => e2) && (e2 => e1))
 
 and parse_app :
-type t . 'a String.Map.t -> ('b, 'i, t) term -> t fun_type ->
-  smtlib_sexp list -> ('i, 'b) ibterm =
+type t . 'c ibterm String.Map.t -> ('c, t) term -> t Lang_types.t ->
+  smtlib_sexp list -> 'c ibterm =
   fun m f t l ->
     match t, l with
     (* base cases *)
-    | Y_Int_Arrow_Int, [a] ->
-      let a = parse_int m a in
-      H_Int (M_App (f, a))
-    | Y_Bool_Arrow_Int, [a] ->
-      let a = parse_bool m a in
-      H_Int (M_App (f, term_of_formula a))
-    | Y_Int_Arrow_Bool, [a] ->
-      let a = parse_int m a in
-      H_Bool (F_Atom (A_Bool (M_App (f, a))))
-    | Y_Bool_Arrow_Bool, [a] ->
-      let a = parse_bool m a in
-      H_Bool (F_Atom (A_Bool (M_App (f, term_of_formula a))))
+    | Y_Int, [] ->
+      H_Int f
+    | Y_Bool, [] ->
+      H_Bool (F_Atom (A_Bool f))
     (* erroneous base cases *)
-    | Y_Int_Arrow_Int, _ ->
+    | Y_Int, _ ->
       raise (Smtlib_exn "wrong number of arguments")
-    | Y_Bool_Arrow_Int, _ ->
-      raise (Smtlib_exn "wrong number of arguments")
-    | Y_Int_Arrow_Bool, _ ->
-      raise (Smtlib_exn "wrong number of arguments")
-    | Y_Bool_Arrow_Bool, _ ->
+    | Y_Bool, _ ->
       raise (Smtlib_exn "wrong number of arguments")
     (* recursive cases *)
     | Y_Int_Arrow t, a :: l ->
@@ -204,7 +191,11 @@ and parse m = function
   | _ ->
     raise (Smtlib_exn "syntax error")
 
-module Make (S: Solver_intf.S) = struct
+module Make
+
+  (S: Solver_intf.S) (I : Lang_ids.S with type c = S.c) =
+
+struct
 
   type 'r response = P_Ok of 'r | P_Unsupported | P_Syntax
 
@@ -213,7 +204,7 @@ module Make (S: Solver_intf.S) = struct
   type ctx = {
     mutable r_logic       :  logic option;
     mutable r_sat_called  :  bool;
-    mutable r_map         :  (int, int) ibterm String.Map.t;
+    mutable r_map         :  S.c ibterm String.Map.t;
     r_ctx                 :  S.ctx;
   }
 
