@@ -2,9 +2,24 @@ open Core.Std
 
 module Id = (Int63 : Id_intf.Generators)
 
-type ('c, 't) t = Id.t
+type ('c, 'u) t = Id.t * 'u Lang_types.t
 
-module Make (U : Unit.S) = struct
+module type Generators = sig
+  type c
+  val get_fresh_id  : 'u Lang_types.t -> (c, 'u) t
+end
+
+module type Accessors = sig
+  type c
+  val type_of_t  : (c, 'u) t -> 'u Lang_types.t
+end
+
+module type S = sig
+  include Generators
+  include Accessors with type c := c
+end
+
+module Make (U : Unit.S) : S = struct
 
   type c
 
@@ -12,24 +27,20 @@ module Make (U : Unit.S) = struct
 
   let m = Hashtbl.Poly.create () ~size:1024
 
-  let conv : type u . Id.t -> (c, u) t = Fn.id
-
   let get_fresh_id :
   type u . u Lang_types.t -> (c, u) t =
     fun x ->
-      let x = Box x in
-      match Hashtbl.find m x with
+      let x' = Box x in
+      match Hashtbl.find m x' with
       | Some id ->
-        Hashtbl.change m x (Option.map ~f:Id.succ);
+        Hashtbl.change m x' (Option.map ~f:Id.succ);
         (* without conv, the compiler complains that u would escape
            its scope; no clue why *)
-        conv id
+        id, x
       | None ->
-        Hashtbl.replace m x (Id.succ Id.zero); Id.zero
+        Hashtbl.replace m x' (Id.succ Id.zero); Id.zero, x
 
-end
+  let type_of_t :
+  type u . (c, u) t -> u Lang_types.t = Tuple.T2.get2
 
-module type S = sig
-  type c
-  val get_fresh_id  : 'u Lang_types.t -> (c, 'u) t
 end

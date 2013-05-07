@@ -1,7 +1,7 @@
 open Core.Std
 open Terminology
 
-module Make (S : Imt_intf.S) (I : sig type c end) = struct
+module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   module LA = Lang_abstract
 
@@ -17,8 +17,7 @@ module Make (S : Imt_intf.S) (I : sig type c end) = struct
   type formula = c LA.atom Formula.formula
 
   type fun_id =
-    F_Id :
-      (c, 's -> 't) Lang_ids.t * ('s -> 't) Lang_types.t -> fun_id
+    F_Id : (c, 's -> 't) Lang_ids.t -> fun_id
 
   type int_id = (c, int) Lang_ids.t
 
@@ -107,7 +106,8 @@ module Make (S : Imt_intf.S) (I : sig type c end) = struct
   }
 
   let get_f ({r_ctx; r_fun_m; r_fun_cnt} as r)
-      (F_Id (_, t) as id) =
+      (F_Id id' as id) =
+    let t = I.type_of_t id' in
     Hashtbl.find_or_add r_fun_m id
       ~default:(fun () ->
         let s = Printf.sprintf "f_%d" r_fun_cnt in
@@ -129,14 +129,14 @@ module Make (S : Imt_intf.S) (I : sig type c end) = struct
     fun r acc -> function
     | LA.M_App (f, t) ->
       flatten_args r (flatten_term r t :: acc) f
-    | LA.M_Var (i, t) ->
-      F_Id (i, t), List.rev acc
+    | LA.M_Var v ->
+      F_Id v, List.rev acc
     | _ ->
       raise (Exn_unreachable "GADTs confuse exhaustiveness checker")
 
   and flatten_int_term_aux r (d, x) k (t : int term) =
     match t with
-    | LA.M_Var (v, _) ->
+    | LA.M_Var v ->
       (k, B_Var (get_int_var r v)) :: d, x
     | LA.M_Int i ->
       d, Int63.(x + k * i)
@@ -162,12 +162,14 @@ module Make (S : Imt_intf.S) (I : sig type c end) = struct
   and flatten_term :
   type t . ctx -> t term -> flat_term =
     fun r -> function
-    | LA.M_Var (v, Lang_types.Y_Int) ->
-      L_Base (B_Var (get_int_var r v))
-    | LA.M_Var (v, Lang_types.Y_Bool) ->
-      L_Bool (U_Var (get_bool_var r v))
-    | LA.M_Var (_, _) ->
-      raise (Exn_unreachable "not meant for functions")
+    | LA.M_Var v ->
+      (match I.type_of_t v with
+      | Lang_types.Y_Int ->
+        L_Base (B_Var (get_int_var r v))
+      | Lang_types.Y_Bool ->
+        L_Bool (U_Var (get_bool_var r v))
+      | _ ->
+        raise (Exn_unreachable "not meant for functions"))
     | LA.M_Ite (c, s, t) ->
       L_Base
         (B_Ite (flatten_formula r c,
@@ -187,7 +189,7 @@ module Make (S : Imt_intf.S) (I : sig type c end) = struct
 
   and flatten_bool_term r (t : bool term) =
     match t with
-    | LA.M_Var (v, Lang_types.Y_Bool) ->
+    | LA.M_Var v ->
       U_Var (get_bool_var r v)
     | LA.M_Bool g ->
       flatten_formula r g

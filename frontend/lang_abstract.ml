@@ -4,13 +4,13 @@ open Terminology
 include Formula
 
 type ('i, _) term =
-| M_Bool  :  ('i) atom formula -> ('i, bool) term
+| M_Bool  :  'i atom formula -> ('i, bool) term
 | M_Int   :  Int63.t -> ('i, int) term
 | M_Sum   :  ('i, int) term * ('i, int) term ->  ('i, int) term
 | M_Prod  :  Int63.t * ('i, int) term -> ('i, int) term
 | M_Ite   : 'i atom formula * ('i, int) term * ('i, int) term ->
   ('i, int) term
-| M_Var   :  ('i, 's) Lang_ids.t * 's Lang_types.t -> ('i, 's) term
+| M_Var   :  ('i, 's) Lang_ids.t -> ('i, 's) term
 | M_App   :  ('i, 'r -> 's) term * ('i, 'r) term -> ('i, 's) term
 
 and 'i atom =
