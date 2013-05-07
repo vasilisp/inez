@@ -43,16 +43,14 @@ type s . s t -> ibtype =
   | Y_Int_Arrow y -> rightmost_ibtype_of_t y
   | Y_Bool_Arrow y -> rightmost_ibtype_of_t y
 
-let count_arrows :
-type s . s t -> int =
-  let rec ca_aux : type s . int -> s t -> int =
-                     fun acc -> function
-                     | Y_Int ->
-                       acc
-                     | Y_Bool ->
-                       acc
-                     | Y_Int_Arrow y ->
-                       ca_aux (1 + acc) y
-                     | Y_Bool_Arrow y ->
-                       ca_aux (1 + acc) y in
-  fun t -> ca_aux 0 t
+let count_arrows t =
+  let rec ca_aux : type s . int -> s t -> int = fun acc -> function
+    | Y_Int ->
+      acc
+    | Y_Bool ->
+      acc
+    | Y_Int_Arrow y ->
+      ca_aux (1 + acc) y
+    | Y_Bool_Arrow y ->
+      ca_aux (1 + acc) y in
+  ca_aux 0 t

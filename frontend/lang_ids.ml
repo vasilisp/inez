@@ -1,6 +1,6 @@
 open Core.Std
 
-module Id = (Int63 : Id_intf.Full)
+module Id = (Int63 : Id_intf.Generators)
 
 type ('c, 't) t = Id.t
 

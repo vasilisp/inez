@@ -125,8 +125,7 @@ module Make (S : Imt_intf.S) (I : sig type c end) = struct
   (* flatten terms and formulas; SCC impractical to break *)
 
   let rec flatten_args :
-  type s t .
-  ctx -> flat_term list -> (s -> t) term -> flat_app =
+  type s t . ctx -> flat_term list -> (s -> t) term -> flat_app =
     fun r acc -> function
     | LA.M_App (f, t) ->
       flatten_args r (flatten_term r t :: acc) f
