@@ -17,7 +17,11 @@ type f = string
 
 let dummy_f = ""
 
-type var = Scip_idl.var
+(* type var = Scip_idl.var *)
+type var = int
+
+let sv {r_var_d} x =
+  Option.value_exn (Dequeue.get_exn r_var_d x)
 
 type named_constraint = cons
 
@@ -129,11 +133,13 @@ let new_var ({r_ctx; r_var_d} as r) t =
   assert_ok "createVar" k;
   let k = sCIPaddVar r_ctx v in
   assert_ok "addVar" k;
-  Dequeue.push_back r_var_d (Some v); v
+  Dequeue.push_back r_var_d (Some v); i
 
-let negate_var {r_ctx} v =
-  let k, v = sCIPgetNegatedVar r_ctx v in
-  assert_ok "getNegatedVar" k; v
+let negate_var ({r_ctx; r_var_d} as r) v =
+  let k, v = sCIPgetNegatedVar r_ctx (sv r v)
+  and i = Dequeue.length r_var_d in
+  assert_ok "getNegatedVar" k; 
+  Dequeue.push_back r_var_d (Some v); i
 
 let iexpr_vars (l, o) =
   Array.of_list (List.map l ~f:snd)
@@ -147,7 +153,7 @@ let create_constraint ({r_ctx} as r) eq (l, o) =
   let k, c =
     sCIPcreateConsBasicLinear r_ctx
       (make_constraint_id r)
-      (Array.of_list_map ~f:snd l)
+      (Array.of_list_map ~f:(Fn.compose (sv r) snd) l)
       (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
       (-. (if eq then Int63.to_float o else sCIPinfinity r_ctx))
       (Int63.to_float (Int63.neg o)) in
@@ -164,18 +170,20 @@ let add_le ({r_ctx} as r) e =
   let k = sCIPaddCons r_ctx c in
   assert_ok "addCons" k
 
-let var_of_var_signed r = function
+let var_of_var_signed ({r_ctx} as r) = function
   | S_Pos v ->
-    v
+    sv r v
   | S_Neg v ->
-    negate_var r v
+    let k, v = sCIPgetNegatedVar r_ctx (sv r v) in
+    assert_ok "getNegatedVar" k;
+    v
 
 let add_indicator ({r_ctx} as r) v (l, o) =
   let k, c =
     sCIPcreateConsBasicIndicator r_ctx
       (make_constraint_id r)
       (var_of_var_signed r v)
-      (Array.of_list_map ~f:snd l)
+      (Array.of_list_map ~f:(Fn.compose (sv r) snd) l)
       (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
       (Int63.to_float (Int63.neg o)) in
   assert_ok "createConsBasicIndicator" k;
@@ -187,17 +195,18 @@ let add_clause ({r_ctx; r_constraints_n} as r) l =
     let l =
       Array.of_list_map l
         ~f:(function
-        | S_Pos v -> v
+        | S_Pos v -> sv r v
         | S_Neg v ->
-          let k, v = sCIPgetNegatedVar r_ctx v in
+          let k, v = sCIPgetNegatedVar r_ctx (sv r v) in
           assert_ok "getNegatedVar" k; v) in
     sCIPcreateConsBasicLogicor r_ctx (make_constraint_id r) l in
   assert_ok "createConsBasicLogicor" k;
   let k = sCIPaddCons r_ctx c in
   assert_ok "addCons" k
 
-let var_of_var_option {r_cch} =
-  Option.value_map ~f:Fn.id ~default:(cc_handler_zero_var r_cch)
+let var_of_var_option ({r_cch} as r) =
+  Option.value_map ~f:(sv r)
+    ~default:(cc_handler_zero_var r_cch)
 
 let add_call ({r_cch} as r) (v, o) f l =
   Scip_idl.cc_handler_call r_cch
@@ -205,14 +214,14 @@ let add_call ({r_cch} as r) (v, o) f l =
     (Array.of_list_map l ~f:(Fn.compose (var_of_var_option r) fst))
     (Array.of_list_map l ~f:(Fn.compose Int63.to_int64 snd))
 
-let add_objective {r_ctx; r_has_objective; r_var_d} l =
+let add_objective ({r_ctx; r_has_objective; r_var_d} as r) l =
   if r_has_objective then
     raise (Int_Exn "problem already has objective")
   else
     List.iter l
       ~f:(fun (c, v) ->
         assert_ok "chgVarObj"
-          (sCIPchgVarObj r_ctx v (Int63.to_float c)))
+          (sCIPchgVarObj r_ctx (sv r v) (Int63.to_float c)))
 
 let result_of_status = function
   | SCIP_STATUS_OPTIMAL ->
@@ -228,7 +237,8 @@ let write_ctx {r_ctx} filename =
   let k = sCIPwriteOrigProblem r_ctx filename "lp" false in
   assert_ok "writeOrigProblem" k
 
-let solve ({r_ctx} as r) =
+let solve ({r_ctx; r_cch} as r) =
+  cc_handler_finalize r_cch;
   let k = sCIPsolve r_ctx in
   assert_ok "solve" k;
   let rval = result_of_status (sCIPgetStatus r_ctx) in
@@ -238,9 +248,9 @@ let solve ({r_ctx} as r) =
   | _ -> ());
   rval
 
-let deref {r_ctx; r_var_d; r_sol} v =
+let deref ({r_ctx; r_var_d; r_sol} as r) v =
   let f sol =
-    let x = sCIPgetSolVal r_ctx sol v in
+    let x = sCIPgetSolVal r_ctx sol (sv r v) in
     let i = Int63.of_float x in
     if Float.(x > Int63.to_float i + 0.5) then
       Int63.succ i

@@ -1,64 +1,58 @@
-type _ fun_type =
-| Y_Int_Arrow_Int    :  (int -> int) fun_type
-| Y_Int_Arrow_Bool   :  (int -> bool) fun_type
-| Y_Bool_Arrow_Int   :  (bool -> int) fun_type
-| Y_Bool_Arrow_Bool  :  (bool -> bool) fun_type
-| Y_Int_Arrow        :  'a fun_type -> (int -> 'a) fun_type
-| Y_Bool_Arrow       :  'a fun_type -> (bool -> 'a) fun_type
-
-type fun_type' =
-| N_Int_Arrow_Int
-| N_Int_Arrow_Bool
-| N_Bool_Arrow_Int
-| N_Bool_Arrow_Bool
-| N_Int_Arrow of fun_type'
-| N_Bool_Arrow of fun_type'
-
 type ibtype = E_Int | E_Bool
+with sexp
 
 type ('i, 'b) ibeither = H_Int of 'i | H_Bool of 'b
+with sexp
 
-(* convert fun_type to non-GADT version (for hashing purposes) *)
+type _ t =
+| Y_Int         :  int t
+| Y_Bool        :  bool t
+| Y_Int_Arrow   :  'a t -> (int -> 'a) t
+| Y_Bool_Arrow  :  'a t -> (bool -> 'a) t
 
-let rec ungadt_fun_type :
-type t . t fun_type -> fun_type' =
+module U = struct
+
+  (* non-GADT version of t *)
+
+  type t =
+  | Y_Int
+  | Y_Bool
+  | Y_Int_Arrow   of t
+  | Y_Bool_Arrow  of t
+  with sexp
+
+end
+
+let rec ungadt_t :
+type s . s t -> U.t =
   function
-  | Y_Int_Arrow_Int ->
-    N_Int_Arrow_Int
-  | Y_Int_Arrow_Bool ->
-    N_Int_Arrow_Bool
-  | Y_Bool_Arrow_Int ->
-    N_Bool_Arrow_Int 
-  | Y_Bool_Arrow_Bool ->
-    N_Bool_Arrow_Bool
-  | Y_Int_Arrow t ->
-    N_Int_Arrow (ungadt_fun_type t)
-  | Y_Bool_Arrow t ->
-    N_Bool_Arrow (ungadt_fun_type t)
+  | Y_Int ->
+    U.Y_Int
+  | Y_Bool ->
+    U.Y_Bool
+  | Y_Int_Arrow y ->
+    U.Y_Int_Arrow (ungadt_t y)
+  | Y_Bool_Arrow y ->
+    U.Y_Bool_Arrow (ungadt_t y)
 
-let rec rightmost_ibtype_of_fun_type :
-type t . t fun_type -> ibtype =
+let rec rightmost_ibtype_of_t :
+type s . s t -> ibtype =
   function
-  | Y_Int_Arrow_Int -> E_Int
-  | Y_Bool_Arrow_Int -> E_Int
-  | Y_Int_Arrow_Bool -> E_Bool
-  | Y_Bool_Arrow_Bool -> E_Bool
-  | Y_Int_Arrow y -> rightmost_ibtype_of_fun_type y
-  | Y_Bool_Arrow y -> rightmost_ibtype_of_fun_type y
+  | Y_Int -> E_Int
+  | Y_Bool -> E_Bool
+  | Y_Int_Arrow y -> rightmost_ibtype_of_t y
+  | Y_Bool_Arrow y -> rightmost_ibtype_of_t y
 
-let rec rightmost_ibtype_of_fun_type' = function
-  | N_Int_Arrow_Int -> E_Int
-  | N_Bool_Arrow_Int -> E_Int
-  | N_Int_Arrow_Bool -> E_Bool
-  | N_Bool_Arrow_Bool -> E_Bool
-  | N_Int_Arrow y -> rightmost_ibtype_of_fun_type' y
-  | N_Bool_Arrow y -> rightmost_ibtype_of_fun_type' y
-
-let count_arrows' =
-  let rec ca_aux acc = function
-    | N_Int_Arrow_Int | N_Bool_Arrow_Bool
-    | N_Int_Arrow_Bool | N_Bool_Arrow_Int ->
-      1 + acc
-    | N_Int_Arrow y | N_Bool_Arrow y ->
-      ca_aux (1 + acc) y
-  in ca_aux 0
+let count_arrows :
+type s . s t -> int =
+  let rec ca_aux : type s . int -> s t -> int =
+                     fun acc -> function
+                     | Y_Int ->
+                       acc
+                     | Y_Bool ->
+                       acc
+                     | Y_Int_Arrow y ->
+                       ca_aux (1 + acc) y
+                     | Y_Bool_Arrow y ->
+                       ca_aux (1 + acc) y in
+  fun t -> ca_aux 0 t

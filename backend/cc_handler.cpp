@@ -661,7 +661,7 @@ SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
     SCIP_VAR* v = fc.get<1>().base;
     llint r = v ? my_llint(scip, SCIPgetSolVal(scip, sol,v)) : 0;
     r += fc.get<1>().offset;
-#ifdef DEBUG_OUTDATED
+#ifdef DEBUG_DESPERATE
     cout << *fc.get<0>() << "(";
     BOOST_FOREACH (llint x, args) cout << x << ", ";
     cout << ") = " << r << endl;
@@ -1106,7 +1106,6 @@ void cc_handler::register_ret(const string* s,
 
   ffc_offset fo(offsets, ov);
 
-  // assert(ffcs_m.find(ffcs_m_key) == ffcs_m.end());
   const pair<ffcall_slave_map::iterator, bool> ps =
     ffcs_m.emplace(key, vector<ffc_offset>(1, fo));
 
@@ -1276,7 +1275,7 @@ void cc_handler::finalize()
   }
 
   ffcall_map::iterator it_r = ffcall_m.begin();
-
+  
   while (it_r != ffcall_m.end()) {
 
     ffcall_slave_map& ffcs_m = it_r->second;
@@ -1310,6 +1309,7 @@ void cc_handler::include()
 {
   SCIP*& scip = scip::ObjEventhdlr::scip_;
   sa(SCIPincludeObjConshdlr(scip, this, false));
+  sa(SCIPincludeObjEventhdlr(scip, this, false));
 }
 
 /* C wrappers */
@@ -1333,7 +1333,7 @@ void cc_handler_call(cc_handler* c,
   vector<scip_ovar> ovv;
 
   for (uint i = 0; i < nvars; i++)
-    ovv.push_back(scip_ovar(vars[0], coefs[0]));
+    ovv.push_back(scip_ovar(vars[i], coefs[i]));
 
   c->call(ov, id, ovv);
 

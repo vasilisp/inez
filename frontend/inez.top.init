@@ -1,7 +1,7 @@
 #use "topfind";;
 #require "core";;
+#print_depth 4;;
 
-module S = Solver.Make(Scip);;
 module Formula = struct
   include Lang_types;;
   include Lang_abstract;;
@@ -9,26 +9,39 @@ end;;
 
 open Core.Std;;
 
+module Id = Lang_ids.Make (struct end);;
+
+module S = Solver.Make(Scip)(Id)
+
 let ctx = S.make_ctx ();;
 
 let constrain g = S.assert_formula ctx g;;
 
 let solve () = S.solve ctx;;
 
+let gen_id = Id.get_fresh_id
+
 let fresh_int_var () =
-  Formula.M_Ivar (S.new_ivar ctx);;
+  Formula.M_Var (Id.get_fresh_id Formula.Y_Int, Formula.Y_Int);;
 
 let fresh_bool_var () =
-  Formula.F_Atom (Formula.A_Bvar (S.new_bvar ctx));;
+  Formula.F_Atom
+    (Formula.A_Bool
+       (Formula.M_Var
+          (Id.get_fresh_id Formula.Y_Bool,
+           Formula.Y_Bool)));;
 
 let ideref = function
-  | Formula.M_Ivar v ->
+  | Formula.M_Var (v, _) ->
     S.deref_int ctx v
   | _ ->
     None;;
 
 let bderef = function
-  | Formula.F_Atom (Formula.A_Bvar v) ->
+  | Formula.F_Atom (Formula.A_Bool (Formula.M_Var (v, _))) ->
     S.deref_bool ctx v
   | _ ->
     None;;
+
+let toi x =
+  Formula.M_Int (Int63.of_int x);;

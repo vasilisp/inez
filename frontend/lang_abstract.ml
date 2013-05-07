@@ -3,42 +3,20 @@ open Terminology
 
 include Formula
 
-type ('b, 'i, _) term =
-(* bool cases *)
-| M_Bool  :  ('b, 'i) atom formula -> ('b, 'i, bool) term
-(* int cases *)
-| M_Int   :  Int63.t -> ('b, 'i, int) term
-| M_Ivar  :  'i -> ('b, 'i, int) term
-| M_Sum   :  ('b, 'i, int) term * ('b, 'i, int) term ->
-  ('b, 'i, int) term
-| M_Prod  :  Int63.t * ('b, 'i, int) term -> ('b, 'i, int) term
-| M_Ite   :  ('b, 'i) atom formula *
-      ('b, 'i, int) term *
-      ('b, 'i, int) term -> ('b, 'i, int) term
-(* functions and calls *)
-| M_Fun   :  int * 's Lang_types.fun_type -> ('b, 'i, 's) term
-| M_App   :  ('b, 'i, 'r -> 's) term * ('b, 'i, 'r) term ->
-  ('b, 'i, 's) term
+type ('i, _) term =
+| M_Bool  :  ('i) atom formula -> ('i, bool) term
+| M_Int   :  Int63.t -> ('i, int) term
+| M_Sum   :  ('i, int) term * ('i, int) term ->  ('i, int) term
+| M_Prod  :  Int63.t * ('i, int) term -> ('i, int) term
+| M_Ite   : 'i atom formula * ('i, int) term * ('i, int) term ->
+  ('i, int) term
+| M_Var   :  ('i, 's) Lang_ids.t * 's Lang_types.t -> ('i, 's) term
+| M_App   :  ('i, 'r -> 's) term * ('i, 'r) term -> ('i, 's) term
 
-and ('b, 'i) atom =
-| A_Bvar  of  'b
-| A_Bool  of  ('b, 'i, bool) term
-| A_Le    of  ('b, 'i, int) term
-| A_Eq    of  ('b, 'i, int) term
-
-(* type utilities *)
-
-let rec rightmost_ibtype_of_term :
-type t . ('b, 'i, t) term -> Lang_types.ibtype =
-  function
-  | M_Bool _ -> Lang_types.E_Bool
-  | M_Int _ -> Lang_types.E_Int
-  | M_Ivar _ -> Lang_types.E_Int
-  | M_Sum (_, _) -> Lang_types.E_Int
-  | M_Prod (_, _) -> Lang_types.E_Int
-  | M_Fun (_, y) -> Lang_types.rightmost_ibtype_of_fun_type y
-  | M_App (t, _) -> rightmost_ibtype_of_term t
-  | M_Ite (_, _, _) -> Lang_types.E_Int
+and 'i atom =
+| A_Bool  of  ('i, bool) term
+| A_Le    of  ('i, int) term
+| A_Eq    of  ('i, int) term
 
 (* LIA functions *)
 
@@ -86,7 +64,7 @@ let (<) a b = F_Atom (A_Le ((a + M_Int Int63.one) - b))
 
 let (<=) a b = F_Atom (A_Le (a - b))
 
-let (=) a b = F_Atom (A_Eq (a - b))
+let (==) a b = F_Atom (A_Eq (a - b))
 
 let (>=) a b = b <= a
 

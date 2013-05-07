@@ -8,7 +8,7 @@ struct
   let name = "pa_logic"
   let version = "0.1"
 end
-  
+
 module Make (Syntax : Sig.Camlp4Syntax) = struct
 
   exception Exn_uf_type of string
@@ -27,16 +27,7 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
       incr cnt;
       sprintf "%s__%03i_" prefix !cnt
 
-  let gen_function_id =
-    let h = Hashtbl.Poly.create ~size:1024 () in
-    fun (p: uf_type) ->
-      match Hashtbl.find h p with
-      | Some n ->
-        Hashtbl.change h p (Option.map ~f:Int.succ); n
-      | None ->
-        Hashtbl.replace h p 1; 0
-
-  let uf_ast_fun _loc ((l, rtype) as p: uf_type) =
+  let uf_ast_fun _loc (l, rtype) =
     let fold l init =
       let f acc = function
         | Lang_types.E_Int ->
@@ -44,24 +35,22 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
         | Lang_types.E_Bool ->
           <:expr< Formula.Y_Bool_Arrow $acc$ >> in
       List.fold_left l ~f ~init
-    and ret e =
-      let i = gen_function_id p in
-      <:expr< Formula.M_Fun ($`int:i$, $e$) >> in
+    and ret e = <:expr< Formula.M_Var (gen_id $e$, $e$) >> in
     match rtype, List.rev l with
     | Lang_types.E_Int, Lang_types.E_Int :: l ->
-      ret (fold l <:expr< Formula.Y_Int_Arrow_Int >>)
+      ret (fold l <:expr< Formula.Y_Int_Arrow Formula.Y_Int >>)
     | Lang_types.E_Int, Lang_types.E_Bool :: l ->
-      ret (fold l <:expr< Formula.Y_Bool_Arrow_Int >>)
+      ret (fold l <:expr< Formula.Y_Bool_Arrow Formula.Y_Int >>)
     | Lang_types.E_Bool, Lang_types.E_Int :: l ->
-      ret (fold l <:expr< Formula.Y_Int_Arrow_Bool >>)
+      ret (fold l <:expr< Formula.Y_Int_Arrow Formula.Y_Bool >>)
     | Lang_types.E_Bool, Lang_types.E_Bool :: l ->
-      ret (fold l <:expr< Formula.Y_Bool_Arrow_Bool >>)
+      ret (fold l <:expr< Formula.Y_Bool_Arrow Formula.Y_Bool >>)
     | _, _ ->
       raise (Exn_unreachable "fun_type_ast_of_list")
 
   let uf_ast_apps _loc init =
-    List.fold_left ~init
-      ~f:(fun acc (id, t) ->
+    List.fold2_exn ~init
+      ~f:(fun acc id t ->
         let t =
           match t with
           | Lang_types.E_Int ->
@@ -89,15 +78,17 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
     | Lang_types.E_Int ->
       e
 
-  let uf_ast loc l r =
-    let l_ids, l_types = List.unzip l in
-    let r_type = ground_type_of_id loc r in
-    uf_ast_mlfun loc
-      (uf_maybe_convert loc r_type
-         (uf_ast_apps loc
-            (uf_ast_fun loc (l_types, r_type))
-            l))
-      l_ids
+  let uf_ast _loc l_types r =
+    let l_ids = List.map l_types ~f:(fun _ -> Ast.IdLid (_loc, gensym ()))
+    and r_type = ground_type_of_id _loc r
+    and id = gensym ~prefix:"__uf_" () in
+    let inside =
+      uf_ast_mlfun _loc
+        (uf_maybe_convert _loc r_type
+           (uf_ast_apps _loc <:expr< $lid:id$ >> l_ids l_types))
+        l_ids
+    and binding = uf_ast_fun _loc (l_types, r_type) in
+    <:expr< let $lid:id$ = $binding$ in $inside$ >>
 
   let lpatt = Gram.Entry.mk "lpatt"
 
@@ -126,11 +117,11 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
   lpatt:
     [ [ "("; "_"; ":"; tid = LIDENT;
         ")" ->
-        Ast.IdLid (_loc, gensym ()), ground_type_of_id _loc tid
+        ground_type_of_id _loc tid
       ]
-    | [ "("; id = LIDENT; ":"; tid = LIDENT;
+    | [ "("; _ = LIDENT; ":"; tid = LIDENT;
         ")" ->
-        Ast.IdLid (_loc, id), ground_type_of_id _loc tid
+        ground_type_of_id _loc tid
       ] ];
 
   str_item:

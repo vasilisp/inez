@@ -56,6 +56,18 @@ let forall l ~f =
       acc in
   forall_aux F_True l
 
+let forall_pairs l ~f =
+  let rec forall_pairs_aux acc = function
+    | a :: d ->
+      (match acc && forall d ~f:(f a) with
+      | F_Not F_True as g ->
+        g
+      | acc ->
+        forall_pairs_aux acc d)
+    | [] ->
+      acc in
+  forall_pairs_aux F_True l
+
 let exists l ~f =
   not (forall l ~f:(Fn.compose (not) f))
 

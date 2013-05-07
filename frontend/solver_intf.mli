@@ -1,33 +1,24 @@
 module type S = sig
 
-  open Core.Std
   open Terminology
 
   (** context *)
   type ctx
 
-  (** integer variable *)
-  type ivar
-
-  (** boolean variable *)
-  type bvar
-  
-  val new_ivar: ctx -> ivar
-
-  val new_bvar: ctx -> bvar
+  type c
 
   (** assert constraint *)
-  val assert_formula:
-    ctx ->
-    (bvar, ivar) Lang_abstract.atom Formula.formula ->
-    unit
+  val assert_formula :
+    ctx -> c Lang_abstract.atom Formula.formula -> unit
 
-  val solve: ctx -> result
+  val solve : ctx -> result
 
-  val deref_int: ctx -> ivar -> Int63.t option
+  val deref_int :
+    ctx -> (c, int) Lang_ids.t -> Core.Std.Int63.t option
 
-  val deref_bool: ctx -> bvar -> bool option
+  val deref_bool :
+    ctx -> (c, bool) Lang_ids.t -> bool option
 
-  val write_bg_ctx: ctx -> string -> unit
+  val write_bg_ctx : ctx -> string -> unit
 
 end
