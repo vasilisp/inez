@@ -2,7 +2,7 @@ type ('c, 't) t
 
 module type Generators = sig
   type c
-  val get_fresh_id  : 'u Lang_types.t -> (c, 'u) t
+  val gen_id  : 'u Lang_types.t -> (c, 'u) t
 end
 
 module type Accessors = sig

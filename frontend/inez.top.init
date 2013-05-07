@@ -19,17 +19,16 @@ let constrain g = S.assert_formula ctx g;;
 
 let solve () = S.solve ctx;;
 
-let gen_id = Id.get_fresh_id
+let gen_id = Id.gen_id
 
 let fresh_int_var () =
-  Formula.M_Var (Id.get_fresh_id Formula.Y_Int, Formula.Y_Int);;
+  Formula.M_Var (Id.gen_id Formula.Y_Int);;
 
 let fresh_bool_var () =
   Formula.F_Atom
     (Formula.A_Bool
        (Formula.M_Var
-          (Id.get_fresh_id Formula.Y_Bool,
-           Formula.Y_Bool)));;
+          (Id.gen_id Formula.Y_Bool)));;
 
 let ideref = function
   | Formula.M_Var (v, _) ->

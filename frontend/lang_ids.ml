@@ -6,7 +6,7 @@ type ('c, 'u) t = Id.t * 'u Lang_types.t
 
 module type Generators = sig
   type c
-  val get_fresh_id  : 'u Lang_types.t -> (c, 'u) t
+  val gen_id  : 'u Lang_types.t -> (c, 'u) t
 end
 
 module type Accessors = sig
@@ -27,20 +27,19 @@ module Make (U : Unit.S) : S = struct
 
   let m = Hashtbl.Poly.create () ~size:1024
 
-  let get_fresh_id :
+  let gen_id :
   type u . u Lang_types.t -> (c, u) t =
     fun x ->
       let x' = Box x in
       match Hashtbl.find m x' with
       | Some id ->
         Hashtbl.change m x' (Option.map ~f:Id.succ);
-        (* without conv, the compiler complains that u would escape
-           its scope; no clue why *)
         id, x
       | None ->
         Hashtbl.replace m x' (Id.succ Id.zero); Id.zero, x
 
   let type_of_t :
-  type u . (c, u) t -> u Lang_types.t = Tuple.T2.get2
+  type u . (c, u) t -> u Lang_types.t =
+    Tuple.T2.get2
 
 end
