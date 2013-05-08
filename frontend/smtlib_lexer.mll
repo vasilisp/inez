@@ -88,6 +88,8 @@
     | T_RParen -> ")"
     | T_Other k -> string_of_token' k
 
+  let get_line {c_n_lines} = c_n_lines
+
 }
 
 let whitespace =
@@ -141,7 +143,7 @@ rule token ctx = parse
   | "push"             { T_Other K_Push }
   | "pop"              { T_Other K_Pop }
   | "assert"           { T_Other K_Assert }
-  | "check-sat "       { T_Other K_Check_Sat }
+  | "check-sat"        { T_Other K_Check_Sat }
   | "get-assertions"   { T_Other K_Get_Assertions }
   | "get-proof"        { T_Other K_Get_Proof }
   | "get-unsat-core"   { T_Other K_Get_Unsat_Core }
@@ -179,12 +181,12 @@ and string_token ctx = parse
     | [^ '\n' '"']     { string_token ctx lexbuf }
     | '\n'             { ctx.c_n_lines <- ctx.c_n_lines + 1;
                          string_token ctx lexbuf }
-    | '"'              { token ctx lexbuf }
+    | '"'              { T_Other (K_String "FIXME") }
 
 and quoted_token ctx = parse
     | [^ '\n' '|']     { quoted_token ctx lexbuf }
     | '\n'             { ctx.c_n_lines <- ctx.c_n_lines + 1;
                          quoted_token ctx lexbuf }
-    | '|'              { token ctx lexbuf }
+    | '|'              { T_Other (K_Quoted "FIXME") }
 
 {}

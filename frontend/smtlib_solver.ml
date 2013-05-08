@@ -104,18 +104,16 @@ struct
   let do_statement ({r_ctx; r_map} as r) = function
     | [S_Atom L.K_Set_Logic; S_Atom L.K_Symbol s] ->
       check_logic r s None
-    | S_Atom (L.K_Push
-                 | L.K_Pop
-                 | L.K_Declare_Sort
-                 | L.K_Define_Sort
-                 | L.K_Define_Fun
-                 | L.K_Get_Assertions
-                 | L.K_Get_Proof
-                 | L.K_Get_Unsat_Core
-                 | L.K_Get_Option
-                 | L.K_Get_Info) :: _ ->
+    | S_Atom
+        (L.K_Push | L.K_Pop
+            | L.K_Declare_Sort | L.K_Define_Sort
+            | L.K_Define_Fun | L.K_Get_Assertions
+            | L.K_Get_Proof | L.K_Get_Unsat_Core
+            | L.K_Get_Option | L.K_Get_Info) :: _ ->
       R.P_Unsupported
     | [S_Atom L.K_Set_Option; S_Atom L.K_Key _; _] ->
+      R.P_Ok None
+    | [S_Atom L.K_Set_Info; S_Atom L.K_Key _; _] ->
       R.P_Ok None
     | [S_Atom L.K_Check_Sat] when r.r_sat_called ->
       R.P_Unsupported
@@ -143,9 +141,14 @@ struct
     | S_Atom _ ->
       f_err ()
 
-  let main channel ~f =
+  let main channel ~f ~f_err =
     let r =  Smtlib_parser.make_ctx (Lexing.from_channel channel)
     and r' = make_ctx (S.make_ctx ()) in
-    do_statements r r' ~f
+    try
+      do_statements r r' ~f ~f_err
+    with
+    | Smtlib_parser.Smtlib_exn _ as e ->
+      (Printf.printf "line: %d\n%!" (Smtlib_parser.get_line r);
+       raise e)
 
 end

@@ -1111,8 +1111,8 @@ void cc_handler::register_ret(const string* s,
 
   if (!ps.second) {
     vector<ffc_offset>& v = ps.first->second;
-    assert(!util::vector_exists_eq<ffc_offset>(v, fo));
-    v.push_back(fo);
+    if (!util::vector_exists_eq<ffc_offset>(v, fo))
+      v.push_back(fo);
   }
 
 }

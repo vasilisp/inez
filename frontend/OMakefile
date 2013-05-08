@@ -2,7 +2,7 @@ open build/C
 open build/OCaml
 
 BYTE_ENABLED = true
-NATIVE_ENABLED = false
+NATIVE_ENABLED = true
 OCAMLFLAGS += -thread
 USE_OCAMLFIND = true
 OCAMLPACKS = core camlp4 camlidl camlp4.lib
