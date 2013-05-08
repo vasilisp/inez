@@ -6,7 +6,9 @@
     mutable c_n_lines: int
   }
 
-  let make_ctx () = { c_n_lines = 0}
+  let make_ctx () = {
+    c_n_lines = 0
+  }
     
   type token' =
     K_Int of Int63.t
@@ -29,17 +31,17 @@
   | K_Define_Sort
   | K_Declare_Fun
   | K_Define_Fun
-  | K_Push
-  | K_Pop
-  | K_Assert
-  | K_Check_Sat
-  | K_Get_Assertions
-  | K_Get_Proof
-  | K_Get_Unsat_Core
+  | K_Push (* *)
+  | K_Pop (* *)
+  | K_Assert (* *)
+  | K_Check_Sat (* *)
+  | K_Get_Assertions (* *)
+  | K_Get_Proof (* *)
+  | K_Get_Unsat_Core (* *)
   | K_Get_Value
   | K_Get_Assignment
-  | K_Get_Option
-  | K_Get_Info
+  | K_Get_Option (* *)
+  | K_Get_Info (* *)
   | K_Exit
 
   type token =

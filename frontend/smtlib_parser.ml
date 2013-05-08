@@ -1,6 +1,6 @@
 open Core.Std
+
 open Lang_abstract
-open Lang_types
 
 module L = Smtlib_lexer
 
@@ -54,15 +54,28 @@ and get_smtlib_sexp ?token r =
 
 (*
 
-  We now translate smtlib_sexp to our GADT representation.
+  We now translate smtlib_sexp to our GADT representation. Leaving the
+  bulk out of the functor (for now).
 
 *)
 
 type 'c ibterm =
   (('c, int) term, 'c atom formula) Lang_types.ibeither
 
-(* utilities *)
-    
+type 'c tbox = 'c term_box
+
+type 'c map = {
+  m_find     :  string -> 'c tbox option;
+  m_replace  :  string -> 'c tbox -> 'c map;
+  m_type     :  't . ('c, 't) term -> 't Lang_types.t
+}
+
+  (* utilities *)
+
+let lbx x = Box x
+
+let tbx x = Lang_types.Box x
+
 let term_of_formula = function
   | F_Atom (A_Bool t) ->
     t
@@ -70,56 +83,69 @@ let term_of_formula = function
     M_Bool t
 
 let sum ~f =
-  List.fold_left ~init:zero
-    ~f:(fun acc x -> acc + f x);;
+  (List.fold_left
+     ~init:zero
+     ~f:(fun acc x -> acc + f x))
 
 let map_matching_types e1 e2 ~fi ~fb =
-  match e1, e2 with
+  Lang_types.(match e1, e2 with
   | H_Int e1, H_Int e2 ->
     fi e1 e2
   | H_Bool e1, H_Bool e2 ->
     fb e1 e2
   | _ ->
-    raise (Smtlib_exn "type error")
+    raise (Smtlib_exn "type error"))
 
-let rec parse_nonlist m = function
+  (* parsing functions *)
+
+let rec parse_nonlist {m_find; m_type} = function
   | L.K_Int i ->
-    H_Int (M_Int i)
+    Lang_types.H_Int (M_Int i)
   | L.K_Symbol "true" ->
-    H_Bool F_True
+    Lang_types.H_Bool F_True
   | L.K_Symbol "false" ->
-    H_Bool (F_Not F_True)
+    Lang_types.H_Bool (F_Not F_True)
   | L.K_Symbol s ->
-    (match Map.find m s with
+    (match m_find s with
     | None ->
       raise (Smtlib_exn "unknown id")
-    | Some e ->
-      e)
+    | Some (Box e) ->
+      match m_type e with
+      | Lang_types.Y_Int ->
+        Lang_types.H_Int e
+      | Lang_types.Y_Bool ->
+        Lang_types.H_Bool (F_Atom (A_Bool e))
+      | _ ->
+        raise (Smtlib_exn (Printf.sprintf "%s is a function" s)))
   | _ ->
     raise (Smtlib_exn "syntax error")
 
 let rec parse_let init l e =
   let m =
     List.fold_left l ~init
-      ~f:(fun acc -> function
+      ~f:(fun {m_replace; m_type} -> function
       | S_List [S_Atom (L.K_Symbol id); e] ->
-        Map.add acc id (parse init e)
+        (match parse init e with
+        | Lang_types.H_Int e ->
+          m_replace id (lbx e)
+        | Lang_types.H_Bool e ->
+          m_replace id (lbx (term_of_formula e)))
       | _ ->
         raise (Smtlib_exn "syntax error")) in
   parse m e
 
 and parse_int m e =
-  match parse m e with
-  | H_Int i ->
+  match (parse m e : 'c ibterm) with
+  | Lang_types.H_Int i ->
     i
-  | H_Bool _ ->
+  | Lang_types.H_Bool _ ->
     raise (Smtlib_exn "type error: int expected")
 
 and parse_bool m e =
   match parse m e with
-  | H_Bool b ->
+  | Lang_types.H_Bool b ->
     b
-  | H_Int _ ->
+  | Lang_types.H_Int _ ->
     raise (Smtlib_exn "type error: bool expected")
 
 and parse_eq m e1 e2 =
@@ -128,31 +154,31 @@ and parse_eq m e1 e2 =
     ~fb:(fun e1 e2 -> (e1 => e2) && (e2 => e1))
 
 and parse_app :
-type t . 'c ibterm String.Map.t -> ('c, t) term -> t Lang_types.t ->
+type t . 'c map -> ('c, t) term -> t Lang_types.t ->
   smtlib_sexp list -> 'c ibterm =
   fun m f t l ->
     match t, l with
-    (* base cases *)
-    | Y_Int, [] ->
-      H_Int f
-    | Y_Bool, [] ->
-      H_Bool (F_Atom (A_Bool f))
-    (* erroneous base cases *)
-    | Y_Int, _ ->
+      (* base cases *)
+    | Lang_types.Y_Int, [] ->
+      Lang_types.H_Int f
+    | Lang_types.Y_Bool, [] ->
+      Lang_types.H_Bool (F_Atom (A_Bool f))
+      (* erroneous base cases *)
+    | Lang_types.Y_Int, _ ->
       raise (Smtlib_exn "wrong number of arguments")
-    | Y_Bool, _ ->
+    | Lang_types.Y_Bool, _ ->
       raise (Smtlib_exn "wrong number of arguments")
-    (* recursive cases *)
-    | Y_Int_Arrow t, a :: l ->
+      (* recursive cases *)
+    | Lang_types.Y_Int_Arrow t, a :: l ->
       let a = parse_int m a in
       parse_app m (M_App (f, a)) t l
-    | Y_Bool_Arrow t, a :: l ->
+    | Lang_types.Y_Bool_Arrow t, a :: l ->
       let a = parse_bool m a in
       parse_app m (M_App (f, term_of_formula a)) t l
-    (* erroneous recursive cases *)
-    | Y_Int_Arrow _, [] ->
+      (* erroneous recursive cases *)
+    | Lang_types.Y_Int_Arrow _, [] ->
       raise (Smtlib_exn "wrong number of arguments")
-    | Y_Bool_Arrow _, [] ->
+    | Lang_types.Y_Bool_Arrow _, [] ->
       raise (Smtlib_exn "wrong number of arguments")
 
 and parse m = function
@@ -160,94 +186,33 @@ and parse m = function
     parse_nonlist m k
   | S_List [S_Atom L.K_Let; S_List l; e] ->
     parse_let m l e
-  (* int cases *)
+    (* int cases *)
   | S_List (S_Atom L.K_Symbol "+" :: args) ->
-    H_Int (sum args ~f:(parse_int m))
-  (* bool cases *)
+    Lang_types.H_Int (sum args ~f:(parse_int m))
+    (* bool cases *)
   | S_List (S_Atom L.K_Symbol "and" :: args) ->
-    H_Bool (forall args ~f:(parse_bool m))
+    Lang_types.H_Bool (forall args ~f:(parse_bool m))
   | S_List (S_Atom L.K_Symbol "or" :: args) ->
-    H_Bool (exists args ~f:(parse_bool m))
+    Lang_types.H_Bool (exists args ~f:(parse_bool m))
   | S_List (S_Atom L.K_Symbol "=>" :: args) ->
     (match List.rev args with
     | a :: d ->
       let init = parse_bool m a
       and f acc e = parse_bool m e => acc in
-      H_Bool (List.fold_left d ~init ~f)
+      Lang_types.H_Bool (List.fold_left d ~init ~f)
     | _ ->
       raise (Smtlib_exn "syntax error"))
   | S_List [S_Atom L.K_Symbol "not"; e] ->
-    H_Bool (not (parse_bool m e))
-  (* polymorphic cases *)
+    Lang_types.H_Bool (not (parse_bool m e))
+    (* polymorphic cases *)
   | S_List [S_Atom L.K_Symbol "ite"; e1; e2; e3] ->
     let e1 = parse_bool m e1 in
     map_matching_types (parse m e2) (parse m e3)
-      ~fi:(fun e2 e3 -> H_Int (M_Ite (e1, e2, e3)))
-      ~fb:(fun e2 e3 -> H_Bool (F_Ite (e1, e2, e3)))
+      ~fi:(fun e2 e3 -> Lang_types.H_Int (M_Ite (e1, e2, e3)))
+      ~fb:(fun e2 e3 -> Lang_types.H_Bool (F_Ite (e1, e2, e3)))
   | S_List [S_Atom L.K_Symbol "="; e1; e2] ->
-    H_Bool (parse_eq m e1 e2)
+    Lang_types.H_Bool (parse_eq m e1 e2)
   | S_List [S_Atom L.K_Symbol "distinct"; e1; e2] ->
-    H_Bool (F_Not (parse_eq m e1 e2))
+    Lang_types.H_Bool (F_Not (parse_eq m e1 e2))
   | _ ->
     raise (Smtlib_exn "syntax error")
-
-module Make
-
-  (S: Solver_intf.S) (I : Lang_ids.S with type c = S.c) =
-
-struct
-
-  type 'r response = P_Ok of 'r | P_Unsupported | P_Syntax
-
-  type logic = Q_Lia | Q_Uflia | Q_Idl | Q_Ufidl
-
-  type ctx = {
-    mutable r_logic       :  logic option;
-    mutable r_sat_called  :  bool;
-    mutable r_map         :  S.c ibterm String.Map.t;
-    r_ctx                 :  S.ctx;
-  }
-
-  let make_ctx r_ctx = {
-    r_logic       =  None;
-    r_sat_called  =  false;
-    r_map         =  String.Map.empty;
-    r_ctx
-  }
-
-  let check_logic ({r_logic} as r) s x =
-    match r_logic, s with
-    | Some _, _ ->
-      P_Syntax
-    | None, "QF_LIA" ->
-      r.r_logic <- Some Q_Lia;
-      P_Ok x
-    | None, "QF_UFLIA" ->
-      r.r_logic <- Some Q_Uflia;
-      P_Ok x
-    | None, "QF_IDL" ->
-      r.r_logic <- Some Q_Idl;
-      P_Ok x
-    | None, "QF_UFIDL" ->
-      r.r_logic <- Some Q_Ufidl;
-      P_Ok x
-    | _ ->
-      P_Unsupported
-
-  let parse_cmd r = function
-    | [L.K_Set_Logic; L.K_Symbol s] ->
-      check_logic r s None
-    | [L.K_Push; L.K_Int _]
-    | [L.K_Pop; L.K_Int _] ->
-      P_Unsupported
-    | [L.K_Check_Sat] when r.r_sat_called ->
-      P_Unsupported
-    | [L.K_Check_Sat] ->
-      (* FIXME: solve *)
-      P_Ok None
-    | [L.K_Get_Unsat_Core] ->
-      P_Unsupported
-    | _ ->
-      P_Syntax
-
-end

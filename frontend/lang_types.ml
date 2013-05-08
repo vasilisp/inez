@@ -56,3 +56,9 @@ let count_arrows t =
   ca_aux 0 t
 
 type t_box = Box : _ t -> t_box
+
+let t_box_of_ibtype = function
+  | E_Int ->
+    Box Y_Int
+  | E_Bool ->
+    Box Y_Bool

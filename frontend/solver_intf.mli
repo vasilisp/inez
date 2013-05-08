@@ -4,6 +4,8 @@ module type S = sig
 
   (** context *)
   type ctx
+  
+  val make_ctx: unit -> ctx
 
   type c
 

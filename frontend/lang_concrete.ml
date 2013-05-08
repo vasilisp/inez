@@ -36,17 +36,11 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
           <:expr< Formula.Y_Bool_Arrow $acc$ >> in
       List.fold_left l ~f ~init
     and ret e = <:expr< Formula.M_Var (gen_id $e$) >> in
-    match rtype, List.rev l with
-    | Lang_types.E_Int, Lang_types.E_Int :: l ->
-      ret (fold l <:expr< Formula.Y_Int_Arrow Formula.Y_Int >>)
-    | Lang_types.E_Int, Lang_types.E_Bool :: l ->
-      ret (fold l <:expr< Formula.Y_Bool_Arrow Formula.Y_Int >>)
-    | Lang_types.E_Bool, Lang_types.E_Int :: l ->
-      ret (fold l <:expr< Formula.Y_Int_Arrow Formula.Y_Bool >>)
-    | Lang_types.E_Bool, Lang_types.E_Bool :: l ->
-      ret (fold l <:expr< Formula.Y_Bool_Arrow Formula.Y_Bool >>)
-    | _, _ ->
-      raise (Exn_unreachable "fun_type_ast_of_list")
+    match rtype with
+    | Lang_types.E_Int ->
+      ret (fold l <:expr< Formula.Y_Int >>)
+    | Lang_types.E_Bool ->
+      ret (fold l <:expr< Formula.Y_Bool >>)
 
   let uf_ast_apps _loc init =
     List.fold2_exn ~init

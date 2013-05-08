@@ -6,6 +6,7 @@ type ('c, 'u) t = Id.t * 'u Lang_types.t
 
 type 'c t_box = Box : ('c, _) t -> 'c t_box
 
+(* explicit polymorphism; we need System F types in lang_concrete *)
 type 'i t_arrow_type =
   { a_f : 't . ('i, 't) t -> 't Lang_types.t }
 

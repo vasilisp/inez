@@ -149,9 +149,9 @@ Camlp4o_sexplib(lang_types)
 Camlp4o(lang_concrete)
 
 MyOCamlProgram(inez, \
-               scip formula \
+               scip util formula \
                lang_types lang_ids lang_abstract solver \
-	       smtlib_lexer smtlib_parser \
+	       smtlib_lexer smtlib_parser smtlib_solver \
                main,  \
                scip_idl_stubs)
 
