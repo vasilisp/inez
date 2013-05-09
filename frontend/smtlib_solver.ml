@@ -1,5 +1,7 @@
 open Core.Std
 
+type 'c tbox = 'c Lang_abstract.term_box
+
 module R = struct
 
   type 'r t = P_Ok of 'r | P_Unsupported | P_Syntax | P_Type
@@ -27,6 +29,8 @@ module Make
 struct
 
   open Smtlib_parser
+  
+  module L = Smtlib_lexer
 
   type logic = Q_Lia | Q_Uflia | Q_Idl | Q_Ufidl
 
@@ -37,11 +41,15 @@ struct
     r_ctx                 :  S.ctx;
   }
 
-  let rec make_map m =
-    let m_find = String.Map.find m
-    and m_replace key data = make_map (String.Map.add m ~key ~data)
-    and m_type = Lang_abstract.type_of_term ~f:I.type_of_t' in
-    {m_find; m_replace; m_type}
+  let tbx x = Lang_types.Box x
+
+  let lbx x = Lang_abstract.Box x
+
+  let rec make_env m =
+    let e_find = String.Map.find m
+    and e_replace key data = make_env (String.Map.add m ~key ~data)
+    and e_type = Lang_abstract.type_of_term ~f:I.type_of_t' in
+    {e_find; e_replace; e_type}
 
   let make_ctx r_ctx = {
     r_logic       =  Set_once.create ();
@@ -106,9 +114,8 @@ struct
       check_logic r s None
     | S_Atom
         (L.K_Push | L.K_Pop
-            | L.K_Declare_Sort | L.K_Define_Sort
-            | L.K_Define_Fun | L.K_Get_Assertions
-            | L.K_Get_Proof | L.K_Get_Unsat_Core
+            | L.K_Declare_Sort | L.K_Define_Sort | L.K_Define_Fun
+            | L.K_Get_Assertions | L.K_Get_Proof | L.K_Get_Unsat_Core
             | L.K_Get_Option | L.K_Get_Info) :: _ ->
       R.P_Unsupported
     | [S_Atom L.K_Set_Option; S_Atom L.K_Key _; _] ->
@@ -122,7 +129,7 @@ struct
     | [S_Atom L.K_Declare_Fun; S_Atom L.K_Symbol id; S_List l; t] ->
       parse_declare_fun r id l t
     | [S_Atom L.K_Assert; c] ->
-      (match parse (make_map r_map) c with
+      (match parse (make_env r_map) c with
       | Lang_types.H_Int _ ->
         R.P_Type
       | Lang_types.H_Bool c ->
@@ -148,7 +155,7 @@ struct
       do_statements r r' ~f ~f_err
     with
     | Smtlib_parser.Smtlib_exn _ as e ->
-      (Printf.printf "line: %d\n%!" (Smtlib_parser.get_line r);
+      (Printf.printf "line: %d\n%!" (get_line r);
        raise e)
 
 end

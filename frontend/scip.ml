@@ -18,7 +18,15 @@ type f = string
 let dummy_f = ""
 
 (* type var = Scip_idl.var *)
-type var = int
+
+type bvar = int
+
+type ivar = int
+
+let ivar_of_bvar x = x
+
+(* TODO : check bounds *)
+let bvar_of_ivar x = x
 
 let sv {r_var_d} x =
   Option.value_exn (Dequeue.get_exn r_var_d x)
@@ -117,7 +125,7 @@ let scip_lb_float {r_ctx} =
 let scip_ub_float {r_ctx} =
   Option.value ~default:(sCIPinfinity r_ctx)
 
-let new_var ({r_ctx; r_var_d} as r) t =
+let new_ivar ({r_ctx; r_var_d} as r) t =
   let i = Dequeue.length r_var_d in
   let id = Printf.sprintf "v%d" i in
   let k, v =
@@ -135,7 +143,19 @@ let new_var ({r_ctx; r_var_d} as r) t =
   assert_ok "addVar" k;
   Dequeue.push_back r_var_d (Some v); i
 
-let negate_var ({r_ctx; r_var_d} as r) v =
+let new_bvar {r_ctx; r_var_d} =
+  let i = Dequeue.length r_var_d in
+  let id = Printf.sprintf "v%d" i in
+  let k, v =
+    sCIPcreateVarBasic
+      r_ctx id 0.0 1.0
+      0. SCIP_VARTYPE_BINARY in
+  assert_ok "createVar" k;
+  let k = sCIPaddVar r_ctx v in
+  assert_ok "addVar" k;
+  Dequeue.push_back r_var_d (Some v); i
+
+let negate_bvar ({r_ctx; r_var_d} as r) v =
   let k, v = sCIPgetNegatedVar r_ctx (sv r v)
   and i = Dequeue.length r_var_d in
   assert_ok "getNegatedVar" k; 
@@ -214,7 +234,7 @@ let add_call ({r_cch} as r) (v, o) f l =
     (Array.of_list_map l ~f:(Fn.compose (var_of_var_option r) fst))
     (Array.of_list_map l ~f:(Fn.compose Int63.to_int64 snd))
 
-let add_objective ({r_ctx; r_has_objective; r_var_d} as r) l =
+let add_objective ({r_ctx; r_has_objective} as r) l =
   if r_has_objective then
     raise (Int_Exn "problem already has objective")
   else
@@ -248,7 +268,7 @@ let solve ({r_ctx; r_cch} as r) =
   | _ -> ());
   rval
 
-let deref ({r_ctx; r_var_d; r_sol} as r) v =
+let ideref ({r_ctx; r_sol} as r) v =
   let f sol =
     let x = sCIPgetSolVal r_ctx sol (sv r v) in
     let i = Int63.of_float x in
@@ -257,6 +277,10 @@ let deref ({r_ctx; r_var_d; r_sol} as r) v =
     else
       i in
   Option.map r_sol ~f
+
+let bderef ({r_ctx; r_sol} as r) v =
+  Option.map r_sol
+    ~f:(fun r_sol -> sCIPgetSolVal r_ctx r_sol (sv r v) > 0.5)
 
 let variables_number {r_var_d} = Dequeue.length r_var_d
 

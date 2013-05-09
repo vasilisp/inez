@@ -35,7 +35,7 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
   (* trying to restrict what can appear where *)
 
   and flat_term_base =
-    B_Var   of  S.var
+    B_Var   of  S.ivar
   | B_App   of  flat_app
   | B_Ite   of  flat_formula * flat_term_atom * flat_term_atom
 
@@ -45,7 +45,7 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
   | G_Sum   of  flat_term_sum offset
 
   and flat_formula =
-    U_Var   of  S.var
+    U_Var   of  S.bvar
   | U_Atom  of  flat_term_atom * op'
   | U_Not   of  flat_formula
   | U_And   of  flat_formula list
@@ -78,11 +78,11 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
       let l2, x2 = flat_term_sum_negate s in
       G_Sum (List.append l l2, Int63.(x + x2))
 
-  type ovar = S.var option offset
+  type ovar = S.ivar option offset
 
   (* optional var, possibly negated (S_Pos None means true) *)
 
-  type xvar = S.var option signed
+  type xvar = S.bvar option signed
 
   let xtrue = S_Pos None
 
@@ -90,11 +90,9 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   (* standard MIP types *)
 
-  let mip_type_bool =
-    T_Int (Some Int63.zero, Some Int63.one)
+  let mip_type_int = T_Int (None, None)
 
-  let mip_type_int =
-    T_Int (None, None)
+  let mip_type_bool = T_Int (Some Int63.zero, Some Int63.one)
 
   (* context *)
 
@@ -102,9 +100,9 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     r_ctx              :  S.ctx;
     r_xvar_m           :  (flat_formula, xvar) Hashtbl.Poly.t;
     r_fun_m            :  (fun_id, S.f) Hashtbl.Poly.t;
-    r_call_m           :  (S.f * ovar list, S.var) Hashtbl.Poly.t;
-    r_ivar_m           :  (int_id, S.var) Hashtbl.Poly.t;
-    r_bvar_m           :  (bool_id, S.var) Hashtbl.Poly.t;
+    r_call_m           :  (S.f * ovar list, S.ivar) Hashtbl.Poly.t;
+    r_ivar_m           :  (int_id, S.ivar) Hashtbl.Poly.t;
+    r_bvar_m           :  (bool_id, S.bvar) Hashtbl.Poly.t;
     r_q                :  flat_formula Dequeue.t;
     mutable r_fun_cnt  :  int;
     mutable r_unsat    :  bool
@@ -132,11 +130,11 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   let get_int_var {r_ctx; r_ivar_m} (x : int_id) =
     Hashtbl.find_or_add r_ivar_m x
-      ~default:(fun () -> S.new_var r_ctx mip_type_int)
+      ~default:(fun () -> S.new_ivar r_ctx mip_type_int)
 
   let get_bool_var {r_ctx; r_bvar_m} (x : bool_id) =
     Hashtbl.find_or_add r_bvar_m x
-      ~default:(fun () -> S.new_var r_ctx mip_type_int)
+      ~default:(fun () -> S.new_bvar r_ctx)
 
   (* flatten terms and formulas; SCC impractical to break *)
 
@@ -275,16 +273,16 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   and blast_le ({r_ctx} as r) s o =
     let ie = iexpr_of_sum r s o
-    and v = S.new_var r_ctx mip_type_bool in
+    and v = S.new_bvar r_ctx in
     S.add_indicator r_ctx (S_Pos v) ie;
     S_Pos (Some v)
 
   and blast_eq ({r_ctx} as r) s o =
     let ((s, o) as ie) = iexpr_of_sum r s o in
     let neg_sum = negate_isum s in
-    let v = S.new_var r_ctx mip_type_bool in
-    let vp_lt = S_Pos (S.new_var r_ctx mip_type_bool)
-    and vp_gt = S_Pos (S.new_var r_ctx mip_type_bool)
+    let v = S.new_bvar r_ctx in
+    let vp_lt = S_Pos (S.new_bvar r_ctx)
+    and vp_gt = S_Pos (S.new_bvar r_ctx)
     and vp = S_Pos v in
     S.add_indicator r_ctx vp ie;
     S.add_indicator r_ctx vp (neg_sum, Int63.neg o);
@@ -293,10 +291,10 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     S.add_clause r_ctx [vp; vp_lt; vp_gt];
     S_Pos (Some v)
 
-  and var_of_app ({r_ctx; r_call_m} as r) f_id (l: flat_term list) t =
+  and var_of_app ({r_ctx; r_call_m} as r) f_id l t =
     let f = get_f r f_id
     and l = List.map l ~f:(ovar_of_flat_term r)
-    and default () = S.new_var r_ctx t in
+    and default () = S.new_ivar r_ctx t in
     let v = Hashtbl.find_or_add r_call_m (f, l) ~default in
     S.add_call r_ctx (Some v, Int63.zero) f l;
     v
@@ -320,12 +318,12 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
   and ovar_of_ite ({r_ctx} as r) g s t =
     match xvar_of_formula r g with
     | S_Pos (Some bv) ->
-      let v = S.new_var r_ctx mip_type_int in
+      let v = S.new_ivar r_ctx mip_type_int in
       blast_ite_branch r (S_Pos bv) v s;
       blast_ite_branch r (S_Neg bv) v t;
       Some v, Int63.zero
     | S_Neg (Some bv) ->
-      let v = S.new_var r_ctx mip_type_int in
+      let v = S.new_ivar r_ctx mip_type_int in
       blast_ite_branch r (S_Neg bv) v s;
       blast_ite_branch r (S_Pos bv) v t;
       Some v, Int63.zero
@@ -346,25 +344,35 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     | G_Base b ->
       ovar_of_flat_term_base r b
     | G_Sum (l, o) ->
-      let l, o = iexpr_of_sum r l o
-      and v = S.new_var r_ctx mip_type_int in
-      S.add_eq r_ctx ((Int63.minus_one, v) :: l, o);
-      Some v, Int63.zero
+      (match iexpr_of_sum r l o with
+      | [], o ->
+        None, o
+      | [c, x], o when c = Int63.one ->
+        Some x, o
+      | l, o ->
+        let v = S.new_ivar r_ctx mip_type_int in
+        S.add_eq r_ctx ((Int63.minus_one, v) :: l, o);
+        Some v, Int63.zero)
 
   and ovar_of_flat_term ({r_ctx} as r) = function
     | L_Base b ->
       ovar_of_flat_term_base r b
     | L_Sum (l, o) ->
-      let l, o = iexpr_of_sum r l o
-      and v = S.new_var r_ctx mip_type_int in
-      S.add_eq r_ctx ((Int63.minus_one, v) :: l, o);
-      Some v, Int63.zero
+      (match iexpr_of_sum r l o with
+      | [], o ->
+        None, o
+      | [c, x], o when c = Int63.one ->
+        Some x, o
+      | l, o ->
+        let v = S.new_ivar r_ctx mip_type_int in
+        S.add_eq r_ctx ((Int63.minus_one, v) :: l, o);
+        Some v, Int63.zero)
     | L_Bool g ->
       (match xvar_of_formula r g with
       | S_Pos (Some v) ->
-        Some v, Int63.zero
+        Some (S.ivar_of_bvar v), Int63.zero
       | S_Neg (Some v) ->
-        Some (S.negate_var r_ctx v), Int63.zero
+        Some (S.ivar_of_bvar (S.negate_bvar r_ctx v)), Int63.zero
       | S_Pos None ->
         None, Int63.one
       | S_Neg None ->
@@ -392,7 +400,7 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
       | S_Neg None ->
         None)
     | [] ->
-      Some (acc: S.var signed list)
+      Some acc
 
   and blast_conjunction_reduce {r_ctx} l =
     match l with
@@ -403,7 +411,7 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     | [S_Neg x] ->
       S_Neg (Some x)
     | _ ->
-      let rval = S.new_var r_ctx mip_type_bool in
+      let rval = S.new_bvar r_ctx in
       (let f v = S.add_clause r_ctx [S_Neg rval; v] in
        List.iter l ~f);
       S.add_clause r_ctx (S_Pos rval :: List.map l ~f:snot);
@@ -418,7 +426,8 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     | U_Var v ->
       S_Pos (Some v)
     | U_App (f_id, l) ->
-      S_Pos (Some (var_of_app r f_id l mip_type_bool))
+      S_Pos (Some (S.bvar_of_ivar
+                     (var_of_app r f_id l mip_type_bool)))
     | U_Atom (t, o) ->
       blast_atom r (t, o)
     | U_Not g ->
@@ -432,44 +441,50 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     let default () = blast_formula r g in
     Hashtbl.find_or_add r_xvar_m g ~default
 
-  let finally_assert_formula ({r_ctx} as r) = function
+  let finally_assert_unit ({r_ctx} as r) = function
     | S_Pos (Some v) ->
+      let v = S.ivar_of_bvar v in
       S.add_eq r_ctx ([Int63.one, v], Int63.minus_one)
     | S_Neg (Some v) ->
+      let v = S.ivar_of_bvar v in
       S.add_eq r_ctx ([Int63.one, v], Int63.zero)
     | S_Pos None ->
       ()
     | S_Neg None ->
       r.r_unsat <- true
 
+  let rec finally_assert_formula r = function
+    | U_And l ->
+      List.iter l ~f:(finally_assert_formula r)
+    | g ->
+      finally_assert_unit r (xvar_of_formula r g)
+
   let assert_formula ({r_q} as r) g =
     Dequeue.push_back r_q (flatten_formula r g)
-
-  let solve ({r_q; r_ctx} as r) =
-    Dequeue.iter r_q
-      ~f:(Fn.compose
-            (finally_assert_formula r)
-            (blast_formula r));
-    Dequeue.clear r_q;
-    if r.r_unsat then
-      R_Unsat
-    else
-      S.solve r_ctx
 
   let write_bg_ctx {r_ctx} =
     S.write_ctx r_ctx
 
+  let solve ({r_q; r_ctx} as r) =
+    Dequeue.iter r_q ~f:(finally_assert_formula r);
+    Dequeue.clear r_q;
+    if r.r_unsat then
+      R_Unsat
+    else
+      (write_bg_ctx r "/home/vpap/constraints.lp";
+       S.solve r_ctx)
+
   let deref_int {r_ctx; r_ivar_m} id =
     match Hashtbl.find r_ivar_m id with
     | Some v ->
-      S.deref r_ctx v
+      S.ideref r_ctx v
     | None ->
       None
 
   let deref_bool {r_ctx; r_bvar_m} id =
     match Hashtbl.find r_bvar_m id with
     | Some v ->
-      Option.map ~f:Int63.((>) one) (S.deref r_ctx v)
+      S.bderef r_ctx v
     | None ->
       None
 

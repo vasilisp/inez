@@ -1,3 +1,6 @@
+(* We build upon Solver to provide a solver for SMT-LIB
+   instances. Smtlib_parser does the bulk of the translation. *)
+
 module R : sig
 
   type 'r t = P_Ok of 'r | P_Unsupported | P_Syntax | P_Type
@@ -13,6 +16,10 @@ module Make :
     functor (I : Lang_ids.S with type c = S.c) ->
 
 sig
+
+  (* All we are currently exporting is the following function. It
+     parses a channel containing a sequence of SMT-LIB commands and
+     executes f on the result of each command. *)
 
   val main :
     in_channel ->

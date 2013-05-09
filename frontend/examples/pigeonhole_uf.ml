@@ -1,6 +1,6 @@
 (* parameters *)
 
-let n_pigeons = 7;;
+let n_pigeons = 10;;
 let n_holes = n_pigeons - 1;;
 
 assert (n_pigeons >= 0);;
