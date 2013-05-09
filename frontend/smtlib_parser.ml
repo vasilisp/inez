@@ -11,8 +11,8 @@
 *)
 
 open Core.Std
-
 open Lang_abstract
+open Terminology
 
 module L = Smtlib_lexer
 
@@ -64,8 +64,7 @@ and get_smtlib_sexp ?token r =
 
 (* We now translate smtlib_sexp to our GADT representation. *)
 
-type 'c ibterm =
-  (('c, int) term, 'c atom formula) Lang_types.ibeither
+type 'c ibterm = (('c, int) term, 'c atom formula) ibeither
 
 type 'c tbox = 'c term_box
 
@@ -105,11 +104,11 @@ let map_matching_types e1 e2 ~fi ~fb =
 
 let rec parse_nonlist {e_find; e_type} = function
   | L.K_Int i ->
-    Lang_types.H_Int (M_Int i)
+    H_Int (M_Int i)
   | L.K_Symbol "true" ->
-    Lang_types.H_Bool F_True
+    H_Bool F_True
   | L.K_Symbol "false" ->
-    Lang_types.H_Bool (F_Not F_True)
+    H_Bool (F_Not F_True)
   | L.K_Symbol s ->
     (match e_find s with
     | None ->
@@ -117,9 +116,9 @@ let rec parse_nonlist {e_find; e_type} = function
     | Some (Box e) ->
       match e_type e with
       | Lang_types.Y_Int ->
-        Lang_types.H_Int e
+        H_Int e
       | Lang_types.Y_Bool ->
-        Lang_types.H_Bool (F_Atom (A_Bool e))
+        H_Bool (F_Atom (A_Bool e))
       | _ ->
         raise (Smtlib_Exn (Printf.sprintf "%s is a function" s)))
   | _ ->
@@ -131,9 +130,9 @@ let rec parse_let init l e =
       ~f:(fun {e_replace; e_type} -> function
       | S_List [S_Atom (L.K_Symbol id); e] ->
         (match parse init e with
-        | Lang_types.H_Int e ->
+        | H_Int e ->
           e_replace id (lbx e)
-        | Lang_types.H_Bool e ->
+        | H_Bool e ->
           e_replace id (lbx (term_of_formula e)))
       | _ ->
         raise (Smtlib_Exn "syntax error")) in
@@ -141,16 +140,16 @@ let rec parse_let init l e =
 
 and parse_int m e =
   match parse m e with
-  | Lang_types.H_Int i ->
+  | H_Int i ->
     i
-  | Lang_types.H_Bool _ ->
+  | H_Bool _ ->
     raise (Smtlib_Exn "type error: int expected")
 
 and parse_bool m e =
   match parse m e with
-  | Lang_types.H_Bool b ->
+  | H_Bool b ->
     b
-  | Lang_types.H_Int _ ->
+  | H_Int _ ->
     raise (Smtlib_Exn "type error: bool expected")
 
 and parse_eq m e1 e2 =
@@ -172,9 +171,9 @@ and parse_mult m l =
           Some (parse_int m e), c)
   with
   | Some v, c ->
-    Lang_types.H_Int (c * v)
+    H_Int (c * v)
   | None, c ->
-    Lang_types.H_Int (of_int63 c)
+    H_Int (of_int63 c)
 
 and parse_app_aux :
 type t . 'c env -> ('c, t) term -> t Lang_types.t ->
@@ -183,9 +182,9 @@ type t . 'c env -> ('c, t) term -> t Lang_types.t ->
     match t, l with
     (* base cases *)
     | Lang_types.Y_Int, [] ->
-      Lang_types.H_Int f
+      H_Int f
     | Lang_types.Y_Bool, [] ->
-      Lang_types.H_Bool (F_Atom (A_Bool f))
+      H_Bool (F_Atom (A_Bool f))
     (* erroneous base cases *)
     | Lang_types.Y_Int, _ ->
       raise (Smtlib_Exn "wrong number of arguments")
@@ -224,59 +223,59 @@ and parse m = function
     parse_let m l e
   (* int cases *)
   | S_List (S_Atom L.K_Symbol "+" :: args) ->
-    Lang_types.H_Int (sum args ~f:(parse_int m))
+    H_Int (sum args ~f:(parse_int m))
   | S_List [S_Atom L.K_Symbol "-"; e] ->
     let e = parse_int m e in
-    Lang_types.H_Int (Int63.minus_one * e)
+    H_Int (Int63.minus_one * e)
   | S_List (S_Atom L.K_Symbol "-" :: init :: args) ->
     let init = parse_int m init in
-    Lang_types.H_Int
+    H_Int
       (List.fold_left args
          ~f:(fun acc x -> acc - parse_int m x) ~init)
   | S_List (S_Atom L.K_Symbol "*" :: args) ->
     parse_mult m args
   (* bool cases *)
   | S_List (S_Atom L.K_Symbol "and" :: args) ->
-    Lang_types.H_Bool (forall args ~f:(parse_bool m))
+    H_Bool (forall args ~f:(parse_bool m))
   | S_List (S_Atom L.K_Symbol "or" :: args) ->
-    Lang_types.H_Bool (exists args ~f:(parse_bool m))
+    H_Bool (exists args ~f:(parse_bool m))
   | S_List (S_Atom L.K_Symbol "=>" :: args) ->
     (match List.rev args with
     | a :: d ->
       let init = parse_bool m a
       and f acc e = parse_bool m e => acc in
-      Lang_types.H_Bool (List.fold_left d ~init ~f)
+      H_Bool (List.fold_left d ~init ~f)
     | _ ->
       raise (Smtlib_Exn "syntax error"))
   | S_List [S_Atom L.K_Symbol "not"; e] ->
-    Lang_types.H_Bool (not (parse_bool m e))
+    H_Bool (not (parse_bool m e))
   (* bool-from-int cases *)
   | S_List [S_Atom L.K_Symbol "<"; e1; e2] ->
     let e1 = parse_int m e1
     and e2 = parse_int m e2 in
-    Lang_types.H_Bool (e1 < e2)
+    H_Bool (e1 < e2)
   | S_List [S_Atom L.K_Symbol "<="; e1; e2] ->
     let e1 = parse_int m e1
     and e2 = parse_int m e2 in
-    Lang_types.H_Bool (e1 <= e2)
+    H_Bool (e1 <= e2)
   | S_List [S_Atom L.K_Symbol ">="; e1; e2] ->
     let e1 = parse_int m e1
     and e2 = parse_int m e2 in
-    Lang_types.H_Bool (e1 >= e2)
+    H_Bool (e1 >= e2)
   | S_List [S_Atom L.K_Symbol ">"; e1; e2] ->
     let e1 = parse_int m e1
     and e2 = parse_int m e2 in
-    Lang_types.H_Bool (e1 > e2)
+    H_Bool (e1 > e2)
   (* polymorphic cases *)
   | S_List [S_Atom L.K_Symbol "ite"; e1; e2; e3] ->
     let e1 = parse_bool m e1 in
     map_matching_types (parse m e2) (parse m e3)
-      ~fi:(fun e2 e3 -> Lang_types.H_Int (M_Ite (e1, e2, e3)))
-      ~fb:(fun e2 e3 -> Lang_types.H_Bool (F_Ite (e1, e2, e3)))
+      ~fi:(fun e2 e3 -> H_Int (M_Ite (e1, e2, e3)))
+      ~fb:(fun e2 e3 -> H_Bool (F_Ite (e1, e2, e3)))
   | S_List [S_Atom L.K_Symbol "="; e1; e2] ->
-    Lang_types.H_Bool (parse_eq m e1 e2)
+    H_Bool (parse_eq m e1 e2)
   | S_List [S_Atom L.K_Symbol "distinct"; e1; e2] ->
-    Lang_types.H_Bool (F_Not (parse_eq m e1 e2))
+    H_Bool (F_Not (parse_eq m e1 e2))
   | S_List (S_Atom L.K_Symbol s :: l) ->
     parse_app m s l
   | _ ->

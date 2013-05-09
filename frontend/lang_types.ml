@@ -1,9 +1,6 @@
 type ibtype = E_Int | E_Bool
 with sexp
 
-type ('i, 'b) ibeither = H_Int of 'i | H_Bool of 'b
-with sexp
-
 type _ t =
 | Y_Int         :  int t
 | Y_Bool        :  bool t

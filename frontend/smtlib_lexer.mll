@@ -95,7 +95,7 @@
 let whitespace =
   [ ' ' '\t' ]
 
-let comment = ';' [^ '\n' ]
+let comment = ';' [^ '\n']* 
 
 let numeral = '0' | (['1' - '9'] ['0' - '9']*)
 

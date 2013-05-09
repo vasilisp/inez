@@ -11,8 +11,6 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   type 't term = (I.c, 't) LA.term
 
-  type ibterm = C_Bool of bool term | C_Int of int term
-
   type formula = I.c LA.atom Formula.formula
 
   type fun_id = F_Id : (I.c, 's -> 't) Lang_ids.t -> fun_id
@@ -21,29 +19,30 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
   
   type bool_id = (I.c, bool) Lang_ids.t
 
+  let type_of_term :
+  type t . t term -> t Lang_types.t =
+    fun x -> Lang_abstract.type_of_term ~f:I.type_of_t' x
+
   (* flat internal representation of terms and formulas *)
 
-  type flat_sum = (Int63.t * flat_term_base) list
+  type ibflat = (flat_term, flat_formula) ibeither
 
-  and flat_app = fun_id * flat_term list
+  and flat_app = fun_id * ibflat list
+
+  and flat_sum = (Int63.t * flat_term_base) list
 
   and flat_term_base =
     B_Var   of  S.ivar
   | B_App   of  flat_app
-  | B_Ite   of  flat_formula * flat_int_term * flat_int_term
+  | B_Ite   of  flat_formula * flat_term * flat_term
 
   and flat_term =
-    L_Base  of  flat_term_base
-  | L_Sum   of  flat_sum offset
-  | L_Bool  of  flat_formula
-
-  and flat_int_term =
     G_Base  of  flat_term_base
   | G_Sum   of  flat_sum offset
 
   and flat_formula =
     U_Var   of  S.bvar
-  | U_Atom  of  flat_int_term * op'
+  | U_Atom  of  flat_term * op'
   | U_Not   of  flat_formula
   | U_And   of  flat_formula list
   | U_App   of  flat_app
@@ -134,14 +133,12 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
   (* flatten terms and formulas; SCC impractical to break *)
 
   let rec flatten_args :
-  type s t . ctx -> flat_term list -> (s -> t) term -> flat_app =
+  type s t . ctx -> ibflat list -> (s -> t) term -> flat_app =
     fun r acc -> function
     | LA.M_App (f, t) ->
       flatten_args r (flatten_term r t :: acc) f
     | LA.M_Var v ->
       F_Id v, List.rev acc
-    | _ ->
-      raise (Unreachable_Exn _here_)
 
   and flatten_int_term_aux r (d, x) k (t : int term) =
     match t with
@@ -159,56 +156,26 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
       flatten_int_term_aux r (d, x) Int63.(k * k2) t
     | LA.M_Ite (c, s, t) ->
       (k, B_Ite (flatten_formula r c,
-                 flatten_term_for_atom r s,
-                 flatten_term_for_atom r t)) :: d, x
+                 flatten_int_term r s,
+                 flatten_int_term r t)) :: d, x
 
-  and flatten_int_term r (t : int term) =
-    let d, x = [], Int63.zero in
-    let d, x = flatten_int_term_aux r (d, x) Int63.one t in
-    (* dedup / sort / hash d here *)
-    L_Sum (d, x)
-
-  and flatten_term_for_atom r t =
-    match flatten_term r t with
-    | L_Base b ->
-      G_Base b
-    | L_Sum s ->
-      G_Sum s
-    | L_Bool _ ->
-      (* invalid conversion to int *)
-      raise (Unreachable_Exn _here_)
-
-  and flatten_term :
-  type t . ctx -> t term -> flat_term =
-    fun r -> function
+  and flatten_int_term r = function
     | LA.M_Var v ->
-      (match I.type_of_t v with
-      | Lang_types.Y_Int ->
-        L_Base (B_Var (get_int_var r v))
-      | Lang_types.Y_Bool ->
-        L_Bool (U_Var (get_bool_var r v))
-      | _ ->
-        (* not meant for functions *)
-        raise (Unreachable_Exn _here_))
+      G_Base (B_Var (get_int_var r v))
     | LA.M_Ite (c, s, t) ->
-      L_Base
+      G_Base
         (B_Ite (flatten_formula r c,
-                flatten_term_for_atom r s,
-                flatten_term_for_atom r t))
+                flatten_int_term r s,
+                flatten_int_term r t))
     | LA.M_App (f, t) ->
-      L_Base (B_App (flatten_args r [flatten_term r t] f))
-    | LA.M_Bool g ->
-      L_Bool (flatten_formula r g)
-    (* flatten_int_term for remaining int cases *)
-    | LA.M_Int _ as t ->
-      flatten_int_term r t
-    | LA.M_Sum (_, _) as t ->
-      flatten_int_term r t
-    | LA.M_Prod (_, _) as t ->
-      flatten_int_term r t
+      G_Base (B_App (flatten_args r [flatten_term r t] f))
+    | LA.M_Int _ | LA.M_Sum (_, _) | LA.M_Prod (_, _) as t ->
+      let d, x = [], Int63.zero in
+      let d, x = flatten_int_term_aux r (d, x) Int63.one t in
+      (* dedup / sort / hash here *)
+      G_Sum (d, x)
 
-  and flatten_bool_term r (t : bool term) =
-    match t with
+  and flatten_bool_term r = function
     | LA.M_Var v ->
       U_Var (get_bool_var r v)
     | LA.M_Bool g ->
@@ -217,6 +184,18 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
       let l = flatten_args r [flatten_term r t] f in
       U_App l
 
+  and flatten_term :
+  type t . ctx -> t term -> ibflat =  
+    fun r t ->
+      match type_of_term t with
+      | Lang_types.Y_Int ->
+        H_Int (flatten_int_term r t)
+      | Lang_types.Y_Bool ->
+        H_Bool (flatten_bool_term r t)
+      | _ ->
+        (* not meant for functions *)
+        raise (Unreachable_Exn _here_)
+        
   and flatten_formula_aux r d = function
     | Formula.F_True ->
       d
@@ -232,9 +211,9 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     | Formula.F_Atom (LA.A_Bool t) ->
       flatten_bool_term r t
     | Formula.F_Atom (LA.A_Le t) ->
-      U_Atom (flatten_term_for_atom r t, O'_Le)
+      U_Atom (flatten_int_term r t, O'_Le)
     | Formula.F_Atom (LA.A_Eq t) ->
-      U_Atom (flatten_term_for_atom r t, O'_Eq)
+      U_Atom (flatten_int_term r t, O'_Eq)
     | Formula.F_Not g ->
       U_Not (flatten_formula r g)
     | Formula.F_Ite (q, g, h) ->
@@ -243,8 +222,6 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
              flatten_formula r h)
     | Formula.F_And (_, _) as g ->
       U_And (flatten_formula_aux r [] g)
-
-  (* flatten terms *)
 
   (* linearizing terms and formulas: utilities before we get into the
      mutually recursive part *)
@@ -269,10 +246,12 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     and init = [], o in
     List.fold_left ~init ~f l
 
-  and blast_le ({r_ctx} as r) s o =
-    let ie = iexpr_of_sum r s o
-    and v = S.new_bvar r_ctx in
+  and blast_le ?v ({r_ctx} as r) s o =
+    let ((s, o) as ie) = iexpr_of_sum r s o
+    and v = match v with Some v -> v | _ -> S.new_bvar r_ctx in
     S.add_indicator r_ctx (S_Pos v) ie;
+    let neg_sum = negate_isum s in
+    S.add_indicator r_ctx (S_Neg v) (neg_sum, Int63.(one - o));
     S_Pos (Some v)
 
   and blast_eq ({r_ctx} as r) s o =
@@ -291,7 +270,7 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   and var_of_app ({r_ctx; r_call_m} as r) f_id l t =
     let f = get_f r f_id
-    and l = List.map l ~f:(ovar_of_flat_term r)
+    and l = List.map l ~f:(ovar_of_ibeither r)
     and default () = S.new_ivar r_ctx t in
     let v = Hashtbl.find_or_add r_call_m (f, l) ~default in
     S.add_call r_ctx (Some v, Int63.zero) f l;
@@ -326,9 +305,9 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
       blast_ite_branch r (S_Pos bv) v t;
       Some v, Int63.zero
     | S_Pos None ->
-      ovar_of_flat_int_term r s
+      ovar_of_term r s
     | S_Neg None ->
-      ovar_of_flat_int_term r t
+      ovar_of_term r t
 
   and ovar_of_flat_term_base ({r_ctx} as r) = function
     | B_Var v ->
@@ -338,7 +317,7 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     | B_Ite (g, s, t) ->
       ovar_of_ite r g s t
 
-  and ovar_of_flat_int_term ({r_ctx} as r) = function
+  and ovar_of_term ({r_ctx} as r) = function
     | G_Base b ->
       ovar_of_flat_term_base r b
     | G_Sum (l, o) ->
@@ -352,10 +331,10 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
         S.add_eq r_ctx ((Int63.minus_one, v) :: l, o);
         Some v, Int63.zero)
 
-  and ovar_of_flat_term ({r_ctx} as r) = function
-    | L_Base b ->
+  and ovar_of_ibeither ({r_ctx} as r) = function
+    | H_Int (G_Base b) ->
       ovar_of_flat_term_base r b
-    | L_Sum (l, o) ->
+    | H_Int (G_Sum (l, o)) ->
       (match iexpr_of_sum r l o with
       | [], o ->
         None, o
@@ -365,7 +344,7 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
         let v = S.new_ivar r_ctx mip_type_int in
         S.add_eq r_ctx ((Int63.minus_one, v) :: l, o);
         Some v, Int63.zero)
-    | L_Bool g ->
+    | H_Bool g ->
       (match xvar_of_formula r g with
       | S_Pos (Some v) ->
         Some (S.ivar_of_bvar v), Int63.zero
@@ -469,8 +448,8 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     if r.r_unsat then
       R_Unsat
     else
-      raise (Unreachable_Exn _here_)
-        (* S.solve r_ctx *)
+      (write_bg_ctx r "/home/vpap/constraints.lp";
+       S.solve r_ctx)
 
   let deref_int {r_ctx; r_ivar_m} id =
     match Hashtbl.find r_ivar_m id with

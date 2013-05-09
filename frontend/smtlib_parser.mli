@@ -13,7 +13,7 @@ val get_smtlib_sexp : ?token:Smtlib_lexer.token -> ctx -> smtlib_sexp
 
 type 'c ibterm =
   (('c, int) Lang_abstract.term,
-   'c Lang_abstract.atom Lang_abstract.formula) Lang_types.ibeither
+   'c Lang_abstract.atom Lang_abstract.formula) Terminology.ibeither
 
 type 'c env = {
   e_find : string -> 'c Lang_abstract.term_box option;

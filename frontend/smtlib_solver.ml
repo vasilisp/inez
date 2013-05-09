@@ -1,4 +1,5 @@
 open Core.Std
+open Terminology
 
 type 'c tbox = 'c Lang_abstract.term_box
 
@@ -125,14 +126,15 @@ struct
     | [S_Atom L.K_Check_Sat] when r.r_sat_called ->
       R.P_Unsupported
     | [S_Atom L.K_Check_Sat] ->
+      r.r_sat_called <- true;
       R.P_Ok (Some (S.solve r_ctx))
     | [S_Atom L.K_Declare_Fun; S_Atom L.K_Symbol id; S_List l; t] ->
       parse_declare_fun r id l t
     | [S_Atom L.K_Assert; c] ->
       (match parse (make_env r_map) c with
-      | Lang_types.H_Int _ ->
+      | H_Int _ ->
         R.P_Type
-      | Lang_types.H_Bool c ->
+      | H_Bool c ->
         S.assert_formula r_ctx c;
         R.P_Ok None)
     | [S_Atom L.K_Exit] ->
@@ -157,5 +159,7 @@ struct
     | Smtlib_parser.Smtlib_Exn _ as e ->
       (Printf.printf "line: %d\n%!" (get_line r);
        raise e)
+    | End_of_file ->
+      ()
 
 end
