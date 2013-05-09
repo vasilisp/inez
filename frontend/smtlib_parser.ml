@@ -16,13 +16,13 @@ open Lang_abstract
 
 module L = Smtlib_lexer
 
-exception Smtlib_exn of string
+exception Smtlib_Exn of string
 
 (* We first translate sequences of tokens to S-expressions. *)
 
 type smtlib_sexp =
-  S_List of smtlib_sexp list
-| S_Atom of Smtlib_lexer.token'
+  S_List  of  smtlib_sexp list
+| S_Atom  of  Smtlib_lexer.token'
 
 type ctx = {
   r_ctx  :  Smtlib_lexer.ctx;
@@ -58,7 +58,7 @@ and get_smtlib_sexp ?token r =
   | L.T_LParen ->
     S_List (get_smtlib_sexp_list r ~acc:[])
   | L.T_RParen ->
-    raise (Smtlib_exn "unmatched parentheses")
+    raise (Smtlib_Exn "unmatched parentheses")
   | L.T_Other k ->
     S_Atom k
 
@@ -99,7 +99,7 @@ let map_matching_types e1 e2 ~fi ~fb =
   | H_Bool e1, H_Bool e2 ->
     fb e1 e2
   | _ ->
-    raise (Smtlib_exn "type error"))
+    raise (Smtlib_Exn "type error"))
 
 (* parsing functions *)
 
@@ -113,7 +113,7 @@ let rec parse_nonlist {e_find; e_type} = function
   | L.K_Symbol s ->
     (match e_find s with
     | None ->
-      raise (Smtlib_exn "unknown id")
+      raise (Smtlib_Exn "unknown id")
     | Some (Box e) ->
       match e_type e with
       | Lang_types.Y_Int ->
@@ -121,9 +121,9 @@ let rec parse_nonlist {e_find; e_type} = function
       | Lang_types.Y_Bool ->
         Lang_types.H_Bool (F_Atom (A_Bool e))
       | _ ->
-        raise (Smtlib_exn (Printf.sprintf "%s is a function" s)))
+        raise (Smtlib_Exn (Printf.sprintf "%s is a function" s)))
   | _ ->
-    raise (Smtlib_exn "syntax error")
+    raise (Smtlib_Exn "syntax error")
 
 let rec parse_let init l e =
   let m =
@@ -136,7 +136,7 @@ let rec parse_let init l e =
         | Lang_types.H_Bool e ->
           e_replace id (lbx (term_of_formula e)))
       | _ ->
-        raise (Smtlib_exn "syntax error")) in
+        raise (Smtlib_Exn "syntax error")) in
   parse m e
 
 and parse_int m e =
@@ -144,14 +144,14 @@ and parse_int m e =
   | Lang_types.H_Int i ->
     i
   | Lang_types.H_Bool _ ->
-    raise (Smtlib_exn "type error: int expected")
+    raise (Smtlib_Exn "type error: int expected")
 
 and parse_bool m e =
   match parse m e with
   | Lang_types.H_Bool b ->
     b
   | Lang_types.H_Int _ ->
-    raise (Smtlib_exn "type error: bool expected")
+    raise (Smtlib_Exn "type error: bool expected")
 
 and parse_eq m e1 e2 =
   map_matching_types (parse m e1) (parse m e2)
@@ -167,7 +167,7 @@ and parse_mult m l =
         | S_Atom L.K_Int i, _ ->
           v, Int63.(c * i)
         | _, Some _ ->
-          raise (Smtlib_exn "syntax error: non-linear term")
+          raise (Smtlib_Exn "syntax error: non-linear term")
         | _, None ->
           Some (parse_int m e), c)
   with
@@ -188,9 +188,9 @@ type t . 'c env -> ('c, t) term -> t Lang_types.t ->
       Lang_types.H_Bool (F_Atom (A_Bool f))
     (* erroneous base cases *)
     | Lang_types.Y_Int, _ ->
-      raise (Smtlib_exn "wrong number of arguments")
+      raise (Smtlib_Exn "wrong number of arguments")
     | Lang_types.Y_Bool, _ ->
-      raise (Smtlib_exn "wrong number of arguments")
+      raise (Smtlib_Exn "wrong number of arguments")
     (* recursive cases *)
     | Lang_types.Y_Int_Arrow t, a :: l ->
       let a = parse_int m a in
@@ -200,20 +200,20 @@ type t . 'c env -> ('c, t) term -> t Lang_types.t ->
       parse_app_aux m (M_App (f, term_of_formula a)) t l
     (* erroneous recursive cases *)
     | Lang_types.Y_Int_Arrow _, [] ->
-      raise (Smtlib_exn "wrong number of arguments")
+      raise (Smtlib_Exn "wrong number of arguments")
     | Lang_types.Y_Bool_Arrow _, [] ->
-      raise (Smtlib_exn "wrong number of arguments")
+      raise (Smtlib_Exn "wrong number of arguments")
 
 and parse_app ({e_find; e_type} as m) s l =
   match e_find s with
   | None ->
-    raise (Smtlib_exn (Printf.sprintf "unknown id: %s" s))
+    raise (Smtlib_Exn (Printf.sprintf "unknown id: %s" s))
   | Some (Box e) ->
     (match e_type e with
     | Lang_types.Y_Int ->
-      raise (Smtlib_exn "function expected")
+      raise (Smtlib_Exn "function expected")
     | Lang_types.Y_Bool ->
-      raise (Smtlib_exn "function expected")
+      raise (Smtlib_Exn "function expected")
     | t ->
       parse_app_aux m e t l)
 
@@ -247,7 +247,7 @@ and parse m = function
       and f acc e = parse_bool m e => acc in
       Lang_types.H_Bool (List.fold_left d ~init ~f)
     | _ ->
-      raise (Smtlib_exn "syntax error"))
+      raise (Smtlib_Exn "syntax error"))
   | S_List [S_Atom L.K_Symbol "not"; e] ->
     Lang_types.H_Bool (not (parse_bool m e))
   (* bool-from-int cases *)
@@ -280,4 +280,4 @@ and parse m = function
   | S_List (S_Atom L.K_Symbol s :: l) ->
     parse_app m s l
   | _ ->
-    raise (Smtlib_exn "syntax error")
+    raise (Smtlib_Exn "syntax error")

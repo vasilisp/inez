@@ -1,12 +1,11 @@
 open Core.Std
 open Terminology
 
+exception Unreachable_Exn of Here.t
+
 module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   module LA = Lang_abstract
-
-  (* TODO: use herelib for inserting locations *)
-  exception Exn_unreachable of string
 
   type c = I.c
 
@@ -16,43 +15,39 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   type formula = I.c LA.atom Formula.formula
 
-  type fun_id =
-    F_Id : (I.c, 's -> 't) Lang_ids.t -> fun_id
+  type fun_id = F_Id : (I.c, 's -> 't) Lang_ids.t -> fun_id
 
-  type int_id = (I.c, int) Lang_ids.t
-
+  type int_id  = (I.c, int) Lang_ids.t
+  
   type bool_id = (I.c, bool) Lang_ids.t
 
   (* flat internal representation of terms and formulas *)
 
-  type flat_term_sum = (Int63.t * flat_term_base) list
+  type flat_sum = (Int63.t * flat_term_base) list
 
-  and flat_term =
-    L_Base  of  flat_term_base
-  | L_Sum   of  flat_term_sum offset
-  | L_Bool  of  flat_formula
-
-  (* trying to restrict what can appear where *)
+  and flat_app = fun_id * flat_term list
 
   and flat_term_base =
     B_Var   of  S.ivar
   | B_App   of  flat_app
-  | B_Ite   of  flat_formula * flat_term_atom * flat_term_atom
+  | B_Ite   of  flat_formula * flat_int_term * flat_int_term
 
-  (* flat_term without the bool case, for use as an atomic formula *)
-  and flat_term_atom =
+  and flat_term =
+    L_Base  of  flat_term_base
+  | L_Sum   of  flat_sum offset
+  | L_Bool  of  flat_formula
+
+  and flat_int_term =
     G_Base  of  flat_term_base
-  | G_Sum   of  flat_term_sum offset
+  | G_Sum   of  flat_sum offset
 
   and flat_formula =
     U_Var   of  S.bvar
-  | U_Atom  of  flat_term_atom * op'
+  | U_Atom  of  flat_int_term * op'
   | U_Not   of  flat_formula
   | U_And   of  flat_formula list
   | U_App   of  flat_app
   | U_Ite   of  flat_formula * flat_formula * flat_formula
-
-  and flat_app = fun_id * flat_term list
 
   (* operators *)
 
@@ -62,20 +57,20 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     let ff_or a b = U_Not (U_And [ff_not a; ff_not b]) in
     U_And [ff_or (ff_not q) g; ff_or q h]
 
-  let flat_term_sum_negate (l, x) =
+  let flat_sum_negate (l, x) =
     List.map l ~f:(Tuple.T2.map1 ~f:Int63.neg), Int63.neg x
 
-  let flat_term_atom_minus a b =
+  let flat_int_term_minus a b =
     match a, b with
     | G_Base a, G_Base b ->
       G_Sum ([Int63.one, a; Int63.minus_one, b], Int63.zero)
     | G_Sum (l, x), G_Base b ->
       G_Sum ((Int63.minus_one, b) :: l, x)
     | G_Base b, G_Sum s ->
-      let l, x = flat_term_sum_negate s in
+      let l, x = flat_sum_negate s in
       G_Sum ((Int63.one, b) :: l, x)
     | G_Sum (l, x), G_Sum s ->
-      let l2, x2 = flat_term_sum_negate s in
+      let l2, x2 = flat_sum_negate s in
       G_Sum (List.append l l2, Int63.(x + x2))
 
   type ovar = S.ivar option offset
@@ -146,7 +141,7 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     | LA.M_Var v ->
       F_Id v, List.rev acc
     | _ ->
-      raise (Exn_unreachable "GADTs confuse exhaustiveness checker")
+      raise (Unreachable_Exn _here_)
 
   and flatten_int_term_aux r (d, x) k (t : int term) =
     match t with
@@ -175,9 +170,13 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   and flatten_term_for_atom r t =
     match flatten_term r t with
-    | L_Base b -> G_Base b
-    | L_Sum s -> G_Sum s
-    | L_Bool _ -> raise (Exn_unreachable "invalid casting")
+    | L_Base b ->
+      G_Base b
+    | L_Sum s ->
+      G_Sum s
+    | L_Bool _ ->
+      (* invalid conversion to int *)
+      raise (Unreachable_Exn _here_)
 
   and flatten_term :
   type t . ctx -> t term -> flat_term =
@@ -189,7 +188,8 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
       | Lang_types.Y_Bool ->
         L_Bool (U_Var (get_bool_var r v))
       | _ ->
-        raise (Exn_unreachable "not meant for functions"))
+        (* not meant for functions *)
+        raise (Unreachable_Exn _here_))
     | LA.M_Ite (c, s, t) ->
       L_Base
         (B_Ite (flatten_formula r c,
@@ -216,8 +216,6 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     | LA.M_App (f, t)  ->
       let l = flatten_args r [flatten_term r t] f in
       U_App l
-    | _ ->
-      raise (Exn_unreachable "GADTs confuse exhaustiveness checker")
 
   and flatten_formula_aux r d = function
     | Formula.F_True ->
@@ -328,9 +326,9 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
       blast_ite_branch r (S_Pos bv) v t;
       Some v, Int63.zero
     | S_Pos None ->
-      ovar_of_flat_term_atom r s
+      ovar_of_flat_int_term r s
     | S_Neg None ->
-      ovar_of_flat_term_atom r t
+      ovar_of_flat_int_term r t
 
   and ovar_of_flat_term_base ({r_ctx} as r) = function
     | B_Var v ->
@@ -340,7 +338,7 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     | B_Ite (g, s, t) ->
       ovar_of_ite r g s t
 
-  and ovar_of_flat_term_atom ({r_ctx} as r) = function
+  and ovar_of_flat_int_term ({r_ctx} as r) = function
     | G_Base b ->
       ovar_of_flat_term_base r b
     | G_Sum (l, o) ->
@@ -471,8 +469,8 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     if r.r_unsat then
       R_Unsat
     else
-      (write_bg_ctx r "/home/vpap/constraints.lp";
-       S.solve r_ctx)
+      raise (Unreachable_Exn _here_)
+        (* S.solve r_ctx *)
 
   let deref_int {r_ctx; r_ivar_m} id =
     match Hashtbl.find r_ivar_m id with

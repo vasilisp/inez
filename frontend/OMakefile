@@ -5,7 +5,7 @@ BYTE_ENABLED = true
 NATIVE_ENABLED = true
 OCAMLFLAGS += -thread
 USE_OCAMLFIND = true
-OCAMLPACKS = core camlp4 camlidl camlp4.lib
+OCAMLPACKS = core camlp4 camlidl camlp4.lib herelib
 INCLUDES = $(CAMLIDL_INCLUDE_PATH)
 
 OCAMLDEP_MODULES_ENABLED = true
@@ -39,6 +39,16 @@ Camlp4o_sexplib(module) =
         OCAMLPACKS += camlp4
         OCAMLDEPFLAGS += -pp "camlp4of -I `ocamlfind query type_conv` -I `ocamlfind query sexplib` pa_type_conv.cma pa_sexp_conv.cma"
         OCAMLFLAGS += -pp "camlp4of -I `ocamlfind query type_conv` -I `ocamlfind query sexplib` pa_type_conv.cma pa_sexp_conv.cma"
+        $(module).cmi:
+        $(module).cmo:
+        $(module).o:
+        $(module).cmx:
+
+Camlp4o_here(module) =
+    section
+        OCAMLPACKS += camlp4
+        OCAMLDEPFLAGS += -pp "camlp4of -I `ocamlfind query herelib` pa_herelib.cma"
+        OCAMLFLAGS += -pp "camlp4of -I `ocamlfind query herelib` pa_herelib.cma"
         $(module).cmi:
         $(module).cmo:
         $(module).o:
@@ -146,6 +156,9 @@ public.OCamlTop(name, files, cfiles) =
 #     -o inez.pp -custom
 
 Camlp4o_sexplib(lang_types)
+Camlp4o_here(solver)
+Camlp4o_here(scip)
+
 Camlp4o(lang_concrete)
 
 MyOCamlProgram(inez, \

@@ -1,3 +1,5 @@
+exception Unreachable_Exn of Here.t
+
 module Make :
   functor (S : Imt_intf.S) ->
     functor (I : Lang_ids.Accessors) -> sig

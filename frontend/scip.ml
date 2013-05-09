@@ -2,7 +2,7 @@ open Core.Std
 open Scip_idl
 open Terminology
 
-exception Int_Exn of string
+exception Scip_Exn of Here.t
 
 type ctx = {
   r_ctx: scip;
@@ -71,14 +71,11 @@ let string_of_retcode = function
   | SCIP_MAXDEPTHLEVEL ->
     "SCIP_MAXDEPTHLEVEL"
 
-let assert_ok s = function
+let assert_ok loc = function
   | SCIP_OKAY ->
     ()
   | v ->
-    let m =
-      Printf.sprintf
-        "%s returned %s" s (string_of_retcode v) in
-    raise (Int_Exn m)
+    raise (Scip_Exn loc)
 
 let string_of_version () =
   Printf.sprintf "%d.%d.%d"
@@ -88,19 +85,19 @@ let string_of_version () =
 
 let new_ctx () =
   let k, r_ctx = sCIPcreate () in
-  assert_ok "create" k;
+  assert_ok _here_ k;
   let r_cch = new_cc_handler r_ctx in
   cc_handler_include r_cch;
   let k = sCIPincludeDefaultPlugins r_ctx in
-  assert_ok "includeDefaultPlugins" k;
+  assert_ok _here_ k;
   let k = sCIPcreateProbBasic r_ctx "prob" in
-  assert_ok "createProb" k;
+  assert_ok _here_ k;
   let k = sCIPsetEmphasis r_ctx SCIP_PARAMEMPHASIS_EASYCIP true in
-  assert_ok "setEmphasis" k;
+  assert_ok _here_ k;
   let k = sCIPsetIntParam r_ctx "display/verblevel" 0 in
-  assert_ok "setIntParam" k;
+  assert_ok _here_ k;
   let k = sCIPsetPresolving r_ctx SCIP_PARAMSETTING_OFF true in
-  assert_ok "setPresolving" k;
+  assert_ok _here_ k;
   let r_var_d = Dequeue.create () ~dummy:None
   and r_constraints_n = 0
   and r_has_objective = false
@@ -138,9 +135,9 @@ let new_ivar ({r_ctx; r_var_d} as r) t =
       sCIPcreateVarBasic
         r_ctx id (scip_lb_float r lb) (scip_ub_float r ub)
         0. SCIP_VARTYPE_CONTINUOUS in
-  assert_ok "createVar" k;
+  assert_ok _here_ k;
   let k = sCIPaddVar r_ctx v in
-  assert_ok "addVar" k;
+  assert_ok _here_ k;
   Dequeue.push_back r_var_d (Some v); i
 
 let new_bvar {r_ctx; r_var_d} =
@@ -150,15 +147,15 @@ let new_bvar {r_ctx; r_var_d} =
     sCIPcreateVarBasic
       r_ctx id 0.0 1.0
       0. SCIP_VARTYPE_BINARY in
-  assert_ok "createVar" k;
+  assert_ok _here_ k;
   let k = sCIPaddVar r_ctx v in
-  assert_ok "addVar" k;
+  assert_ok _here_ k;
   Dequeue.push_back r_var_d (Some v); i
 
 let negate_bvar ({r_ctx; r_var_d} as r) v =
   let k, v = sCIPgetNegatedVar r_ctx (sv r v)
   and i = Dequeue.length r_var_d in
-  assert_ok "getNegatedVar" k; 
+  assert_ok _here_ k; 
   Dequeue.push_back r_var_d (Some v); i
 
 let iexpr_vars (l, o) =
@@ -177,25 +174,25 @@ let create_constraint ({r_ctx} as r) eq (l, o) =
       (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
       (-. (if eq then Int63.to_float o else sCIPinfinity r_ctx))
       (Int63.to_float (Int63.neg o)) in
-  assert_ok "createConsBasicLinear" k;
+  assert_ok _here_ k;
   c
 
 let add_eq ({r_ctx} as r) e =
   let c = create_constraint r true e in
   let k = sCIPaddCons r_ctx c in
-  assert_ok "addCons" k
+  assert_ok _here_ k
 
 let add_le ({r_ctx} as r) e =
   let c = create_constraint r false e in
   let k = sCIPaddCons r_ctx c in
-  assert_ok "addCons" k
+  assert_ok _here_ k
 
 let var_of_var_signed ({r_ctx} as r) = function
   | S_Pos v ->
     sv r v
   | S_Neg v ->
     let k, v = sCIPgetNegatedVar r_ctx (sv r v) in
-    assert_ok "getNegatedVar" k;
+    assert_ok _here_ k;
     v
 
 let add_indicator ({r_ctx} as r) v (l, o) =
@@ -206,9 +203,9 @@ let add_indicator ({r_ctx} as r) v (l, o) =
       (Array.of_list_map ~f:(Fn.compose (sv r) snd) l)
       (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
       (Int63.to_float (Int63.neg o)) in
-  assert_ok "createConsBasicIndicator" k;
+  assert_ok _here_ k;
   let k = sCIPaddCons r_ctx c in
-  assert_ok "addCons" k
+  assert_ok _here_ k
 
 let add_clause ({r_ctx; r_constraints_n} as r) l =
   let k, c =
@@ -218,11 +215,11 @@ let add_clause ({r_ctx; r_constraints_n} as r) l =
         | S_Pos v -> sv r v
         | S_Neg v ->
           let k, v = sCIPgetNegatedVar r_ctx (sv r v) in
-          assert_ok "getNegatedVar" k; v) in
+          assert_ok _here_ k; v) in
     sCIPcreateConsBasicLogicor r_ctx (make_constraint_id r) l in
-  assert_ok "createConsBasicLogicor" k;
+  assert_ok _here_ k;
   let k = sCIPaddCons r_ctx c in
-  assert_ok "addCons" k
+  assert_ok _here_ k
 
 let var_of_var_option ({r_cch} as r) =
   Option.value_map ~f:(sv r)
@@ -236,12 +233,14 @@ let add_call ({r_cch} as r) (v, o) f l =
 
 let add_objective ({r_ctx; r_has_objective} as r) l =
   if r_has_objective then
-    raise (Int_Exn "problem already has objective")
+    `Duplicate
   else
-    List.iter l
-      ~f:(fun (c, v) ->
-        assert_ok "chgVarObj"
-          (sCIPchgVarObj r_ctx (sv r v) (Int63.to_float c)))
+    (List.iter l
+       ~f:(fun (c, v) ->
+         let c = Int63.to_float c in
+         assert_ok _here_ (sCIPchgVarObj r_ctx (sv r v) c));
+     `Ok)
+  
 
 let result_of_status = function
   | SCIP_STATUS_OPTIMAL ->
@@ -255,12 +254,12 @@ let result_of_status = function
 
 let write_ctx {r_ctx} filename =
   let k = sCIPwriteOrigProblem r_ctx filename "lp" false in
-  assert_ok "writeOrigProblem" k
+  assert_ok _here_ k
 
 let solve ({r_ctx; r_cch} as r) =
   cc_handler_finalize r_cch;
   let k = sCIPsolve r_ctx in
-  assert_ok "solve" k;
+  assert_ok _here_ k;
   let rval = result_of_status (sCIPgetStatus r_ctx) in
   (match rval with
   | R_Opt | R_Unbounded | R_Sat ->

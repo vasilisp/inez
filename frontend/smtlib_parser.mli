@@ -1,4 +1,4 @@
-exception Smtlib_exn of string
+exception Smtlib_Exn of string
 
 type smtlib_sexp =
   S_List of smtlib_sexp list | S_Atom of Smtlib_lexer.token'

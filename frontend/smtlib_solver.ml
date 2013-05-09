@@ -154,7 +154,7 @@ struct
     try
       do_statements r r' ~f ~f_err
     with
-    | Smtlib_parser.Smtlib_exn _ as e ->
+    | Smtlib_parser.Smtlib_Exn _ as e ->
       (Printf.printf "line: %d\n%!" (get_line r);
        raise e)
 

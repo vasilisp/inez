@@ -1,3 +1,5 @@
+(* utility functions; too small to get their own module *)
+
 let foldo_right l ~f ~init =
   let rec fr_aux acc = function
     | a :: d ->

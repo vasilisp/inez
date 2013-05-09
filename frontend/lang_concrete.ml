@@ -1,7 +1,7 @@
 open Camlp4
 open Core.Std
 
-exception Int_Exn
+exception Type_Exn of string
 
 module Id : Sig.Id =
 struct
@@ -11,11 +11,6 @@ end
 
 module Make (Syntax : Sig.Camlp4Syntax) = struct
 
-  exception Exn_uf_type of string
-
-  (* TODO: use herelib for inserting locations *)
-  exception Exn_unreachable of string
-    
   open Sig
   include Syntax
 
@@ -63,7 +58,7 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
     | "bool" ->
       Lang_types.E_Bool
     | id ->
-      Loc.raise _loc (Exn_uf_type ("unknown type: " ^ id))
+      Loc.raise _loc (Type_Exn ("unknown type: " ^ id))
 
   let uf_maybe_convert _loc r e =
     match r with

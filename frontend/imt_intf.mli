@@ -2,7 +2,7 @@ module type S = sig
 
   open Core.Std
   open Terminology
-  
+
   (** context *)
   type ctx
 
@@ -53,7 +53,7 @@ module type S = sig
     ctx -> ivar option offset -> f -> ivar option offset list ->
     unit
 
-  val add_objective : ctx -> ivar isum -> unit
+  val add_objective : ctx -> ivar isum -> [ `Duplicate | `Ok ]
 
   val solve : ctx -> result
 
