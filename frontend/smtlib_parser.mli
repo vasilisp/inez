@@ -12,13 +12,13 @@ val get_line : ctx -> int
 val get_smtlib_sexp : ?token:Smtlib_lexer.token -> ctx -> smtlib_sexp
 
 type 'c ibterm =
-  (('c, int) Lang_abstract.term,
-   'c Lang_abstract.atom Lang_abstract.formula) Terminology.ibeither
+  (('c, int) Lang_abstract.M.t,
+   'c Lang_abstract.A.t Formula.t) Terminology.ibeither
 
 type 'c env = {
-  e_find : string -> 'c Lang_abstract.term_box option;
-  e_replace : string -> 'c Lang_abstract.term_box -> 'c env;
-  e_type : 't. ('c, 't) Lang_abstract.term -> 't Lang_types.t;
+  e_find : string -> 'c Lang_abstract.Box.t option;
+  e_replace : string -> 'c Lang_abstract.Box.t -> 'c env;
+  e_type : 't. ('c, 't) Lang_abstract.M.t -> 't Lang_types.t;
 }
 
 val parse : 'c env -> smtlib_sexp -> 'c ibterm

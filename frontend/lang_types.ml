@@ -52,6 +52,14 @@ let count_arrows t =
       ca_aux (1 + acc) y in
   ca_aux 0 t
 
+let t_of_app :
+type r s . (r -> s) t -> r t -> s t =
+  fun x y -> match x, y with
+  | Y_Int_Arrow x, Y_Int ->
+    x
+  | Y_Bool_Arrow x, Y_Bool ->
+    x
+
 type t_box = Box : _ t -> t_box
 
 let t_box_of_ibtype = function

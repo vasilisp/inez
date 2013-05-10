@@ -11,7 +11,7 @@ module type S = sig
 
   (** assert constraint *)
   val assert_formula :
-    ctx -> c Lang_abstract.atom Formula.formula -> unit
+    ctx -> c Lang_abstract.A.t Formula.t -> unit
 
   val solve : ctx -> result
 

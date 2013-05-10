@@ -1,14 +1,12 @@
 open Core.Std
 open Terminology
 
-include Formula
-
 type ('i, _) term =
-| M_Bool  :  'i atom formula -> ('i, bool) term
-| M_Int   :  Int63.t -> ('i, int) term
+| M_Bool  :  'i atom Formula.t -> ('i, bool) term
+| M_Int   :  Core.Std.Int63.t -> ('i, int) term
 | M_Sum   :  ('i, int) term * ('i, int) term ->  ('i, int) term
-| M_Prod  :  Int63.t * ('i, int) term -> ('i, int) term
-| M_Ite   : 'i atom formula * ('i, int) term * ('i, int) term ->
+| M_Prod  :  Core.Std.Int63.t * ('i, int) term -> ('i, int) term
+| M_Ite   : 'i atom Formula.t * ('i, int) term * ('i, int) term ->
   ('i, int) term
 | M_Var   :  ('i, 's) Lang_ids.t -> ('i, 's) term
 | M_App   :  ('i, 'r -> 's) term * ('i, 'r) term -> ('i, 's) term
@@ -18,92 +16,113 @@ and 'i atom =
 | A_Le    of  ('i, int) term
 | A_Eq    of  ('i, int) term
 
-(* type utilities *)
+module A = struct
 
-let type_of_app :
-type s t . (s -> t) Lang_types.t -> s Lang_types.t -> t Lang_types.t =
-  fun x y -> match x, y with
-  | Lang_types.Y_Int_Arrow x, Lang_types.Y_Int ->
-    x
-  | Lang_types.Y_Bool_Arrow x, Lang_types.Y_Bool ->
-    x
+  type 'i t = 'i atom = | A_Bool  of  ('i, bool) term
+                        | A_Le    of  ('i, int) term
+                        | A_Eq    of  ('i, int) term
+    
+end
 
-let rec type_of_term :
-type t . ('i, t) term -> f:('i Lang_ids.t_arrow_type) ->
-  t Lang_types.t =
-  fun x ~f:({Lang_ids.a_f} as f) ->
-    match x with
-    | M_Bool _ ->
-      Lang_types.Y_Bool
-    | M_Int _ ->
-      Lang_types.Y_Int
-    | M_Sum (_, _) ->
-      Lang_types.Y_Int
-    | M_Prod (_, _) ->
-      Lang_types.Y_Int
-    | M_Ite (_, _, _) ->
-      Lang_types.Y_Int
-    | M_Var id ->
-      a_f id
-    | M_App (a, b) ->
-      let t_a = type_of_term a ~f
-      and t_b = type_of_term b ~f in
-      type_of_app t_a t_b
+module M = struct
 
-(* boxed term *)
+  type ('i, 'q) t =
+    ('i, 'q) term =
+  | M_Bool  :  'i atom Formula.t -> ('i, bool) t
+  | M_Int   :  Core.Std.Int63.t -> ('i, int) t
+  | M_Sum   :  ('i, int) t * ('i, int) t ->  ('i, int) t
+  | M_Prod  :  Core.Std.Int63.t * ('i, int) t -> ('i, int) t
+  | M_Ite   : 'i atom Formula.t * ('i, int) t * ('i, int) t ->
+    ('i, int) t
+  | M_Var   :  ('i, 's) Lang_ids.t -> ('i, 's) t
+  | M_App   :  ('i, 'r -> 's) t * ('i, 'r) t -> ('i, 's) t
 
-type 'i term_box = Box : ('i, _) term -> 'i term_box
+  let zero = M_Int Int63.zero
 
-(* LIA functions *)
+  let one = M_Int Int63.one
 
-let (+) a b =
-  match a, b with
-  | M_Int x, M_Int y ->
-    M_Int (Int63.(+) x y)
-  | M_Int x, _ when x = Int63.zero ->
-    b
-  | _, M_Int x when x = Int63.zero ->
-    a
-  | _ ->
-    M_Sum (a, b)
+  let of_int63 x = M_Int x
 
-let ( * ) c a =
-  if c = Int63.zero then
-    M_Int Int63.zero
-  else
-    M_Prod (c, a)
+  let rec type_of_t :
+  type s . ('i, s) t -> f:('i Lang_ids.t_arrow_type) ->
+    s Lang_types.t =
+    fun x ~f:({Lang_ids.a_f} as f) ->
+      match x with
+      | M_Bool _ ->
+        Lang_types.Y_Bool
+      | M_Int _ ->
+        Lang_types.Y_Int
+      | M_Sum (_, _) ->
+        Lang_types.Y_Int
+      | M_Prod (_, _) ->
+        Lang_types.Y_Int
+      | M_Ite (_, _, _) ->
+        Lang_types.Y_Int
+      | M_Var id ->
+        a_f id
+      | M_App (a, b) ->
+        let t_a = type_of_t a ~f
+        and t_b = type_of_t b ~f in
+        Lang_types.t_of_app t_a t_b
 
-let (-) a b =
-  match a, b with
-  | M_Int x, M_Int y ->
-    M_Int (Int63.(-) x y)
-  | M_Int x, _ when x = Int63.zero ->
-    Int63.minus_one * b
-  | _, M_Int x when x = Int63.zero ->
-    a
-  | _ ->
-    a + (Int63.minus_one * b)
+  let ( + ) a b =
+    match a, b with
+    | M_Int x, M_Int y ->
+      M_Int (Int63.(+) x y)
+    | M_Int x, _ when x = Int63.zero ->
+      b
+    | _, M_Int x when x = Int63.zero ->
+      a
+    | _ ->
+      M_Sum (a, b)
 
-(* type conversions *)
+  let ( * ) c a =
+    if c = Int63.zero then
+      M_Int Int63.zero
+    else
+      M_Prod (c, a)
 
-let of_int63 x = M_Int x
+  let ( - ) a b =
+    match a, b with
+    | M_Int x, M_Int y ->
+      M_Int (Int63.(-) x y)
+    | M_Int x, _ when x = Int63.zero ->
+      Int63.minus_one * b
+    | _, M_Int x when x = Int63.zero ->
+      a
+    | _ ->
+      a + (Int63.minus_one * b)
 
-(* LIA constants *)
+  let iite c a b = M_Ite (c, a, b)
 
-let zero = M_Int Int63.zero
+end
 
-let one = M_Int Int63.one
+(* boxed terms *)
 
-(* LIA predicates *)
+module Box = struct
+  type 'i t = Box : ('i, _) M.t -> 'i t
+end
 
-let (<) a b = F_Atom (A_Le ((a + M_Int Int63.one) - b))
+module Ops = struct
 
-let (<=) a b = F_Atom (A_Le (a - b))
+  type 'a formula = 'a Formula.t
 
-let (==) a b = F_Atom (A_Eq (a - b))
+  include (M : Ops.Functions with type ('i, 'q) t := ('i, 'q) M.t
+                             and type 'i a := 'i A.t)
 
-let (>=) a b = b <= a
+  include (Formula : Ops.Propositional with type 'a t := 'a formula)
 
-let (>) a b = b < a
+  let (<) a b =
+    Formula.F_Atom (A_Le (M.(a + M_Int Int63.one - b)))
 
-let iite c a b = M_Ite (c, a, b)
+  let (<=) a b =
+    Formula.F_Atom (A_Le M.(a - b))
+
+  let (==) a b =
+    Formula.F_Atom (A_Eq M.(a - b))
+
+  let (>=) a b = b <= a
+
+  let (>) a b = b < a
+
+end

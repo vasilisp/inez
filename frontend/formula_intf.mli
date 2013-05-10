@@ -1,11 +1,4 @@
-type 'a formula
+include Ops.Propositional
 
-val true': 'a formula
-val false': 'a formula
-
-val not: 'a formula -> 'a formula
-val (&&): 'a formula -> 'a formula -> 'a formula
-val (||): 'a formula -> 'a formula -> 'a formula
-val (=>): 'a formula -> 'a formula -> 'a formula
-val ite: 'a formula -> 'a formula -> 'a formula -> 'a formula
- 
+val true': 'a t
+val false': 'a t

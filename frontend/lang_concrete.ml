@@ -26,16 +26,16 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
     let fold l init =
       let f acc = function
         | Lang_types.E_Int ->
-          <:expr< Formula.Y_Int_Arrow $acc$ >>
+          <:expr< Lang_types.Y_Int_Arrow $acc$ >>
         | Lang_types.E_Bool ->
-          <:expr< Formula.Y_Bool_Arrow $acc$ >> in
+          <:expr< Lang_types.Y_Bool_Arrow $acc$ >> in
       List.fold_left l ~f ~init
-    and ret e = <:expr< Formula.M_Var (gen_id $e$) >> in
+    and ret e = <:expr< Lang_abstract.M.M_Var (gen_id $e$) >> in
     match rtype with
     | Lang_types.E_Int ->
-      ret (fold l <:expr< Formula.Y_Int >>)
+      ret (fold l <:expr< Lang_types.Y_Int >>)
     | Lang_types.E_Bool ->
-      ret (fold l <:expr< Formula.Y_Bool >>)
+      ret (fold l <:expr< Lang_types.Y_Bool >>)
 
   let uf_ast_apps _loc init =
     List.fold2_exn ~init
@@ -45,8 +45,8 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
           | Lang_types.E_Int ->
             <:expr< $id:id$ >>
           | Lang_types.E_Bool ->
-            <:expr< Formula.M_Bool $id:id$ >> in
-        <:expr< Formula.M_App ($acc$, $t$) >>)
+            <:expr< Lang_abstract.M.M_Bool $id:id$ >> in
+        <:expr< Lang_abstract.M.M_App ($acc$, $t$) >>)
 
   let uf_ast_mlfun _loc init =
     List.fold_right ~init
@@ -63,7 +63,7 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
   let uf_maybe_convert _loc r e =
     match r with
     | Lang_types.E_Bool ->
-      <:expr< Formula.F_Atom (Formula.A_Bool ($e$)) >>
+      <:expr< Formula.F_Atom (Lang_abstract.A.A_Bool ($e$)) >>
     | Lang_types.E_Int ->
       e
 
@@ -95,9 +95,9 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
     | <:expr< false >> ->
       <:expr< Formula.false' >>
     | <:expr< $int:s$ >> ->
-      <:expr< Formula.of_int63 (Int63.of_string $str:s$) >>
+      <:expr< Lang_abstract.M.of_int63 (Int63.of_string $str:s$) >>
     | <:expr< $int64:s$ >> ->
-      <:expr< Formula.of_int63 (Int63.of_string $str:s$) >>
+      <:expr< Lang_abstract.M.of_int63 (Int63.of_string $str:s$) >>
     | e ->
       super#expr e
         
@@ -129,7 +129,7 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
     LEVEL "top" [
       [ "logic"; "in"; e = expr LEVEL ";" ->
         let e = (new logic_subst _loc)#expr e in
-        <:expr< Formula.(Formula.($e$)) >>
+        <:expr< Lang_abstract.Ops.($e$) >>
       | "uf"; l = LIST1 lpatt; "->"; r = LIDENT ->
         uf_ast _loc l r
       ] ];

@@ -1,12 +1,12 @@
 open Core.Std
 open Terminology
 
-type 'a formula =
+type 'a t =
   F_True
 | F_Atom  of  'a
-| F_Not   of  'a formula
-| F_And   of  'a formula * 'a formula
-| F_Ite   of  'a formula * 'a formula * 'a formula
+| F_Not   of  'a t
+| F_And   of  'a t * 'a t
+| F_Ite   of  'a t * 'a t * 'a t
 
 (* constant formulas *)
 

@@ -14,6 +14,7 @@ open Core.Std
 open Lang_abstract
 open Terminology
 
+module F = Formula
 module L = Smtlib_lexer
 
 exception Smtlib_Exn of string
@@ -64,32 +65,32 @@ and get_smtlib_sexp ?token r =
 
 (* We now translate smtlib_sexp to our GADT representation. *)
 
-type 'c ibterm = (('c, int) term, 'c atom formula) ibeither
+type 'c ibterm = (('c, int) M.t, 'c A.t F.t) ibeither
 
-type 'c tbox = 'c term_box
+type 'c tbox = 'c Box.t
 
 type 'c env = {
   e_find     :  string -> 'c tbox option;
   e_replace  :  string -> 'c tbox -> 'c env;
-  e_type     :  't . ('c, 't) term -> 't Lang_types.t
+  e_type     :  't . ('c, 't) M.t -> 't Lang_types.t
 }
 
 (* utilities *)
 
 let tbx x = Lang_types.Box x
 
-let lbx x = Box x
+let lbx x = Box.Box x
 
 let term_of_formula = function
-  | F_Atom (A_Bool t) ->
+  | F.F_Atom (A.A_Bool t) ->
     t
   | t ->
-    M_Bool t
+    M.M_Bool t
 
 let sum ~f =
   (List.fold_left
-     ~init:zero
-     ~f:(fun acc x -> acc + f x))
+     ~init:M.zero
+     ~f:(fun acc x -> M.(acc + f x)))
 
 let map_matching_types e1 e2 ~fi ~fb =
   Lang_types.(match e1, e2 with
@@ -104,21 +105,21 @@ let map_matching_types e1 e2 ~fi ~fb =
 
 let rec parse_nonlist {e_find; e_type} = function
   | L.K_Int i ->
-    H_Int (M_Int i)
+    H_Int (M.M_Int i)
   | L.K_Symbol "true" ->
-    H_Bool F_True
+    H_Bool F.F_True
   | L.K_Symbol "false" ->
-    H_Bool (F_Not F_True)
+    H_Bool (F.F_Not F.F_True)
   | L.K_Symbol s ->
     (match e_find s with
     | None ->
       raise (Smtlib_Exn "unknown id")
-    | Some (Box e) ->
+    | Some (Box.Box e) ->
       match e_type e with
       | Lang_types.Y_Int ->
         H_Int e
       | Lang_types.Y_Bool ->
-        H_Bool (F_Atom (A_Bool e))
+        H_Bool (F.F_Atom (A.A_Bool e))
       | _ ->
         raise (Smtlib_Exn (Printf.sprintf "%s is a function" s)))
   | _ ->
@@ -154,8 +155,8 @@ and parse_bool m e =
 
 and parse_eq m e1 e2 =
   map_matching_types (parse m e1) (parse m e2)
-    ~fi:(fun e1 e2 -> F_Atom (A_Eq (e1 - e2)))
-    ~fb:(fun e1 e2 -> (e1 => e2) && (e2 => e1))
+    ~fi:(fun e1 e2 -> F.F_Atom (A.A_Eq M.(e1 - e2)))
+    ~fb:(fun e1 e2 -> Ops.((e1 => e2) && (e2 => e1)))
 
 and parse_mult m l =
   match
@@ -171,12 +172,12 @@ and parse_mult m l =
           Some (parse_int m e), c)
   with
   | Some v, c ->
-    H_Int (c * v)
+    H_Int (M.(c * v))
   | None, c ->
-    H_Int (of_int63 c)
+    H_Int (M.of_int63 c)
 
 and parse_app_aux :
-type t . 'c env -> ('c, t) term -> t Lang_types.t ->
+type t . 'c env -> ('c, t) M.t -> t Lang_types.t ->
   smtlib_sexp list -> 'c ibterm =
   fun m f t l ->
     match t, l with
@@ -184,7 +185,7 @@ type t . 'c env -> ('c, t) term -> t Lang_types.t ->
     | Lang_types.Y_Int, [] ->
       H_Int f
     | Lang_types.Y_Bool, [] ->
-      H_Bool (F_Atom (A_Bool f))
+      H_Bool (F.F_Atom (A.A_Bool f))
     (* erroneous base cases *)
     | Lang_types.Y_Int, _ ->
       raise (Smtlib_Exn "wrong number of arguments")
@@ -193,10 +194,10 @@ type t . 'c env -> ('c, t) term -> t Lang_types.t ->
     (* recursive cases *)
     | Lang_types.Y_Int_Arrow t, a :: l ->
       let a = parse_int m a in
-      parse_app_aux m (M_App (f, a)) t l
+      parse_app_aux m (M.M_App (f, a)) t l
     | Lang_types.Y_Bool_Arrow t, a :: l ->
       let a = parse_bool m a in
-      parse_app_aux m (M_App (f, term_of_formula a)) t l
+      parse_app_aux m (M.M_App (f, term_of_formula a)) t l
     (* erroneous recursive cases *)
     | Lang_types.Y_Int_Arrow _, [] ->
       raise (Smtlib_Exn "wrong number of arguments")
@@ -207,7 +208,7 @@ and parse_app ({e_find; e_type} as m) s l =
   match e_find s with
   | None ->
     raise (Smtlib_Exn (Printf.sprintf "unknown id: %s" s))
-  | Some (Box e) ->
+  | Some (Box.Box e) ->
     (match e_type e with
     | Lang_types.Y_Int ->
       raise (Smtlib_Exn "function expected")
@@ -226,56 +227,56 @@ and parse m = function
     H_Int (sum args ~f:(parse_int m))
   | S_List [S_Atom L.K_Symbol "-"; e] ->
     let e = parse_int m e in
-    H_Int (Int63.minus_one * e)
+    H_Int (M.(Int63.minus_one * e))
   | S_List (S_Atom L.K_Symbol "-" :: init :: args) ->
     let init = parse_int m init in
     H_Int
       (List.fold_left args
-         ~f:(fun acc x -> acc - parse_int m x) ~init)
+         ~f:(fun acc x -> M.(acc - parse_int m x)) ~init)
   | S_List (S_Atom L.K_Symbol "*" :: args) ->
     parse_mult m args
   (* bool cases *)
   | S_List (S_Atom L.K_Symbol "and" :: args) ->
-    H_Bool (forall args ~f:(parse_bool m))
+    H_Bool (F.forall args ~f:(parse_bool m))
   | S_List (S_Atom L.K_Symbol "or" :: args) ->
-    H_Bool (exists args ~f:(parse_bool m))
+    H_Bool (F.exists args ~f:(parse_bool m))
   | S_List (S_Atom L.K_Symbol "=>" :: args) ->
     (match List.rev args with
     | a :: d ->
       let init = parse_bool m a
-      and f acc e = parse_bool m e => acc in
+      and f acc e = Ops.(parse_bool m e => acc) in
       H_Bool (List.fold_left d ~init ~f)
     | _ ->
       raise (Smtlib_Exn "syntax error"))
   | S_List [S_Atom L.K_Symbol "not"; e] ->
-    H_Bool (not (parse_bool m e))
+    H_Bool (F.not (parse_bool m e))
   (* bool-from-int cases *)
   | S_List [S_Atom L.K_Symbol "<"; e1; e2] ->
     let e1 = parse_int m e1
     and e2 = parse_int m e2 in
-    H_Bool (e1 < e2)
+    H_Bool (Ops.(e1 < e2))
   | S_List [S_Atom L.K_Symbol "<="; e1; e2] ->
     let e1 = parse_int m e1
     and e2 = parse_int m e2 in
-    H_Bool (e1 <= e2)
+    H_Bool (Ops.(e1 <= e2))
   | S_List [S_Atom L.K_Symbol ">="; e1; e2] ->
     let e1 = parse_int m e1
     and e2 = parse_int m e2 in
-    H_Bool (e1 >= e2)
+    H_Bool (Ops.(e1 >= e2))
   | S_List [S_Atom L.K_Symbol ">"; e1; e2] ->
     let e1 = parse_int m e1
     and e2 = parse_int m e2 in
-    H_Bool (e1 > e2)
+    H_Bool (Ops.(e1 > e2))
   (* polymorphic cases *)
   | S_List [S_Atom L.K_Symbol "ite"; e1; e2; e3] ->
     let e1 = parse_bool m e1 in
     map_matching_types (parse m e2) (parse m e3)
-      ~fi:(fun e2 e3 -> H_Int (M_Ite (e1, e2, e3)))
-      ~fb:(fun e2 e3 -> H_Bool (F_Ite (e1, e2, e3)))
+      ~fi:(fun e2 e3 -> H_Int (M.M_Ite (e1, e2, e3)))
+      ~fb:(fun e2 e3 -> H_Bool (F.F_Ite (e1, e2, e3)))
   | S_List [S_Atom L.K_Symbol "="; e1; e2] ->
     H_Bool (parse_eq m e1 e2)
   | S_List [S_Atom L.K_Symbol "distinct"; e1; e2] ->
-    H_Bool (F_Not (parse_eq m e1 e2))
+    H_Bool (F.F_Not (parse_eq m e1 e2))
   | S_List (S_Atom L.K_Symbol s :: l) ->
     parse_app m s l
   | _ ->

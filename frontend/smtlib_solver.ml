@@ -1,7 +1,8 @@
 open Core.Std
 open Terminology
+open Lang_abstract
 
-type 'c tbox = 'c Lang_abstract.term_box
+type 'c tbox = 'c Box.t
 
 module R = struct
 
@@ -38,18 +39,18 @@ struct
   type ctx = {
     mutable r_logic       :  logic Set_once.t;
     mutable r_sat_called  :  bool;
-    mutable r_map         :  S.c tbox String.Map.t;
+    mutable r_map         :  S.c Box.t String.Map.t;
     r_ctx                 :  S.ctx;
   }
 
   let tbx x = Lang_types.Box x
 
-  let lbx x = Lang_abstract.Box x
+  let lbx x = Box.Box x
 
   let rec make_env m =
     let e_find = String.Map.find m
     and e_replace key data = make_env (String.Map.add m ~key ~data)
-    and e_type = Lang_abstract.type_of_term ~f:I.type_of_t' in
+    and e_type = M.type_of_t ~f:I.type_of_t' in
     {e_find; e_replace; e_type}
 
   let make_ctx r_ctx = {
@@ -104,7 +105,7 @@ struct
   let parse_declare_fun ({r_map} as r) key l t =
     match type_of l t with
     | Some (Lang_types.Box data) ->
-      let data = lbx (Lang_abstract.M_Var (I.gen_id data)) in
+      let data = lbx (M.M_Var (I.gen_id data)) in
       r.r_map <- String.Map.add r_map ~key ~data;
       R.P_Ok None
     | None ->

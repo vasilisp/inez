@@ -9,9 +9,9 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   type c = I.c
 
-  type 't term = (I.c, 't) LA.term
+  type 't term = (I.c, 't) LA.M.t
 
-  type formula = I.c LA.atom Formula.formula
+  type formula = I.c LA.A.t Formula.t
 
   type fun_id = F_Id : (I.c, 's -> 't) Lang_ids.t -> fun_id
 
@@ -21,12 +21,12 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   let type_of_term :
   type t . t term -> t Lang_types.t =
-    fun x -> Lang_abstract.type_of_term ~f:I.type_of_t' x
+    fun x -> Lang_abstract.M.type_of_t ~f:I.type_of_t' x
 
   (* flat internal representation of terms and formulas *)
 
   type ibflat = (flat_term, flat_formula) ibeither
-
+    
   and flat_app = fun_id * ibflat list
 
   and flat_sum = (Int63.t * flat_term_base) list
@@ -135,52 +135,52 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
   let rec flatten_args :
   type s t . ctx -> ibflat list -> (s -> t) term -> flat_app =
     fun r acc -> function
-    | LA.M_App (f, t) ->
+    | LA.M.M_App (f, t) ->
       flatten_args r (flatten_term r t :: acc) f
-    | LA.M_Var v ->
+    | LA.M.M_Var v ->
       F_Id v, List.rev acc
 
   and flatten_int_term_aux r (d, x) k (t : int term) =
     match t with
-    | LA.M_Var v ->
+    | LA.M.M_Var v ->
       (k, B_Var (get_int_var r v)) :: d, x
-    | LA.M_Int i ->
+    | LA.M.M_Int i ->
       d, Int63.(x + k * i)
-    | LA.M_App (f, t) ->
+    | LA.M.M_App (f, t) ->
       let a = flatten_args r [flatten_term r t] f in
       (k, B_App a) :: d, x
-    | LA.M_Sum (s, t) ->
+    | LA.M.M_Sum (s, t) ->
       let d, x = flatten_int_term_aux r (d, x) k s in
       flatten_int_term_aux r (d, x) k t
-    | LA.M_Prod (k2, t) ->
+    | LA.M.M_Prod (k2, t) ->
       flatten_int_term_aux r (d, x) Int63.(k * k2) t
-    | LA.M_Ite (c, s, t) ->
+    | LA.M.M_Ite (c, s, t) ->
       (k, B_Ite (flatten_formula r c,
                  flatten_int_term r s,
                  flatten_int_term r t)) :: d, x
 
   and flatten_int_term r = function
-    | LA.M_Var v ->
+    | LA.M.M_Var v ->
       G_Base (B_Var (get_int_var r v))
-    | LA.M_Ite (c, s, t) ->
+    | LA.M.M_Ite (c, s, t) ->
       G_Base
         (B_Ite (flatten_formula r c,
                 flatten_int_term r s,
                 flatten_int_term r t))
-    | LA.M_App (f, t) ->
+    | LA.M.M_App (f, t) ->
       G_Base (B_App (flatten_args r [flatten_term r t] f))
-    | LA.M_Int _ | LA.M_Sum (_, _) | LA.M_Prod (_, _) as t ->
+    | LA.M.M_Int _ | LA.M.M_Sum (_, _) | LA.M.M_Prod (_, _) as t ->
       let d, x = [], Int63.zero in
       let d, x = flatten_int_term_aux r (d, x) Int63.one t in
       (* dedup / sort / hash here *)
       G_Sum (d, x)
 
   and flatten_bool_term r = function
-    | LA.M_Var v ->
+    | LA.M.M_Var v ->
       U_Var (get_bool_var r v)
-    | LA.M_Bool g ->
+    | LA.M.M_Bool g ->
       flatten_formula r g
-    | LA.M_App (f, t)  ->
+    | LA.M.M_App (f, t)  ->
       let l = flatten_args r [flatten_term r t] f in
       U_App l
 
@@ -208,11 +208,11 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
   and flatten_formula r = function
     | Formula.F_True ->
       U_And []
-    | Formula.F_Atom (LA.A_Bool t) ->
+    | Formula.F_Atom (LA.A.A_Bool t) ->
       flatten_bool_term r t
-    | Formula.F_Atom (LA.A_Le t) ->
+    | Formula.F_Atom (LA.A.A_Le t) ->
       U_Atom (flatten_int_term r t, O'_Le)
-    | Formula.F_Atom (LA.A_Eq t) ->
+    | Formula.F_Atom (LA.A.A_Eq t) ->
       U_Atom (flatten_int_term r t, O'_Eq)
     | Formula.F_Not g ->
       U_Not (flatten_formula r g)
