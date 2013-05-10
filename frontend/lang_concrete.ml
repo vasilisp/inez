@@ -68,7 +68,9 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
       e
 
   let uf_ast _loc l_types r =
-    let l_ids = List.map l_types ~f:(fun _ -> Ast.IdLid (_loc, gensym ()))
+    let l_ids =
+      let f _ = Ast.IdLid (_loc, gensym ()) in
+      List.map l_types ~f
     and r_type = ground_type_of_id _loc r
     and id = gensym ~prefix:"__uf_" () in
     let inside =
@@ -103,17 +105,17 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
 
   EXTEND Gram
 
+  (* "limited pattern" *)
   lpatt:
-    [ [ "("; "_"; ":"; tid = LIDENT;
-        ")" ->
+    [ [ "("; "_"; ":"; tid = LIDENT; ")" ->
         ground_type_of_id _loc tid
       ]
-    | [ "("; _ = LIDENT; ":"; tid = LIDENT;
-        ")" ->
+    | [ "("; _ = LIDENT; ":"; tid = LIDENT; ")" ->
         ground_type_of_id _loc tid
       ] ];
 
-  str_item:
+  (*
+    str_item:
     LEVEL "top" [
       [ "sort";
         id = LIDENT ->
@@ -121,16 +123,16 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
         let type_id = gensym ~prefix:"sort_" () in
         <:str_item< type $lid:type_id$ >>
       ]
-    ];
+    ]; *)
   
   expr:
     LEVEL "top" [
-      [ "uf"; l = LIST1 lpatt; "->";
-        r = LIDENT -> uf_ast _loc l r
-      | "logic"; "("; e = SELF;
-        ")" -> let e = (new logic_subst _loc)#expr e in
-               <:expr< Formula.(Formula.($e$)) >> ]
-    ];
+      [ "logic"; "in"; e = expr LEVEL ";" ->
+        let e = (new logic_subst _loc)#expr e in
+        <:expr< Formula.(Formula.($e$)) >>
+      | "uf"; l = LIST1 lpatt; "->"; r = LIDENT ->
+        uf_ast _loc l r
+      ] ];
 
   END
 

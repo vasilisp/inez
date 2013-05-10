@@ -448,8 +448,7 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     if r.r_unsat then
       R_Unsat
     else
-      (write_bg_ctx r "/home/vpap/constraints.lp";
-       S.solve r_ctx)
+      S.solve r_ctx
 
   let deref_int {r_ctx; r_ivar_m} id =
     match Hashtbl.find r_ivar_m id with

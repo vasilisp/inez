@@ -32,13 +32,13 @@ let m =
 
 let g =
   Formula.forall pigeons
-    ~f:(fun p -> logic (m p >= 1 && m p <= toi n_holes));;
+    ~f:(fun p -> logic in m p >= 1 && m p <= toi n_holes);;
 
 (* no pair of pigeons co-inhabit a hole *)
 
 let h =
   Formula.forall_pairs pigeons
-    ~f:(fun p1 p2 -> logic (not (m p1 == m p2)));;
+    ~f:(fun p1 p2 -> logic in not (m p1 == m p2));;
 
 (* call solver *)
 
