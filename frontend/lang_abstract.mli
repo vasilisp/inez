@@ -39,9 +39,8 @@ and M : sig
 
   (* infix operators & ITE *)
 
-  include (Ops.Functions
-           with type ('i, 's) t := ('i, 's) t
-           and type 'i a := 'i A.t)
+  include (Ops_sig.Int with type ('i, 's) t := ('i, 's) t
+                       and type i := Core.Std.Int63.t)
 
 end
 
@@ -52,17 +51,8 @@ module Box : sig type 'i t = Box : ('i, 'a) M.t -> 'i t end
 (* mostly infix operators; that's the module "logic in e" uses under
    the hood *)
 
-module Ops : sig
-
-  include (Ops.Functions
-           with type ('i, 's) t := ('i, 's) M.t
-           and type 'i a := 'i A.t)
-
-  include (Ops.Predicates
-           with type ('i, 's) t := ('i, 's) M.t
-           and type 'i a := 'i A.t)
-
-  include (Ops.Propositional
-           with type 'a t := 'a Formula.t)
-
-end
+module Ops :
+  (Ops_sig.All with type ('i, 's) t := ('i, 's) M.t
+               and type 'i a := 'i A.t
+               and type 'a f := 'a Formula.t
+               and type i := Core.Std.Int63.t)
