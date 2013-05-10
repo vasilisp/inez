@@ -9,9 +9,9 @@ module type Prop = sig
 
   (* infix operators *)
 
-  val (&&) : 'a t -> 'a t -> 'a t
-  val (||) : 'a t -> 'a t -> 'a t
-  val (=>) : 'a t -> 'a t -> 'a t
+  val ( && ) : 'a t -> 'a t -> 'a t
+  val ( || ) : 'a t -> 'a t -> 'a t
+  val ( => ) : 'a t -> 'a t -> 'a t
 
   (* pseudo-quantifiers *)
 

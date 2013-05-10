@@ -20,7 +20,8 @@ let fresh_int_var () =
 
 let fresh_bool_var () =
   Formula.F_Atom
-    (Lang_abstract.A.A_Bool (Lang_abstract.M.M_Var (Id.gen_id Lang_types.Y_Bool)));;
+    (Lang_abstract.A.A_Bool
+       (Lang_abstract.M.M_Var (Id.gen_id Lang_types.Y_Bool)));;
 
 let ideref = function
   | Lang_abstract.M.M_Var v ->
@@ -29,7 +30,8 @@ let ideref = function
     None;;
 
 let bderef = function
-  | Formula.F_Atom (Lang_abstract.A.A_Bool (Lang_abstract.M.M_Var v)) ->
+  | Formula.F_Atom
+      (Lang_abstract.A.A_Bool (Lang_abstract.M.M_Var v)) ->
     S.deref_bool ctx v
   | _ ->
     None;;
