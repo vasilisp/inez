@@ -23,7 +23,7 @@ end
 
 module type Int = sig
     
-  type ('i, _) t
+  type (_, _) t
   type i
 
   (* infix operators *)
@@ -60,5 +60,5 @@ end
 module type All = sig
   include Mixed
   include Int with type ('i, 's) t := ('i, 's) t
-  include Prop with type 'a t := 'a f
+  include Prop with type 'i t := 'i f
 end

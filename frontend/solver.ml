@@ -5,6 +5,8 @@ exception Unreachable_Exn of Here.t
 
 module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
+  module P = Pre.Make(I)
+
   module LA = Lang_abstract
 
   type c = I.c
@@ -58,19 +60,6 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
 
   let flat_sum_negate (l, x) =
     List.map l ~f:(Tuple.T2.map1 ~f:Int63.neg), Int63.neg x
-
-  let flat_int_term_minus a b =
-    match a, b with
-    | G_Base a, G_Base b ->
-      G_Sum ([Int63.one, a; Int63.minus_one, b], Int63.zero)
-    | G_Sum (l, x), G_Base b ->
-      G_Sum ((Int63.minus_one, b) :: l, x)
-    | G_Base b, G_Sum s ->
-      let l, x = flat_sum_negate s in
-      G_Sum ((Int63.one, b) :: l, x)
-    | G_Sum (l, x), G_Sum s ->
-      let l2, x2 = flat_sum_negate s in
-      G_Sum (List.append l l2, Int63.(x + x2))
 
   type ovar = S.ivar option offset
 

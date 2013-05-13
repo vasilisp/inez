@@ -37,7 +37,7 @@ and M : sig
   val type_of_t :
     ('i, 's) t -> f:'i Lang_ids.t_arrow_type -> 's Lang_types.t
 
-  (* infix operators & ITE *)
+  (* infix operators *)
 
   include (Ops_sig.Int with type ('i, 's) t := ('i, 's) t
                        and type i := Core.Std.Int63.t)
@@ -46,7 +46,7 @@ end
 
 (* boxed terms *)
 
-module Box : sig type 'i t = Box : ('i, 'a) M.t -> 'i t end
+module Box : Box_sig.T2 with type ('i, 's) b := ('i, 's) M.t
 
 (* mostly infix operators; that's the module "logic in e" uses under
    the hood *)

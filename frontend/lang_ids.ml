@@ -1,10 +1,48 @@
 open Core.Std
 
-module Id = (Int63 : Id_intf.Generators)
+module Id = (Int63 : Id_intf.Full)
 
-type ('c, 'u) t = Id.t * 'u Lang_types.t
+module M = struct
+  
+  type ('c, 'u) t = Id.t * 'u Lang_types.t
 
-type 'c t_box = Box : ('c, _) t -> 'c t_box
+  let sexp_of_t _ f x =
+    Tuple.T2.sexp_of_t Id.sexp_of_t (Lang_types.sexp_of_t f) x
+
+  let compare _ _ (id1, _) (id2, _) =
+    Id.compare id1 id2
+
+end
+
+include M
+
+module Box = struct
+
+  type 'c t = Box : ('c, _) M.t -> 'c t
+
+  let compare _ x y =
+    Pervasives.compare x y
+
+  let sexp_of_t f (Box x) =
+    let g _ = Sexplib.Sexp.Atom "" in
+    let x = sexp_of_t f g x in
+    Sexplib.Sexp.(List [Atom "Box"; x])
+
+end
+
+module Box_arrow = struct
+
+  type 'c t = Box : ('c, _ -> _) M.t -> 'c t
+
+  let compare _ x y =
+    Pervasives.compare x y
+
+  let sexp_of_t f (Box x) =
+    let g _ = Sexplib.Sexp.Atom "" in
+    let x = sexp_of_t f g x in
+    Sexplib.Sexp.(List [Atom "Box"; x])
+
+end
 
 (* explicit polymorphism; we need System F types in lang_concrete *)
 type 'i t_arrow_type =
@@ -12,13 +50,15 @@ type 'i t_arrow_type =
 
 module type Generators = sig
   type c
-  val gen_id  :  'u Lang_types.t -> (c, 'u) t
+  val gen_id : 'u Lang_types.t -> (c, 'u) t
 end
 
 module type Accessors = sig
   type c
-  val type_of_t  :  (c, 'u) t -> 'u Lang_types.t
-  val type_of_t'  :  c t_arrow_type
+  val type_of_t : (c, 'u) t -> 'u Lang_types.t
+  val type_of_t' : c t_arrow_type
+  val compare_c : c -> c -> int
+  val sexp_of_c : c -> Sexplib.Sexp.t
 end
 
 module type S = sig
@@ -48,5 +88,9 @@ module Make (U : Unit.S) : S = struct
     Tuple.T2.get2
 
   let type_of_t' = { a_f = type_of_t }
+
+  let compare_c _ _ = 0
+
+  let sexp_of_c _ = Unit.sexp_of_t ()
 
 end

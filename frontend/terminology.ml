@@ -7,10 +7,12 @@ type 't ternop          =  't -> 't -> 't -> 't
 type op                 =  O_Lt | O_Le | O_Eq | O_Ge | O_Gt
 
 type op'                =  O'_Le | O'_Eq
+with compare, sexp
 
 type 'v monomial        =  Core.Std.Int63.t * 'v
 
 type 'v offset          =  'v * Core.Std.Int63.t
+with compare, sexp
 
 type 'v isum            =  'v monomial list
 
@@ -26,3 +28,4 @@ type result             =  R_Opt | R_Unbounded | R_Sat
 type 't signed          =  S_Pos of 't | S_Neg of 't
 
 type ('i, 'b) ibeither  =  H_Int of 'i | H_Bool of 'b
+with compare, sexp

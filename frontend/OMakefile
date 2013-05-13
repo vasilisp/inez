@@ -34,21 +34,21 @@ Camlp4o(module) =
         $(module).o:
         $(module).cmx:
 
-Camlp4o_sexplib(module) =
-    section
-        OCAMLPACKS += camlp4
-        OCAMLDEPFLAGS += -pp "camlp4of -I `ocamlfind query type_conv` -I `ocamlfind query sexplib` pa_type_conv.cma pa_sexp_conv.cma"
-        OCAMLFLAGS += -pp "camlp4of -I `ocamlfind query type_conv` -I `ocamlfind query sexplib` pa_type_conv.cma pa_sexp_conv.cma"
-        $(module).cmi:
-        $(module).cmo:
-        $(module).o:
-        $(module).cmx:
-
 Camlp4o_here(module) =
     section
         OCAMLPACKS += camlp4
         OCAMLDEPFLAGS += -pp "camlp4of -I `ocamlfind query herelib` pa_herelib.cma"
         OCAMLFLAGS += -pp "camlp4of -I `ocamlfind query herelib` pa_herelib.cma"
+        $(module).cmi:
+        $(module).cmo:
+        $(module).o:
+        $(module).cmx:
+
+Camlp4o_lib(module, libs, pa_names) =
+    section
+        OCAMLPACKS += camlp4
+        OCAMLDEPFLAGS += -pp "camlp4of $(add-wrapper -I `ocamlfind query , `, $(libs)) $(add-wrapper pa_, .cma, $(pa_names))"
+        OCAMLFLAGS += -pp "camlp4of $(add-wrapper -I `ocamlfind query , `, $(libs)) $(add-wrapper pa_, .cma, $(pa_names))"
         $(module).cmi:
         $(module).cmo:
         $(module).o:
@@ -155,24 +155,24 @@ public.OCamlTop(name, files, cfiles) =
 #     -I +camlp4 camlp4o.cma lang_concrete.cmo \
 #     -o inez.pp -custom
 
-Camlp4o_sexplib(lang_types)
-Camlp4o_here(solver)
-Camlp4o_here(scip)
+Camlp4o_lib(lang_types, type_conv comparelib sexplib, type_conv compare sexp_conv)
+Camlp4o_lib(solver, herelib, herelib)
+Camlp4o_lib(pre, herelib type_conv comparelib sexplib, \
+	         herelib type_conv compare sexp_conv)
+Camlp4o_lib(scip, herelib, herelib)
+Camlp4o_lib(terminology, type_conv comparelib sexplib, type_conv compare sexp_conv)
+Camlp4o_lib(tst, type_conv comparelib, type_conv compare)
 
 Camlp4o(lang_concrete)
 
-MyOCamlProgram(inez, \
-               scip util ops_sig formula \
-               lang_types lang_ids lang_abstract \
-	       pre solver smtlib_lexer smtlib_parser smtlib_solver \
-               main,  \
+MyOCamlProgram(inez, scip util terminology unreachable ops_sig		\
+               box_sig formula lang_types lang_ids lang_abstract pre	\
+               solver smtlib_lexer smtlib_parser smtlib_solver main,	\
                scip_idl_stubs)
 
-OCamlTop(inez, \
-         scip util ops_sig formula \
-         lang_types lang_ids lang_abstract lang_concrete \
-         pre solver, \
-         camlidl_dummy scip_idl_stubs)
+OCamlTop(inez, scip util terminology unreachable ops_sig box_sig	\
+         formula lang_types lang_ids lang_abstract lang_concrete pre	\
+         solver, camlidl_dummy scip_idl_stubs)
 
 .PHONY: clean
 

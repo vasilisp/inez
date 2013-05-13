@@ -1,5 +1,6 @@
 module type Accessors = sig
   include Core.Std.Hashable.S
+  include Core.Std.Sexpable.S with type t := t
 end
 
 module type Generators = sig

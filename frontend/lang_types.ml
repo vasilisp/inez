@@ -16,7 +16,7 @@ module U = struct
   | Y_Bool
   | Y_Int_Arrow   of t
   | Y_Bool_Arrow  of t
-  with sexp
+  with compare, sexp
 
 end
 
@@ -31,6 +31,14 @@ type s . s t -> U.t =
     U.Y_Int_Arrow (ungadt_t y)
   | Y_Bool_Arrow y ->
     U.Y_Bool_Arrow (ungadt_t y)
+
+let sexp_of_t f a =
+  U.sexp_of_t (ungadt_t a)
+
+(*
+let t_of_sexp f a =
+  t_of_sexp f
+*)
 
 let rec rightmost_ibtype_of_t :
 type s . s t -> ibtype =
