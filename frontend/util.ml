@@ -11,3 +11,5 @@ let foldo_right l ~f ~init =
     | _ ->
       Some acc in
   fr_aux init l
+
+exception Exn of (string * Here.t)

@@ -68,20 +68,38 @@ end
 
 module Make (U : Unit.S) : S = struct
 
+  (* [c] is empty and abstract outside this module. Applying the
+     functor produces a different [c] each time. We tag IDs and
+     expressions with [c], so that expressions with IDs that come from
+     different contexts cannot be mixed. *)
   type c
 
-  let m = Hashtbl.Poly.create () ~size:1024
+  (* FIXME : clean up (i.e., do not raise exceptions) and put this in
+     lang_types *)
+  module TypeBox = struct
+    module T = struct
+      include Lang_types.Box
+      let t_of_sexp _ = raise (Unreachable.Exn _here_)
+      let hash = Hashtbl.hash
+    end
+    include T
+    include Hashable.Make(T)
+  end
+
+  let m = TypeBox.Table.create () ~size:64
+
+  let update_id = Option.map ~f:Id.succ
 
   let gen_id :
   type u . u Lang_types.t -> (c, u) t =
     fun x ->
-      let x' = Lang_types.Box x in
+      let x' = TypeBox.Box x in
       match Hashtbl.find m x' with
       | Some id ->
-        Hashtbl.change m x' (Option.map ~f:Id.succ);
-        id, x
+        Hashtbl.change m x' update_id; id, x
       | None ->
-        Hashtbl.replace m x' (Id.succ Id.zero); Id.zero, x
+        let id = Id.succ Id.zero in
+        Hashtbl.replace m x' id; id, x
 
   let type_of_t :
   type u . (c, u) t -> u Lang_types.t =

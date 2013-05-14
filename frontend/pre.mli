@@ -2,17 +2,17 @@ module Make : functor (I : Lang_ids.Accessors) -> sig
 
   type fun_id = I.c Lang_ids.Box_arrow.t
 
-  type ibflat = private (term, formula) Terminology.ibeither
+  type ibflat = (term, formula) Terminology.ibeither
 
-  and args = private ibflat list
+  and args = ibflat list
 
-  and app = private fun_id * args
+  and app = fun_id * args
 
-  and sumt = private Core.Std.Int63.t * term_base
+  and sumt = Core.Std.Int63.t * term_base
 
-  and sum = private sumt list
+  and sum = sumt list
 
-  and iite = private formula * term * term
+  and iite = formula * term * term
 
   and term_base = private
                   | B_Var   of  (I.c, int) Lang_ids.t
@@ -23,7 +23,7 @@ module Make : functor (I : Lang_ids.Accessors) -> sig
              | G_Base  of  term_base
              | G_Sum   of  sum Terminology.offset
 
-  and bite = private formula * formula * formula
+  and bite = formula * formula * formula
 
   and formula = private
                 | U_Var   of  (I.c, bool) Lang_ids.t
@@ -37,7 +37,13 @@ module Make : functor (I : Lang_ids.Accessors) -> sig
 
   type ctx
 
+  val make_ctx : unit -> ctx
+
+  val dummy_formula : formula
+
   val flatten_formula :
     ctx -> I.c Lang_abstract.A.t Formula.t -> formula
+
+  val ff_ite : formula -> formula -> formula -> formula
 
 end

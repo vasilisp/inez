@@ -43,7 +43,7 @@ struct
     r_ctx                 :  S.ctx;
   }
 
-  let tbx x = Lang_types.Box x
+  let tbx x = Lang_types.Box.Box x
 
   let lbx x = Box.Box x
 
@@ -92,9 +92,9 @@ struct
     | None ->
       None
     | Some init ->
-      let init = Lang_types.t_box_of_ibtype init in
+      let init = Lang_types.Box.t_of_ibtype init in
       Util.foldo_right l ~init
-        ~f:(fun x (Lang_types.Box acc) ->
+        ~f:(fun x (Lang_types.Box.Box acc) ->
           let f = function
             | Lang_types.E_Int ->
               tbx (Lang_types.Y_Int_Arrow acc)
@@ -104,7 +104,7 @@ struct
 
   let parse_declare_fun ({r_map} as r) key l t =
     match type_of l t with
-    | Some (Lang_types.Box data) ->
+    | Some (Lang_types.Box.Box data) ->
       let data = lbx (M.M_Var (I.gen_id data)) in
       r.r_map <- String.Map.add r_map ~key ~data;
       R.P_Ok None

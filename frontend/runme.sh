@@ -1,4 +1,4 @@
 #!/bin/sh
 
-omake inez.top
+omake -j3 inez.top
 exec ./inez.top -init inez.top.init

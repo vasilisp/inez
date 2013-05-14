@@ -52,7 +52,8 @@ module Box : Box_sig.T2 with type ('i, 's) b := ('i, 's) M.t
    the hood *)
 
 module Ops :
-  (Ops_sig.All with type ('i, 's) t := ('i, 's) M.t
-               and type 'i a := 'i A.t
-               and type 'a f := 'a Formula.t
-               and type i := Core.Std.Int63.t)
+  (Ops_sig.All
+   with type ('i, 's) t := ('i, 's) M.t
+   and type 'i a := 'i A.t
+   and type 'a f := 'a Formula.t
+   and type i := Core.Std.Int63.t)

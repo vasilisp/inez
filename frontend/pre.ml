@@ -63,7 +63,7 @@ module Make (I : Lang_ids.Accessors) = struct
       let compare = compare_sum
       let hash = Hashtbl.hash
       let sexp_of_t = sexp_of_sum
-      let t_of_sexp = raise (Unreachable.Exn _here_)
+      let t_of_sexp _ = raise (Unreachable.Exn _here_)
     end
     include T
     include Hashable.Make(T)
@@ -75,7 +75,7 @@ module Make (I : Lang_ids.Accessors) = struct
       let compare = compare_args
       let hash = Hashtbl.hash
       let sexp_of_t = sexp_of_args
-      let t_of_sexp = raise (Unreachable.Exn _here_)
+      let t_of_sexp _ = raise (Unreachable.Exn _here_)
     end
     include T
     include Hashable.Make(T)
@@ -87,17 +87,24 @@ module Make (I : Lang_ids.Accessors) = struct
       let compare = compare_iite
       let hash = Hashtbl.hash
       let sexp_of_t = sexp_of_iite
-      let t_of_sexp = raise (Unreachable.Exn _here_)
+      let t_of_sexp _ = raise (Unreachable.Exn _here_)
     end
     include T
     include Hashable.Make(T)
   end
 
+  let dummy_formula = U_And []
+
   type ctx = {
-    r_type_of_id  :  I.c Lang_ids.t_arrow_type;
     r_sum_h       :  sum Sum.Table.t;
     r_args_h      :  args Args.Table.t;
     r_iite_h      :  term_base Iite.Table.t;
+  }
+
+  let make_ctx () = {
+    r_sum_h = Sum.Table.create ();
+    r_args_h = Args.Table.create ();
+    r_iite_h = Iite.Table.create ();
   }
 
   (* we will expand-out ITE right before blasting *)
@@ -125,7 +132,6 @@ module Make (I : Lang_ids.Accessors) = struct
   *)
 
   (* flatten terms and formulas; SCC impractical to break *)
-
   let dedup_sum l =
     let l = List.sort ~cmp:compare_sumt l in
     let rec loop ~acc = function
@@ -151,6 +157,37 @@ module Make (I : Lang_ids.Accessors) = struct
   let make_iite {r_iite_h} a b c =
     let (i : iite) = a, b, c in
     Hashtbl.find_or_add r_iite_h i ~default:(fun () -> B_Ite i)
+
+  let rec negate = function
+    | U_Not U_Not g ->
+      negate g
+    | U_Not g ->
+      g
+    | g ->
+      U_Not g
+
+  let rec elim_not_not = function
+    | U_Not U_Not g ->
+      elim_not_not g
+    | g ->
+      g
+
+  let rec compare_formula_abs x y =
+    match x, y with
+    | U_Not U_Not x, _ ->
+      compare_formula_abs (elim_not_not x) y
+    | _, U_Not U_Not y ->
+      compare_formula_abs x (elim_not_not y)
+    | U_Not x, U_Not y ->
+      compare_formula x y
+    | U_Not x, y ->
+      let i = compare_formula x y in
+      if i = 0 then -1 else i
+    | x, U_Not y ->
+      let i = compare_formula x y in
+      if i = 0 then 1 else i
+    | _, _ ->
+      compare_formula x y
 
   let rec flatten_args :
   type s t . ctx -> ibflat list -> (I.c, s -> t) M.t -> app =
@@ -206,8 +243,8 @@ module Make (I : Lang_ids.Accessors) = struct
 
   and flatten_term :
   type s . ctx -> (I.c, s) M.t -> ibflat =
-    fun ({r_type_of_id = f} as r) t ->
-      match M.type_of_t t ~f with
+    fun r t ->
+      match M.type_of_t t ~f:I.type_of_t' with
       | Lang_types.Y_Int ->
         H_Int (flatten_int_term r t)
       | Lang_types.Y_Bool ->
@@ -224,7 +261,7 @@ module Make (I : Lang_ids.Accessors) = struct
       flatten_formula_aux r d h
     | g ->
       flatten_formula r g :: d
-
+        
   and flatten_formula r = function
     | Formula.F_True ->
       U_And []
@@ -235,7 +272,7 @@ module Make (I : Lang_ids.Accessors) = struct
     | Formula.F_Atom (A.A_Eq t) ->
       U_Atom (flatten_int_term r t, O'_Eq)
     | Formula.F_Not g ->
-      U_Not (flatten_formula r g)
+      negate (flatten_formula r g)
     | Formula.F_Ite (q, g, h) ->
       U_Ite (flatten_formula r q,
              flatten_formula r g,

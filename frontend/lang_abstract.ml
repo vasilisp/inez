@@ -68,7 +68,7 @@ module M = struct
   let ( + ) a b =
     match a, b with
     | M_Int x, M_Int y ->
-      M_Int (Int63.(+) x y)
+      M_Int Int63.(x + y)
     | M_Int x, _ when x = Int63.zero ->
       b
     | _, M_Int x when x = Int63.zero ->
@@ -105,10 +105,12 @@ module Ops = struct
 
   type 'a formula = 'a Formula.t
 
-  include (M : Ops_sig.Int with type ('i, 'q) t := ('i, 'q) M.t
-                           and type i := Int63.t)
+  include (M : Ops_sig.Int
+           with type ('i, 'q) t := ('i, 'q) M.t
+           and type i := Int63.t)
 
-  include (Formula : Ops_sig.Prop with type 'a t := 'a formula)
+  include (Formula : Ops_sig.Prop
+           with type 'a t := 'a formula)
 
   let iite c a b = M.M_Ite (c, a, b)
 

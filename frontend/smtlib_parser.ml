@@ -77,7 +77,7 @@ type 'c env = {
 
 (* utilities *)
 
-let tbx x = Lang_types.Box x
+let tbx x = Lang_types.Box.Box x
 
 let lbx x = Box.Box x
 

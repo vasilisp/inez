@@ -1,3 +1,13 @@
+module type T1 = sig
+  type _ b
+  type t = Box : _ b -> t
+end
+
+module type T1_arrow = sig
+  type _ b
+  type t = Box : (_ -> _) b -> t
+end
+
 module type T2 = sig
   type (_, _) b
   type 'c t = Box : ('c, _) b -> 'c t
@@ -21,7 +31,7 @@ end
 module type S2_arrow2 = sig
 
   include T2_arrow2
-  
+    
   val compare :
     ('c -> 'c -> int) -> 'c t -> 'c t -> int
 
