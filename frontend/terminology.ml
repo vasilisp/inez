@@ -25,6 +25,9 @@ type mip_type           =  T_Int of (Core.Std.Int63.t option *
 type result             =  R_Opt | R_Unbounded | R_Sat
                            | R_Unsat | R_Unknown
 
+type response           =  N_Ok | N_Unsat
+with compare, sexp
+
 type 't signed          =  S_Pos of 't | S_Neg of 't
 
 type ('i, 'b) ibeither  =  H_Int of 'i | H_Bool of 'b

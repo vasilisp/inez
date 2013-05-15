@@ -3,7 +3,7 @@ open Terminology
 
 module I = Lang_ids.Make (struct end)
 
-module O = Smtlib_solver.Make(Solver.Make(Scip)(I))(I)
+module O = Smtlib_solver.Make(Solver.Make(Scip.Scip_basic)(I))(I)
 
 let _ =
   let f = function

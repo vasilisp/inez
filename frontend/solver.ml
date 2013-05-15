@@ -3,7 +3,11 @@ open Terminology
 
 exception Unreachable_Exn of Here.t
 
-module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
+module Make_compiler
+
+  (S : Imt_intf.S_access) (I : Lang_ids.Accessors) =
+
+struct
 
   module P = Pre.Make(I)
 
@@ -57,19 +61,6 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     r_q                :  P.formula Dequeue.t;
     mutable r_fun_cnt  :  int;
     mutable r_unsat    :  bool
-  }
-
-  let make_ctx () = {
-    r_ctx     = S.new_ctx ();
-    r_pre_ctx = P.make_ctx ();
-    r_xvar_m  = Hashtbl.Poly.create ~size:10240 ();
-    r_fun_m   = Hashtbl.Poly.create ~size:512 ();
-    r_call_m  = Hashtbl.Poly.create ~size:2048 ();
-    r_ivar_m  = Hashtbl.Poly.create ~size:10240 ();
-    r_bvar_m  = Hashtbl.Poly.create ~size:10240 ();
-    r_q       = Dequeue.create () ~dummy:P.dummy_formula;
-    r_fun_cnt = 0;
-    r_unsat   = false
   }
 
   let get_f ({r_ctx; r_fun_m; r_fun_cnt} as r)
@@ -331,3 +322,25 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
       None
 
 end
+
+module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
+
+  include Make_compiler(S)(I)
+
+  let make_ctx () = {
+    r_ctx     = S.new_ctx ();
+    r_pre_ctx = P.make_ctx ();
+    r_xvar_m  = Hashtbl.Poly.create ~size:10240 ();
+    r_fun_m   = Hashtbl.Poly.create ~size:512 ();
+    r_call_m  = Hashtbl.Poly.create ~size:2048 ();
+    r_ivar_m  = Hashtbl.Poly.create ~size:10240 ();
+    r_bvar_m  = Hashtbl.Poly.create ~size:10240 ();
+    r_q       = Dequeue.create () ~dummy:P.dummy_formula;
+    r_fun_cnt = 0;
+    r_unsat   = false
+  }
+
+end
+
+(* TODO : implement a variant of Make that also accepts a DP
+   module. *)

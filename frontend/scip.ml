@@ -4,7 +4,10 @@ open Terminology
 
 exception Scip_Exn of (Here.t * retcode)
 
-type ctx = {
+(* implementation first, then wrapping things up in modules and
+   functors *)
+
+type scip_ctx = {
   r_ctx: scip;
   r_cch: cch;
   r_var_d: var option Dequeue.t;
@@ -13,15 +16,9 @@ type ctx = {
   mutable r_sol: sol option;
 }
 
-type f = string
-
 let dummy_f = ""
 
 (* type var = Scip_idl.var *)
-
-type bvar = int
-
-type ivar = int
 
 let ivar_of_bvar x = x
 
@@ -34,41 +31,41 @@ let sv {r_var_d} x =
 type named_constraint = cons
 
 let string_of_retcode = function
-  | SCIP_OKAY ->
+  |  SCIP_OKAY  ->
     "SCIP_OKAY"
-  | SCIP_ERROR ->
+  |  SCIP_ERROR  ->
     "SCIP_ERROR"
-  | SCIP_NOMEMORY ->
+  |  SCIP_NOMEMORY  ->
     "SCIP_NOMEMORY"
-  | SCIP_READERROR ->
+  |  SCIP_READERROR  ->
     "SCIP_READERROR"
-  | SCIP_WRITEERROR ->
+  |  SCIP_WRITEERROR  ->
     "SCIP_WRITEERROR"
-  | SCIP_NOFILE ->
+  |  SCIP_NOFILE  ->
     "SCIP_NOFILE"
-  | SCIP_FILECREATEERROR ->
+  |  SCIP_FILECREATEERROR  ->
     "SCIP_FILECREATEERROR"
-  | SCIP_LPERROR ->
+  |  SCIP_LPERROR  ->
     "SCIP_LPERROR"
-  | SCIP_NOPROBLEM ->
+  |  SCIP_NOPROBLEM  ->
     "SCIP_NOPROBLEM"
-  | SCIP_INVALIDCALL ->
+  |  SCIP_INVALIDCALL  ->
     "SCIP_INVALIDCALL"
-  | SCIP_INVALIDDATA ->
+  |  SCIP_INVALIDDATA  ->
     "SCIP_INVALIDDATA"
-  | SCIP_INVALIDRESULT ->
+  |  SCIP_INVALIDRESULT  ->
     "SCIP_INVALIDRESULT"
-  | SCIP_PLUGINNOTFOUND ->
+  |  SCIP_PLUGINNOTFOUND  ->
     "SCIP_PLUGINNOTFOUND"
-  | SCIP_PARAMETERUNKNOWN ->
+  |  SCIP_PARAMETERUNKNOWN  ->
     "SCIP_PARAMETERUNKNOWN"
-  | SCIP_PARAMETERWRONGTYPE ->
+  |  SCIP_PARAMETERWRONGTYPE  ->
     "SCIP_PARAMETERWRONGTYPE"
-  | SCIP_PARAMETERWRONGVAL ->
-    "SCIP_PARAMETERWRONG"
-  | SCIP_KEYALREADYEXISTING ->
+  |  SCIP_PARAMETERWRONGVAL  ->
+    "SCIP_PARAMETERWRONGVAL"
+  |  SCIP_KEYALREADYEXISTING  ->
     "SCIP_KEYALREADYEXISTING"
-  | SCIP_MAXDEPTHLEVEL ->
+  |  SCIP_MAXDEPTHLEVEL  ->
     "SCIP_MAXDEPTHLEVEL"
 
 let assert_ok loc = function
@@ -90,16 +87,37 @@ let string_of_version () =
     (sCIPtechVersion ())
 
 let config_list = [
+  _here_,
   (fun c -> sCIPsetEmphasis c SCIP_PARAMEMPHASIS_EASYCIP true);
+  _here_,
   (fun c -> sCIPsetIntParam c "display/verblevel" 0);
+  _here_,
   (fun c -> sCIPsetPresolving c SCIP_PARAMSETTING_OFF true);
 ]
 
 let run_config_list ctx =
-  List.iter config_list
-    ~f:Fn.(compose (assert_ok _here_) ((|>) ctx))
+  List.iter config_list ~f:Fn.(fun (h, f) -> assert_ok h (f ctx))
+
+let make_dp () =
+  let o = object
+    method receive _ _ _ _ = true;
+  end in
+  call_my_dp (Some (make_dP o))
 
 let new_ctx () =
+  let r_ctx = assert_ok1 _here_ (sCIPcreate ()) in
+  let r_cch = new_cc_handler r_ctx in
+  cc_handler_include r_cch;
+  assert_ok _here_ (sCIPincludeDefaultPlugins r_ctx);
+  assert_ok _here_ (sCIPcreateProbBasic r_ctx "prob");
+  run_config_list r_ctx;
+  let r_var_d = Dequeue.create () ~dummy:None
+  and r_constraints_n = 0
+  and r_has_objective = false
+  and r_sol = None in
+  {r_ctx; r_cch; r_var_d; r_constraints_n; r_has_objective; r_sol}
+
+let new_ctx_dp dp =
   let r_ctx = assert_ok1 _here_ (sCIPcreate ()) in
   let r_cch = new_cc_handler r_ctx in
   cc_handler_include r_cch;
@@ -277,3 +295,55 @@ let bderef ({r_ctx; r_sol} as r) v =
 let variables_number {r_var_d} = Dequeue.length r_var_d
 
 let constraints_number {r_constraints_n} = r_constraints_n
+
+module Access = struct
+  type ctx = scip_ctx
+  type ivar = int
+  type bvar = int
+  type f = string
+  let ivar_of_bvar = ivar_of_bvar
+  let bvar_of_ivar = bvar_of_ivar
+  let dummy_f = dummy_f
+  let new_f = new_f
+  let new_ivar = new_ivar
+  let new_bvar = new_bvar
+  let negate_bvar = negate_bvar
+  let add_eq = add_eq
+  let add_le = add_le
+  let add_indicator = add_indicator
+  let add_clause = add_clause
+  let add_call = add_call
+  let add_objective = add_objective
+  let solve = solve
+  let ideref = ideref
+  let bderef = bderef
+  let write_ctx = write_ctx
+end
+
+module Scip_basic : Imt_intf.S = struct
+  include Access
+  let new_ctx = new_ctx
+end
+
+module Scip_accepts_dp = struct
+
+  type ctx = scip_ctx
+  type ivar = int
+
+  (* TODO : Provide [compare] for [ivar]; maybe also hashtables and
+     related structures.  Also, Dp may need more privileges, e.g.,
+     querying about bounds. *)
+
+  module type Dp = sig
+    val receive : ctx -> ivar -> ivar -> response
+  end
+
+  module Make (Dp : Dp) = struct
+    include Access
+    let new_ctx =
+      let o = object method receive = Dp.receive end in
+      fun () -> new_ctx_dp o
+    let register _ _ _ = ()
+  end
+
+end

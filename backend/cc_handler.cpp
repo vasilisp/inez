@@ -4,11 +4,24 @@
 #include <boost/utility.hpp>
 #include <algorithm>
 #include <cstdlib>
+#include <stdint.h>
 
 using boost::unordered::piecewise_construct;
 
 // #define DEBUG
 // #define DEBUG_DESPERATE
+
+// potentially not portable stuff
+
+typedef int HRESULT;
+typedef struct { unsigned char data[16]; } IID;
+
+struct DP {
+  virtual HRESULT QueryInterface(int iid, void** p) = 0;
+  virtual unsigned long AddRef() = 0;
+  virtual unsigned long Release() = 0;
+  virtual long long int receive(SCIP*, SCIP_VAR*, SCIP_VAR*, llint);
+};
 
 #define ASSERT_SCIP_POINTER(s) \
   assert((s) == scip::ObjEventhdlr::scip_);
@@ -144,30 +157,30 @@ void scip_callback_sol::operator()(symbol a, symbol b, llint x)
 
 /* cc_handler methods */
 
-cc_handler::cc_handler(SCIP* scip):
-  scip::ObjConshdlr(scip, "cc", "congruence closure",
-                    1, -100000, -100000, 0, 1, 0, -1,
-                    TRUE, TRUE, TRUE, FALSE, 1),
-  scip::ObjEventhdlr(scip, "cce", "congruence closure events"),
-  uf_call_cnt(0),
-  bound_changed(false),
-  seen_node(false),
-  node_infeasible(false),
-  dvar_m(new dvar_map()),
-  cback(new scip_callback(scip, dvar_m.get(), &node_infeasible,
-                          &bound_changed)),
-  ctx(cback.get()),
-  fun_symbol_m(),
-  orig_var_m(),
-  dvar_rev_m(),
-  dvar_offset_m(),
-  node_seen_m(),
-  loc_m(),
-  loc_rev_m(),
-  ffcall_m(),
-  vars(),
-  dvars(),
-  frames()
+cc_handler::cc_handler(SCIP* scip)
+  : scip::ObjConshdlr(scip, "cc", "congruence closure",
+                      1, -100000, -100000, 0, 1, 0, -1,
+                      TRUE, TRUE, TRUE, FALSE, 1),
+    scip::ObjEventhdlr(scip, "cce", "congruence closure events"),
+    uf_call_cnt(0),
+    bound_changed(false),
+    seen_node(false),
+    node_infeasible(false),
+    dvar_m(new dvar_map()),
+    cback(new scip_callback(scip, dvar_m.get(), &node_infeasible,
+                            &bound_changed)),
+    ctx(cback.get()),
+    fun_symbol_m(),
+    orig_var_m(),
+    dvar_rev_m(),
+    dvar_offset_m(),
+    node_seen_m(),
+    loc_m(),
+    loc_rev_m(),
+    ffcall_m(),
+    vars(),
+    dvars(),
+    frames()
 {
 }
 
@@ -1352,4 +1365,9 @@ void cc_handler_include(cc_handler* c)
 SCIP_VAR* cc_handler_zero_var(cc_handler* c)
 {
   return NULL;
+}
+
+void call_my_dp(struct DP* d)
+{
+  cout << d->receive(NULL, NULL, NULL, 0) << endl;
 }

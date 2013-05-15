@@ -39,20 +39,20 @@ and M : sig
 
   (* infix operators *)
 
-  include (Ops_sig.Int with type ('i, 's) t := ('i, 's) t
+  include (Ops_intf.Int with type ('i, 's) t := ('i, 's) t
                        and type i := Core.Std.Int63.t)
 
 end
 
 (* boxed terms *)
 
-module Box : Box_sig.T2 with type ('i, 's) b := ('i, 's) M.t
+module Box : Box_intf.T2 with type ('i, 's) b := ('i, 's) M.t
 
 (* mostly infix operators; that's the module "logic in e" uses under
    the hood *)
 
 module Ops :
-  (Ops_sig.All
+  (Ops_intf.All
    with type ('i, 's) t := ('i, 's) M.t
    and type 'i a := 'i A.t
    and type 'a f := 'a Formula.t

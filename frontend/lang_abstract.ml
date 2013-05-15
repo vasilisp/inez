@@ -105,11 +105,11 @@ module Ops = struct
 
   type 'a formula = 'a Formula.t
 
-  include (M : Ops_sig.Int
+  include (M : Ops_intf.Int
            with type ('i, 'q) t := ('i, 'q) M.t
            and type i := Int63.t)
 
-  include (Formula : Ops_sig.Prop
+  include (Formula : Ops_intf.Prop
            with type 'a t := 'a formula)
 
   let iite c a b = M.M_Ite (c, a, b)

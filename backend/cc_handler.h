@@ -31,8 +31,9 @@ typedef pair<SCIP_VAR*, SCIP_VAR*> vpair;
 typedef unordered_map<vpair, SCIP_VAR*> dvar_map;
 // typedef pair<cnst, cnst> cpair;
 typedef util::with_offset<SCIP_VAR*> scip_ovar;
-
 typedef util::uintptr_variant<SCIP_NODE*, void*> pnode;
+
+struct dp;
 
 class scip_callback: public cc::callback<symbol> {
 
@@ -279,6 +280,7 @@ extern "C" {
 	extern void cc_handler_finalize(cc_handler*);
 	extern void cc_handler_include(cc_handler*);
 	extern SCIP_VAR* cc_handler_zero_var(cc_handler*);
+	extern void call_my_dp(struct DP*);
 #else // K&R style prototypes
 	extern cc_handler* new_cc_handler();
 	extern void delete_cc_handler();
@@ -286,6 +288,7 @@ extern "C" {
 	extern void cc_handler_finalize();
 	extern void cc_handler_include();
 	extern SCIP_VAR* cc_handler_zero_var();
+	extern void call_my_dp();
 #endif
 
 #ifdef __cplusplus

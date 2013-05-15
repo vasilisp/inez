@@ -9,10 +9,10 @@ val sexp_of_t :
   ('a, 'b) t -> Sexplib.Sexp.t
 
 module Box :
-  Box_sig.S2 with type ('c, 's) b := ('c, 's) t
+  Box_intf.S2 with type ('c, 's) b := ('c, 's) t
 
 module Box_arrow :
-  Box_sig.S2_arrow2 with type ('c, 's) b := ('c, 's) t
+  Box_intf.S2_arrow2 with type ('c, 's) b := ('c, 's) t
 
 type 'i t_arrow_type =
   { a_f : 't . ('i, 't) t -> 't Lang_types.t }

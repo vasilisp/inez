@@ -2,13 +2,21 @@ int SCIPmajorVersion();
 int SCIPminorVersion();
 int SCIPtechVersion();
 
+// CamlIDL thinks that GCC pads virtual tables. This does not seem to
+// be the case any more.
+
+quote(h,
+"#undef VTBL_PADDING\n\
+#define VTBL_PADDING\n\
+#undef DECLARE_VTBL_PADDING\n\
+#define DECLARE_VTBL_PADDING\n")
+      
 typedef [abstract] void* scip;
 typedef [abstract] void* var;
 typedef [abstract] void* cons;
 typedef [abstract] void* sol;
 typedef [abstract] void* cch;
-
-// typedef unsigned int sbool;
+typedef [abstract] void** voidstarstar;
 
 typedef unsigned int proptiming;
 
@@ -189,3 +197,14 @@ void cc_handler_include([in] cch c);
 
 /* simply returns NULL */
 var cc_handler_zero_var([in] cch c);
+
+// COM interface for theory solvers in OCaml
+
+[object] interface DP : IUnknown {
+  boolean receive([in] scip s,
+                  [in] var v1,
+                  [in] var v2,
+                  [in] long long int offset);
+}
+
+void call_my_dp([in] DP* d);

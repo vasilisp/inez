@@ -18,8 +18,8 @@ OCAML_LINK_FLAGS = -linkpkg -ccopt -L$(SCIP_LIB_DIR) -cclib -lscipopt	\
 
 private.EXT_COBJ = .o
 
-scip_idl.ml scip_idl.mli scip_idl.h scip_idl_stubs.c: scip_idl.idl
-    camlidl -header scip_idl.idl
+%_idl.ml %_idl.mli %_idl.h %_idl_stubs.c: %_idl.idl
+    camlidl -header %_idl.idl
 
 # copied from
 #   http://www.camlcity.org/knowledge/kb_001_omake_recipes.html
@@ -29,16 +29,6 @@ Camlp4o(module) =
         OCAMLPACKS += camlp4
         OCAMLDEPFLAGS += -pp camlp4of
         OCAMLFLAGS += -pp camlp4of
-        $(module).cmi:
-        $(module).cmo:
-        $(module).o:
-        $(module).cmx:
-
-Camlp4o_here(module) =
-    section
-        OCAMLPACKS += camlp4
-        OCAMLDEPFLAGS += -pp "camlp4of -I `ocamlfind query herelib` pa_herelib.cma"
-        OCAMLFLAGS += -pp "camlp4of -I `ocamlfind query herelib` pa_herelib.cma"
         $(module).cmi:
         $(module).cmo:
         $(module).o:
@@ -156,25 +146,25 @@ public.OCamlTop(name, files, cfiles) =
 #     -o inez.pp -custom
 
 Camlp4o_lib(lang_ids, herelib, herelib)
-Camlp4o_lib(lang_types, herelib type_conv comparelib sexplib, \
-                        herelib type_conv compare sexp_conv)
+Camlp4o_lib(lang_types, herelib type_conv comparelib sexplib, herelib \
+                        type_conv compare sexp_conv)
 Camlp4o_lib(solver, herelib, herelib)
-Camlp4o_lib(pre, herelib type_conv comparelib sexplib, \
-	         herelib type_conv compare sexp_conv)
+Camlp4o_lib(pre, herelib type_conv comparelib sexplib, herelib	\
+            type_conv compare sexp_conv)
 Camlp4o_lib(scip, herelib, herelib)
-Camlp4o_lib(terminology, type_conv comparelib sexplib, \
-                         type_conv compare sexp_conv)
+Camlp4o_lib(terminology, type_conv comparelib sexplib, type_conv	\
+                         compare sexp_conv)
 
 Camlp4o(lang_concrete)
 
-MyOCamlProgram(inez, scip util terminology unreachable ops_sig		\
-               box_sig formula lang_types lang_ids lang_abstract pre	\
-               solver smtlib_lexer smtlib_parser smtlib_solver main,	\
-               scip_idl_stubs)
+MyOCamlProgram(inez, terminology unreachable scip_idl scip util	\
+               formula lang_types lang_ids lang_abstract pre solver	\
+               smtlib_lexer smtlib_parser smtlib_solver main,		\
+               camlidl_dummy scip_idl_stubs)
 
-OCamlTop(inez, scip util terminology unreachable ops_sig box_sig	\
-         formula lang_types lang_ids lang_abstract lang_concrete pre	\
-         solver, camlidl_dummy scip_idl_stubs)
+OCamlTop(inez, terminology unreachable scip_idl scip util formula	\
+         lang_types lang_ids lang_abstract lang_concrete pre solver,	\
+         camlidl_dummy scip_idl_stubs)
 
 .PHONY: clean
 

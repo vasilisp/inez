@@ -21,7 +21,7 @@ val t_of_app : ('a -> 'b) t -> 'a t -> 'b t
 val rightmost_ibtype_of_t : 'a t -> ibtype
 
 module Box : sig
-  include Box_sig.T1 with type 'a b := 'a t
+  include Box_intf.T1 with type 'a b := 'a t
   val compare : t -> t -> int
   val sexp_of_t : t -> Sexplib.Sexp.t
   val t_of_ibtype : ibtype -> t
