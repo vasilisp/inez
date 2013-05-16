@@ -19,8 +19,11 @@ let _ =
       Printf.printf "unsat\n%!";
     | Smtlib_solver.R.P_Ok Some R_Unknown ->
       Printf.printf "unknown\n%!"
+    | Smtlib_solver.R.P_Bug ->
+      Printf.printf "solver produced wrong answer\n%!"
     | Smtlib_solver.R.P_Ok None ->
       ()
-  and f_err () = Printf.printf "error\n%!" in
-  (* and channel = open_in Sys.argv.(1) in *)
-  O.main stdin ~f ~f_err
+  and f_err () = Printf.printf "error\n%!"
+  and channel = open_in Sys.argv.(1) in
+  Printf.printf "f %s\n%!" Sys.argv.(1);
+  O.main channel ~f ~f_err

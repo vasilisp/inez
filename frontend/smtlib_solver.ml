@@ -6,7 +6,7 @@ type 'c tbox = 'c Box.t
 
 module R = struct
 
-  type 'r t = P_Ok of 'r | P_Unsupported | P_Syntax | P_Type
+  type 'r t = P_Ok of 'r | P_Unsupported | P_Syntax | P_Type | P_Bug
 
   let map x ~f =
     match x with
@@ -36,8 +36,11 @@ struct
 
   type logic = Q_Lia | Q_Uflia | Q_Idl | Q_Ufidl
 
+  type status = K_Sat | K_Unsat
+
   type ctx = {
-    mutable r_logic       :  logic Set_once.t;
+    mutable r_logic       :  logic option;
+    mutable r_status      :  status option;
     mutable r_sat_called  :  bool;
     mutable r_map         :  S.c Box.t String.Map.t;
     r_ctx                 :  S.ctx;
@@ -54,30 +57,53 @@ struct
     {e_find; e_replace; e_type}
 
   let make_ctx r_ctx = {
-    r_logic       =  Set_once.create ();
+    r_logic       =  None;
+    r_status      =  None;
     r_sat_called  =  false;
     r_map         =  String.Map.empty;
     r_ctx
   }
 
-  let check_logic {r_logic} s x =
-    match Set_once.get r_logic, s with
+  let check_logic ({r_logic} as r) s x =
+    match r_logic, s with
     | Some _, _ ->
       R.P_Syntax
     | None, "QF_LIA" ->
-      Set_once.set_exn r_logic Q_Lia;
+      r.r_logic <- Some Q_Lia;
       R.P_Ok x
     | None, "QF_UFLIA" ->
-      Set_once.set_exn r_logic Q_Uflia;
+      r.r_logic <- Some Q_Uflia;
       R.P_Ok x
     | None, "QF_IDL" ->
-      Set_once.set_exn r_logic Q_Idl;
+      r.r_logic <- Some Q_Idl;
       R.P_Ok x
     | None, "QF_UFIDL" ->
-      Set_once.set_exn r_logic Q_Ufidl;
+      r.r_logic <- Some Q_Ufidl;
       R.P_Ok x
     | _ ->
       R.P_Unsupported
+
+  let check_status ({r_status} as r) s x =
+    match r_status, s with
+    | Some _, _ ->
+      R.P_Syntax
+    | None, "sat" ->
+      r.r_status <- Some K_Sat;
+      R.P_Ok x
+    | None, "unsat" ->
+      r.r_status <- Some K_Unsat;
+      R.P_Ok x
+    | None, _ ->
+      R.P_Syntax
+
+  let check_result {r_status} e =
+    match r_status, e with
+    | Some K_Sat, R_Unsat ->
+      R.P_Bug
+    | Some K_Unsat, (R_Opt  | R_Unbounded | R_Sat) ->
+      R.P_Bug
+    | _ ->
+      R.P_Ok (Some e)
 
   let type_of_sexp = function
     | S_Atom L.K_Symbol "Int" ->
@@ -122,13 +148,16 @@ struct
       R.P_Unsupported
     | [S_Atom L.K_Set_Option; S_Atom L.K_Key _; _] ->
       R.P_Ok None
+    | [S_Atom L.K_Set_Info; S_Atom L.K_Key "status";
+       S_Atom L.K_Symbol s] ->
+      check_status r s None
     | [S_Atom L.K_Set_Info; S_Atom L.K_Key _; _] ->
       R.P_Ok None
     | [S_Atom L.K_Check_Sat] when r.r_sat_called ->
       R.P_Unsupported
     | [S_Atom L.K_Check_Sat] ->
       r.r_sat_called <- true;
-      R.P_Ok (Some (S.solve r_ctx))
+      check_result r (S.solve r_ctx)
     | [S_Atom L.K_Declare_Fun; S_Atom L.K_Symbol id; S_List l; t] ->
       parse_declare_fun r id l t
     | [S_Atom L.K_Assert; c] ->

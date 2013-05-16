@@ -3,7 +3,7 @@
 
 module R : sig
 
-  type 'r t = P_Ok of 'r | P_Unsupported | P_Syntax | P_Type
+  type 'r t = P_Ok of 'r | P_Unsupported | P_Syntax | P_Type | P_Bug
 
   val map : 'a t -> f:('a -> 'a) -> 'a t
   val map' : 'a t -> f:('a -> 'a t) -> 'a t
