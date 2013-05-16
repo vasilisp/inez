@@ -93,6 +93,13 @@ module Make (I : Lang_ids.Accessors) = struct
     sexp_of_t = sexp_of_conj
   }
 
+  let hashable_formula = {
+    Hashtbl.Hashable.
+    compare = compare_formula;
+    hash = Hashtbl.hash;
+    sexp_of_t = sexp_of_formula
+  }
+
   let true_formula = U_And []
     
   let false_formula = U_Not true_formula

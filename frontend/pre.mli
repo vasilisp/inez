@@ -35,6 +35,12 @@ module Make : functor (I : Lang_ids.Accessors) -> sig
 
   with compare
 
+  val hashable_sum : sum Core.Std.Hashtbl.Hashable.t
+  val hashable_args : args Core.Std.Hashtbl.Hashable.t
+  val hashable_iite : iite Core.Std.Hashtbl.Hashable.t
+  val hashable_bite : bite Core.Std.Hashtbl.Hashable.t
+  val hashable_formula : formula Core.Std.Hashtbl.Hashable.t
+
   type ctx
 
   val make_ctx : unit -> ctx
