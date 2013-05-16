@@ -1,5 +1,0 @@
-* SMT-LIB
-** TODO Record strings and quoted symbols in lexer
-* DSL
-** TODO Generalize uf for non-integer types
-** TODO Predicates over integers
