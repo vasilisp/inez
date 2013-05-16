@@ -5,7 +5,7 @@
 open Core.Std;;
 
 module Id = Lang_ids.Make (struct end);;
-module S = Solver.Make(Scip)(Id)
+module S = Solver.Make(Scip.Scip_basic)(Id)
 
 let ctx = S.make_ctx ();;
 

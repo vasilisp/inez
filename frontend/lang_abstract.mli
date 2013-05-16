@@ -40,7 +40,7 @@ and M : sig
   (* infix operators *)
 
   include (Ops_intf.Int with type ('i, 's) t := ('i, 's) t
-                       and type i := Core.Std.Int63.t)
+                        and type i := Core.Std.Int63.t)
 
 end
 

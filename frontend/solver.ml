@@ -9,15 +9,15 @@ module Make_compiler
 
 struct
 
-  module P = Pre.Make(I)
+  open Lang_abstract
 
-  module LA = Lang_abstract
+  module P = Pre.Make(I)
 
   type c = I.c
 
-  type 't term = (I.c, 't) LA.M.t
+  type 't term = (I.c, 't) M.t
 
-  type formula = I.c LA.A.t Formula.t
+  type formula = I.c A.t Formula.t
 
   type fun_id = I.c Lang_ids.Box_arrow.t
 
@@ -27,7 +27,7 @@ struct
 
   let type_of_term :
   type t . t term -> t Lang_types.t =
-    fun x -> Lang_abstract.M.type_of_t ~f:I.type_of_t' x
+    fun x -> M.type_of_t ~f:I.type_of_t' x
 
   let flat_sum_negate (l, x) =
     List.map l ~f:(Tuple.T2.map1 ~f:Int63.neg), Int63.neg x
@@ -302,6 +302,7 @@ struct
   let solve ({r_q; r_ctx} as r) =
     Dequeue.iter r_q ~f:(finally_assert_formula r);
     Dequeue.clear r_q;
+    write_bg_ctx r "/home/vpap/constraints.lp";
     if r.r_unsat then
       R_Unsat
     else

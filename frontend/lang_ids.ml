@@ -1,6 +1,7 @@
 open Core.Std
 
-module Id = (Int63 : Id_intf.Full)
+(* module Id = (Int63 : Id_intf.Full) *)
+module Id = Int63
 
 module M = struct
   
@@ -99,7 +100,7 @@ module Make (U : Unit.S) : S = struct
         Hashtbl.change m x' update_id; id, x
       | None ->
         let id = Id.succ Id.zero in
-        Hashtbl.replace m x' id; id, x
+        Hashtbl.replace m x' id; Id.zero, x
 
   let type_of_t :
   type u . (c, u) t -> u Lang_types.t =
