@@ -89,8 +89,8 @@ let string_of_version () =
 let config_list = [
   _here_,
   (fun c -> sCIPsetEmphasis c SCIP_PARAMEMPHASIS_EASYCIP true);
-  (* _here_, *)
-  (* (fun c -> sCIPsetIntParam c "display/verblevel" 0); *)
+  _here_,
+  (fun c -> sCIPsetIntParam c "display/verblevel" 0);
   _here_,
   (fun c -> sCIPsetPresolving c SCIP_PARAMSETTING_OFF true);
 ]
@@ -187,21 +187,25 @@ let make_constraint_id ({r_constraints_n} as r) =
   r.r_constraints_n <- r_constraints_n + 1;
   id
 
-let create_constraint ({r_ctx} as r) eq (l, o) =
+let create_constraint ({r_ctx} as r) eq l o =
   assert_ok1 _here_
     (sCIPcreateConsBasicLinear r_ctx
        (make_constraint_id r)
        (Array.of_list_map ~f:(Fn.compose (sv r) snd) l)
        (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
-       (-. (if eq then Int63.to_float o else sCIPinfinity r_ctx))
-       (Int63.to_float (Int63.neg o)))
+       (-.
+           (if eq then
+               Int63.(to_float (neg o))
+            else
+               sCIPinfinity r_ctx))
+       (Int63.to_float o))
 
-let add_eq ({r_ctx} as r) e =
-  let c = create_constraint r true e in
+let add_eq ({r_ctx} as r) l o =
+  let c = create_constraint r true l o in
   assert_ok _here_ (sCIPaddCons r_ctx c)
 
-let add_le ({r_ctx} as r) e =
-  let c = create_constraint r false e in
+let add_le ({r_ctx} as r) l o =
+  let c = create_constraint r false l o in
   assert_ok _here_ (sCIPaddCons r_ctx c)
 
 let var_of_var_signed ({r_ctx} as r) = function
@@ -210,7 +214,7 @@ let var_of_var_signed ({r_ctx} as r) = function
   | S_Neg v ->
     assert_ok1 _here_ (sCIPgetNegatedVar r_ctx (sv r v))
 
-let add_indicator ({r_ctx} as r) v (l, o) =
+let add_indicator ({r_ctx} as r) v l o =
   let c =
     assert_ok1 _here_
       (sCIPcreateConsBasicIndicator r_ctx
@@ -218,7 +222,7 @@ let add_indicator ({r_ctx} as r) v (l, o) =
          (var_of_var_signed r v)
          (Array.of_list_map ~f:(Fn.compose (sv r) snd) l)
          (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
-         (Int63.to_float (Int63.neg o))) in
+         (Int63.to_float o)) in
   assert_ok _here_ (sCIPaddCons r_ctx c)
 
 let add_clause ({r_ctx; r_constraints_n} as r) l =
@@ -325,15 +329,14 @@ module Scip_basic : Imt_intf.S = struct
   let new_ctx = new_ctx
 end
 
-module Make (F : Imt_intf.S_dp) = struct
+module Make (D : Imt_intf.S_dp) = struct
 
   include Access
 
-  module Dp = F(Access)
+  module D' = D.F(Access)
 
-  let new_ctx =
-    let o = object method receive = Dp.receive end in
-    fun () -> new_ctx_dp o
+  let new_ctx r =
+    new_ctx_dp (object method receive = D'.receive r end)
 
   let register _ _ _ = ()
 

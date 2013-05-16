@@ -115,7 +115,7 @@ struct
   (* linearizing terms and formulas: mutual recursion, because terms
      contain formulas and vice versa *)
 
-  let rec iexpr_of_sum r l o =
+  let rec iexpr_of_sum r (l, o) =
     let f (l, o) (c, t) =
       match ovar_of_flat_term_base r t with
       | Some v, x ->
@@ -125,27 +125,26 @@ struct
     and init = [], o in
     List.fold_left ~init ~f l
 
-  and blast_le ?v ({r_ctx} as r) s o =
-    let ((s, o) as ie) = iexpr_of_sum r s o
+  and blast_le ?v ({r_ctx} as r) s =
+    let l, o = iexpr_of_sum r s
     and v = match v with Some v -> v | _ -> S.new_bvar r_ctx in
-    S.add_indicator r_ctx (S_Pos v) ie;
-    let neg_sum = negate_isum s in
-    S.add_indicator r_ctx (S_Neg v) (neg_sum, Int63.(one - o));
+    S.add_indicator r_ctx (S_Pos v)  l                (Int63.neg o);
+    S.add_indicator r_ctx (S_Neg v)  (negate_isum l)  Int63.(o - one);
     S_Pos (Some v)
 
-  and blast_eq ({r_ctx} as r) s o =
-    let ((s, o) as ie) = iexpr_of_sum r s o in
-    let neg_sum = negate_isum s in
-    let v = S.new_bvar r_ctx in
-    let vp_lt = S_Pos (S.new_bvar r_ctx)
-    and vp_gt = S_Pos (S.new_bvar r_ctx)
-    and vp = S_Pos v in
-    S.add_indicator r_ctx vp ie;
-    S.add_indicator r_ctx vp (neg_sum, Int63.neg o);
-    S.add_indicator r_ctx vp_lt (s, Int63.(o + one));
-    S.add_indicator r_ctx vp_gt (neg_sum, Int63.(one - o));
-    S.add_clause r_ctx [vp; vp_lt; vp_gt];
-    S_Pos (Some v)
+  and blast_eq ({r_ctx} as r) s =
+    let l, o = iexpr_of_sum r s in
+    let l_neg = negate_isum l in
+    let b    = S.new_bvar r_ctx in
+    let b_lt = S_Pos (S.new_bvar r_ctx)
+    and b_gt = S_Pos (S.new_bvar r_ctx)
+    and b_eq = S_Pos b in
+    S.add_indicator r_ctx b_eq  l      (Int63.neg o);
+    S.add_indicator r_ctx b_eq  l_neg  o;
+    S.add_indicator r_ctx b_lt  l      Int63.(neg o - one);
+    S.add_indicator r_ctx b_gt  l_neg  Int63.(o - one);
+    S.add_clause r_ctx [b_eq; b_lt; b_gt];
+    S_Pos (Some b)
 
   and var_of_app ({r_ctx; r_call_m} as r) f_id l t =
     let f = get_f r f_id
@@ -158,18 +157,17 @@ struct
   and blast_ite_branch ({r_ctx} as r) xv v e =
     let l, o =
       match e with
-      | P.G_Sum (l, o) ->
-        iexpr_of_sum r l o
+      | P.G_Sum s ->
+        iexpr_of_sum r s
       | P.G_Base b ->
         (match ovar_of_flat_term_base r b with
         | Some v, x ->
           [Int63.one, v], x
         | None, x ->
           [], x) in
-    let l, o as ie = (Int63.minus_one, v) :: l, o in
-    S.add_indicator r_ctx xv ie;
-    let l, o as ie = negate_isum l, Int63.neg o in
-    S.add_indicator r_ctx xv ie
+    let l = (Int63.minus_one, v) :: l in
+    S.add_indicator r_ctx xv  l                (Int63.neg o);
+    S.add_indicator r_ctx xv  (negate_isum l)  o
 
   and ovar_of_ite ({r_ctx} as r) g s t =
     match xvar_of_formula r g with
@@ -199,29 +197,29 @@ struct
   and ovar_of_term ({r_ctx} as r) = function
     | P.G_Base b ->
       ovar_of_flat_term_base r b
-    | P.G_Sum (l, o) ->
-      (match iexpr_of_sum r l o with
+    | P.G_Sum s ->
+      (match iexpr_of_sum r s with
       | [], o ->
         None, o
       | [c, x], o when c = Int63.one ->
         Some x, o
       | l, o ->
         let v = S.new_ivar r_ctx mip_type_int in
-        S.add_eq r_ctx ((Int63.minus_one, v) :: l, o);
+        S.add_eq r_ctx ((Int63.minus_one, v) :: l) (Int63.neg o);
         Some v, Int63.zero)
 
   and ovar_of_ibeither ({r_ctx} as r) = function
     | H_Int (P.G_Base b) ->
       ovar_of_flat_term_base r b
-    | H_Int (P.G_Sum (l, o)) ->
-      (match iexpr_of_sum r l o with
+    | H_Int (P.G_Sum s) ->
+      (match iexpr_of_sum r s with
       | [], o ->
         None, o
       | [c, x], o when c = Int63.one ->
         Some x, o
       | l, o ->
         let v = S.new_ivar r_ctx mip_type_int in
-        S.add_eq r_ctx ((Int63.minus_one, v) :: l, o);
+        S.add_eq r_ctx ((Int63.minus_one, v) :: l) (Int63.neg o);
         Some v, Int63.zero)
     | H_Bool g ->
       (match xvar_of_formula r g with
@@ -236,13 +234,13 @@ struct
 
   and blast_atom ({r_ctx} as r) = function
     | P.G_Base t, O'_Le ->
-      blast_le r [Int63.one, t] Int63.zero
-    | P.G_Sum (s, o), O'_Le ->
-      blast_le r s o
+      blast_le r ([Int63.one, t], Int63.zero)
+    | P.G_Sum s, O'_Le ->
+      blast_le r s
     | P.G_Base t, O'_Eq ->
-      blast_eq r [Int63.one, t] Int63.zero
-    | P.G_Sum (s, o), O'_Eq ->
-      blast_eq r s o
+      blast_eq r ([Int63.one, t], Int63.zero)
+    | P.G_Sum s, O'_Eq ->
+      blast_eq r s
 
   and blast_conjunction_map r acc = function
     | g :: tail ->
@@ -298,14 +296,14 @@ struct
     Hashtbl.find_or_add r_xvar_m g ~default
 
   let assert_ivar_equal_constant {r_ctx} v c =
-    S.add_eq r_ctx ([Int63.one, v], Int63.neg c)
+    S.add_eq r_ctx [Int63.one, v] c
 
   let assert_ivar_le_constant {r_ctx} v c =
-    S.add_le r_ctx ([Int63.one, v], Int63.neg c)
+    S.add_le r_ctx [Int63.one, v] c
 
   let assert_bvar_equal_constant {r_ctx} v c =
     let v = S.ivar_of_bvar v in
-    S.add_eq r_ctx ([Int63.one, v], Int63.neg c)
+    S.add_eq r_ctx [Int63.one, v] c
 
   let finally_assert_unit ({r_ctx} as r) = function
     | S_Pos (Some v) ->
@@ -325,12 +323,12 @@ struct
     | P.U_App (f_id, l) ->
       let v = var_of_app r f_id l mip_type_bool in
       assert_ivar_equal_constant r v Int63.one
-    | P.U_Atom (P.G_Sum (l, o), O'_Le) ->
-      let i = iexpr_of_sum r l o in
-      S.add_le r_ctx i
-    | P.U_Atom (P.G_Sum (l, o), O'_Eq) ->
-      let i = iexpr_of_sum r l o in
-      S.add_eq r_ctx i
+    | P.U_Atom (P.G_Sum s, O'_Le) ->
+      let l, o = iexpr_of_sum r s in
+      S.add_le r_ctx l (Int63.neg o)
+    | P.U_Atom (P.G_Sum s, O'_Eq) ->
+      let l, o = iexpr_of_sum r s in
+      S.add_eq r_ctx l (Int63.neg o)
     | P.U_Atom (P.G_Base a, O'_Le) ->
       (match ovar_of_flat_term_base r a with
       | None, o when Int63.(o > zero) ->
