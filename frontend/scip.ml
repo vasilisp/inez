@@ -325,25 +325,16 @@ module Scip_basic : Imt_intf.S = struct
   let new_ctx = new_ctx
 end
 
-module Scip_accepts_dp = struct
+module Make (F : Imt_intf.S_dp) = struct
 
-  type ctx = scip_ctx
-  type ivar = int
+  include Access
 
-  (* TODO : Provide [compare] for [ivar]; maybe also hashtables and
-     related structures.  Also, Dp may need more privileges, e.g.,
-     querying about bounds. *)
+  module Dp = F(Access)
 
-  module type Dp = sig
-    val receive : ctx -> ivar -> ivar -> response
-  end
+  let new_ctx =
+    let o = object method receive = Dp.receive end in
+    fun () -> new_ctx_dp o
 
-  module Make (Dp : Dp) = struct
-    include Access
-    let new_ctx =
-      let o = object method receive = Dp.receive end in
-      fun () -> new_ctx_dp o
-    let register _ _ _ = ()
-  end
+  let register _ _ _ = ()
 
 end

@@ -69,18 +69,11 @@ module type S = sig
   val new_ctx : unit -> ctx
 end
 
-module type S_accepts_dp = sig
+module type S_dp = functor (X : S_access) -> sig
+  val receive : X.ctx -> X.ivar -> X.ivar -> response
+end
 
-  type ctx
-  type ivar
-
-  module type Dp = sig
-    val receive : ctx -> ivar -> ivar -> response
-  end
-
-  module Make : functor (Dp : Dp) -> sig
-    include S with type ctx := ctx
-    val register : ctx -> ivar -> ivar -> unit
-  end
-
+module type S_make = functor (X : S_dp) -> sig
+  include S
+  val register : ctx -> ivar -> ivar -> unit
 end
