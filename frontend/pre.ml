@@ -54,68 +54,47 @@ module Make (I : Lang_ids.Accessors) = struct
 
   with compare, sexp_of
 
-  module Sum = struct
-    module T = struct
-      type t = sum
-      let compare = compare_sum
-      let hash = Hashtbl.hash
-      let sexp_of_t = sexp_of_sum
-      let t_of_sexp _ = raise (Unreachable.Exn _here_)
-    end
-    include T
-    include Hashable.Make(T)
-  end
+  (* To use the functorial interface to [Core.Std.Hashtbl], we would
+     have to implement t_of_sexp functions. In the presence of GADTs,
+     this is not easy. *)
 
-  module Args = struct
-    module T = struct
-      type t = args
-      let compare = compare_args
-      let hash = Hashtbl.hash
-      let sexp_of_t = sexp_of_args
-      let t_of_sexp _ = raise (Unreachable.Exn _here_)
-    end
-    include T
-    include Hashable.Make(T)
-  end
+  let hashable_sum = {
+    Hashtbl.Hashable.
+    compare = compare_sum;
+    hash = Hashtbl.hash;
+    sexp_of_t = sexp_of_sum
+  }
 
-  module Iite = struct
-    module T = struct
-      type t = iite
-      let compare = compare_iite
-      let hash = Hashtbl.hash
-      let sexp_of_t = sexp_of_iite
-      let t_of_sexp _ = raise (Unreachable.Exn _here_)
-    end
-    include T
-    include Hashable.Make(T)
-  end
+  let hashable_args = {
+    Hashtbl.Hashable.
+    compare = compare_args;
+    hash = Hashtbl.hash;
+    sexp_of_t = sexp_of_args
+  }
 
-  module Bite = struct
-    module T = struct
-      type t = bite
-      let compare = compare_bite
-      let hash = Hashtbl.hash
-      let sexp_of_t = sexp_of_bite
-      let t_of_sexp _ = raise (Unreachable.Exn _here_)
-    end
-    include T
-    include Hashable.Make(T)
-  end
+  let hashable_iite = {
+    Hashtbl.Hashable.
+    compare = compare_iite;
+    hash = Hashtbl.hash;
+    sexp_of_t = sexp_of_iite
+  }
 
-  module Conj = struct
-    module T = struct
-      type t = conj
-      let compare = compare_conj
-      let hash = Hashtbl.hash
-      let sexp_of_t = sexp_of_conj
-      let t_of_sexp _ = raise (Unreachable.Exn _here_)
-    end
-    include T
-    include Hashable.Make(T)
-  end
+  let hashable_bite = {
+    Hashtbl.Hashable.
+    compare = compare_bite;
+    hash = Hashtbl.hash;
+    sexp_of_t = sexp_of_bite
+  }
+
+  let hashable_conj = {
+    Hashtbl.Hashable.
+    compare = compare_conj;
+    hash = Hashtbl.hash;
+    sexp_of_t = sexp_of_conj
+  }
 
   let true_formula = U_And []
-  
+    
   let false_formula = U_Not true_formula
 
   let dummy_formula = true_formula
@@ -133,11 +112,11 @@ module Make (I : Lang_ids.Accessors) = struct
        single sub{term,formula} is shared, but we don't have to go
        very deep before we find shared parts. *)
     
-    r_sum_h    :  sum Sum.Table.t;
-    r_args_h   :  args Args.Table.t;
-    r_iite_h   :  term_base Iite.Table.t;
-    r_bite_h   :  formula Bite.Table.t;
-    r_conj_h   :  formula Conj.Table.t;
+    r_sum_h    :  (sum, sum) Hashtbl.t;
+    r_args_h   :  (args, args) Hashtbl.t;
+    r_iite_h   :  (iite, term_base) Hashtbl.t;
+    r_bite_h   :  (bite, formula) Hashtbl.t;
+    r_conj_h   :  (conj, formula) Hashtbl.t;
     
   }
 
@@ -145,11 +124,11 @@ module Make (I : Lang_ids.Accessors) = struct
     r_imemo_h = Hashtbl.Poly.create () ~size:4096;
     r_bmemo_h = Hashtbl.Poly.create () ~size:4096;
     r_fmemo_h = Hashtbl.Poly.create () ~size:4096;
-    r_sum_h = Sum.Table.create () ~size:2048;
-    r_args_h = Args.Table.create () ~size:2048;
-    r_iite_h = Iite.Table.create () ~size:2048;
-    r_bite_h = Bite.Table.create () ~size:2048;
-    r_conj_h = Conj.Table.create () ~size:2048;
+    r_sum_h   = Hashtbl.create () ~size:2048 ~hashable:hashable_sum;
+    r_args_h  = Hashtbl.create () ~size:2048 ~hashable:hashable_args;
+    r_iite_h  = Hashtbl.create () ~size:2048 ~hashable:hashable_iite;
+    r_bite_h  = Hashtbl.create () ~size:2048 ~hashable:hashable_bite;
+    r_conj_h  = Hashtbl.create () ~size:2048 ~hashable:hashable_conj;
   }
 
   (* we will expand-out ITE right before blasting *)
