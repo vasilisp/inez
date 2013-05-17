@@ -277,31 +277,23 @@ module Make (I : Lang_ids.Accessors) = struct
       assert(Int63.(lb <= ub));
       Some (s, lb, ub, ub = Int63.(lb + length - one))
 
-  let make_conj {r_conj_h} l =
-    let ret l =
-      let default () = U_And l in
-      Hashtbl.find_or_add r_conj_h l ~default in
-    let rec f acc = function
-      | a :: U_Not ad :: dd
-      | U_Not a :: ad :: dd when compare_formula a ad = 0 ->
-        false_formula
-      | a :: ((ad :: dd) as d) when compare_formula a ad = 0 ->
-        f acc d
-      | a :: d ->
-        f (a :: acc) d
-      | [] ->
-        (let acc = List.rev acc in
-         match get_bounding acc with
-         | Some (s, lb, ub, true) ->
-           negate
-             (ret
-                [negate (U_Atom (G_Sum (s, Int63.(one - lb)), O'_Le));
-                 U_Atom (G_Sum (s, Int63.neg ub), O'_Le)])
-         | Some (s, lb, ub, false) ->
-           ret acc
-         | None ->
-           ret acc) in
-    f [] (List.sort l ~cmp:compare_formula_abs)
+  let maybe_resolve r g h =
+    let ret f g h = Some (f, g, h) in
+    match g, h with
+    | U_Not (U_And [g1; g2]), U_Not (U_And [h1; h2]) ->
+      (let h1' = negate h1 and h2' = negate h2 in
+       if compare_formula g1 h1' = 0 then
+         ret g1 g2 h2
+       else if compare_formula g1 h2' = 0 then
+         ret g1 g2 h1
+       else if compare_formula g2 h1' = 0 then
+         ret g2 g1 h2
+       else if compare_formula g2 h2' = 0 then
+         ret g2 g1 h1
+       else
+         None)
+    | _, _ ->
+      None
 
   (*
     let make_conj {r_conj_h} l =
@@ -392,7 +384,39 @@ module Make (I : Lang_ids.Accessors) = struct
       | _ ->
         (* not meant for functions *)
         raise (Unreachable.Exn _here_)
-          
+
+  and make_conj ({r_conj_h} as r) l =
+    let ret l =
+      let default () = U_And l in
+      Hashtbl.find_or_add r_conj_h l ~default in
+    let rec f acc = function
+      | a :: U_Not ad :: dd
+      | U_Not a :: ad :: dd when compare_formula a ad = 0 ->
+        false_formula
+      | a :: ((ad :: dd) as d) when compare_formula a ad = 0 ->
+        f acc d
+      | a :: ((ad :: dd) as d) ->
+        (match maybe_resolve r a ad with
+        | Some (q, g, h) ->
+          f (make_bite_wrapper r q g h :: acc) dd
+        | None ->
+          f (a :: acc) d)
+      | a :: d ->
+        f (a :: acc) d
+      | [] ->
+        (let acc = List.rev acc in
+         match get_bounding acc with
+         | Some (s, lb, ub, true) ->
+           negate
+             (ret
+                [negate (U_Atom (G_Sum (s, Int63.(one - lb)), O'_Le));
+                 U_Atom (G_Sum (s, Int63.neg ub), O'_Le)])
+         | Some (s, lb, ub, false) ->
+           ret acc
+         | None ->
+           ret acc) in
+    f [] (List.sort l ~cmp:compare_formula_abs)
+
   and flatten_conjunction r d = function
     | Formula.F_True ->
       d
@@ -402,10 +426,7 @@ module Make (I : Lang_ids.Accessors) = struct
     | g ->
       flatten_formula r g :: d
 
-  and flatten_ite r q g h =
-    let q = flatten_formula r q
-    and g = flatten_formula r g
-    and h = flatten_formula r h in
+  and make_bite_wrapper r q g h =
     match g, h with
     | U_Atom (sg, og), U_Atom (sh, oh) when compare_op' og oh = 0 ->
       (match equal_modulo_offset sg sh with
@@ -430,17 +451,20 @@ module Make (I : Lang_ids.Accessors) = struct
     | Formula.F_Not g ->
       negate (flatten_formula r g)
     | Formula.F_Ite (q, g, h) ->
-      flatten_ite r q g h
+      let q = flatten_formula r q
+      and g = flatten_formula r g
+      and h = flatten_formula r h in
+      make_bite_wrapper r q g h
     | Formula.F_And (_, _) as g ->
       make_conj r (flatten_conjunction r [] g)
 
   and flatten_formula_dbg ({r_fmemo_h} as r) g =
-    let g =
+    let rval =
       Hashtbl.find_or_add r_fmemo_h g
         ~default:(fun () -> flatten_formula_aux r g) in
-    Sexplib.Sexp.output_hum Pervasives.stdout (sexp_of_formula g);
+    Sexplib.Sexp.output_hum Pervasives.stdout (sexp_of_formula rval);
     print_newline ();
-    g
+    rval
 
   and flatten_formula ({r_fmemo_h} as r) g =
     Hashtbl.find_or_add r_fmemo_h g
