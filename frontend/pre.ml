@@ -278,7 +278,7 @@ module Make (I : Lang_ids.Accessors) = struct
       Some (s, lb, ub, ub = Int63.(lb + length - one))
 
   let maybe_resolve r g h =
-    let ret f g h = Some (f, g, h) in
+    let ret f g h = Some (f, negate g, negate h) in
     match g, h with
     | U_Not (U_And [g1; g2]), U_Not (U_And [h1; h2]) ->
       (let h1' = negate h1 and h2' = negate h2 in
