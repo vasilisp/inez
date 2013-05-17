@@ -231,6 +231,12 @@ module Make (I : Lang_ids.Accessors) = struct
     | _ ->
       None
 
+  let sum_of_term = function
+    | G_Sum s ->
+      s
+    | G_Base b ->
+      [Int63.one, b], Int63.zero
+
   let is_bounding = function
     | U_Not (U_Atom (s, O'_Eq)) :: d ->
       List.for_all d
@@ -395,7 +401,23 @@ module Make (I : Lang_ids.Accessors) = struct
       flatten_conjunction r d h
     | g ->
       flatten_formula r g :: d
-        
+
+  and flatten_ite r q g h =
+    let q = flatten_formula r q
+    and g = flatten_formula r g
+    and h = flatten_formula r h in
+    match g, h with
+    | U_Atom (sg, og), U_Atom (sh, oh) when compare_op' og oh = 0 ->
+      (match equal_modulo_offset sg sh with
+      | Some k ->
+        let l, o = sum_of_term sh in
+        let l = (k, B_Formula q) :: l in
+        U_Atom (G_Sum (make_sum r l o), og)
+      | None ->
+        make_bite r q g h)
+    | _ ->
+      make_bite r q g h
+  
   and flatten_formula_aux r = function
     | Formula.F_True ->
       true_formula
@@ -408,10 +430,7 @@ module Make (I : Lang_ids.Accessors) = struct
     | Formula.F_Not g ->
       negate (flatten_formula r g)
     | Formula.F_Ite (q, g, h) ->
-      make_bite r
-        (flatten_formula r q)
-        (flatten_formula r g)
-        (flatten_formula r h)
+      flatten_ite r q g h
     | Formula.F_And (_, _) as g ->
       make_conj r (flatten_conjunction r [] g)
 
