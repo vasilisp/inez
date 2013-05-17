@@ -32,9 +32,10 @@ module Make (I : Lang_ids.Accessors) = struct
     formula * term * term
 
   and term_base =
-  | B_Var   of  (I.c, int) Lang_ids.t
-  | B_App   of  app
-  | B_Ite   of  iite
+  | B_Var      of  (I.c, int) Lang_ids.t
+  | B_Formula  of  formula
+  | B_App      of  app
+  | B_Ite      of  iite
 
   and term =
   | G_Base  of  term_base
@@ -212,23 +213,30 @@ module Make (I : Lang_ids.Accessors) = struct
   let equal_modulo_offset a b =
     match a, b with
     | G_Base b1, G_Base b2 ->
-      compare b1 b2 = 0
-    | G_Sum ([c, b1], _), G_Base b2 when c = Int63.one ->
-      compare b1 b2 = 0
-    | G_Base b1, G_Sum ([c, b2], _) when c = Int63.one ->
-      compare b1 b2 = 0
-    | G_Sum (s1, _), G_Sum (s2, _) ->
-      (* [phys_equal s1 s2] should suffice *)
-      compare s1 s2 = 0
+      Option.some_if
+        (compare_term_base b1 b2 = 0)
+        Int63.zero
+    | G_Sum ([c, b1], o), G_Base b2 ->
+      Option.some_if
+        (c = Int63.one && compare_term_base b1 b2 = 0)
+        o
+    | G_Base b2, G_Sum ([c, b1], o) ->
+      Option.some_if
+        (c = Int63.one && compare_term_base b1 b2 = 0)
+        (Int63.neg o)
+    | G_Sum (s1, o1), G_Sum (s2, o2) ->
+      Option.some_if
+        (compare_sum s1 s2 = 0)
+        Int63.(o1 - o2)
     | _ ->
-      false
+      None
 
   let is_bounding = function
     | U_Not (U_Atom (s, O'_Eq)) :: d ->
       List.for_all d
         ~f:(function
         | U_Not (U_Atom (s2, O'_Eq)) ->
-          equal_modulo_offset s s2
+          Option.is_some (equal_modulo_offset s s2)
         | _ ->
           false)
     | _ ->
@@ -289,11 +297,11 @@ module Make (I : Lang_ids.Accessors) = struct
            ret acc) in
     f [] (List.sort l ~cmp:compare_formula_abs)
 
-(*
-  let make_conj {r_conj_h} l =
-  let default () = U_And l in
-  Hashtbl.find_or_add r_conj_h l ~default
-*)
+  (*
+    let make_conj {r_conj_h} l =
+    let default () = U_And l in
+    Hashtbl.find_or_add r_conj_h l ~default
+  *)
 
   let rec flatten_args :
   type s t . ctx -> ibflat list -> (I.c, s -> t) M.t -> app =
@@ -302,6 +310,13 @@ module Make (I : Lang_ids.Accessors) = struct
       flatten_args r (flatten_term r t :: acc) f
     | M.M_Var v ->
       Lang_ids.Box_arrow.Box v, make_args r (List.rev acc)
+
+  and inline_term r (d, x) k = function
+    | G_Base b ->
+      (k, b) :: d, x
+    | G_Sum (l, o) ->
+      List.rev_map_append l d ~f:(Tuple.T2.map1 ~f:(Int63.( * ) k)),
+      Int63.(x + o * k)
 
   and flatten_int_term_sum r (d, x) k (t : (_, int) M.t) =
     match t with
@@ -319,9 +334,14 @@ module Make (I : Lang_ids.Accessors) = struct
       flatten_int_term_sum r (d, x) Int63.(k * k2) t
     | M.M_Ite (c, s, t) ->
       let c = flatten_formula r c
-      and s = flatten_int_term r s
+      and s = flatten_int_term r s 
       and t = flatten_int_term r t in
-      (k, make_iite r c s t) :: d, x
+      (match equal_modulo_offset s t with
+      | Some o ->
+        let d, x = inline_term r (d, x) k t in
+        (Int63.(k * o), B_Formula c) :: d, x
+      | None ->
+        (k, make_iite r c s t) :: d, x)
 
   and flatten_int_term_aux ({r_sum_h} as r) = function
     | M.M_Var v ->

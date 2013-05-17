@@ -189,6 +189,8 @@ struct
   and ovar_of_flat_term_base r = function
     | P.B_Var v ->
       Some (get_int_var r v), Int63.zero
+    | P.B_Formula g ->
+      ovar_of_formula r g
     | P.B_App (f_id, l) ->
       Some (var_of_app r f_id l mip_type_int), Int63.zero
     | P.B_Ite (g, s, t) ->
@@ -208,6 +210,17 @@ struct
         S.add_eq r_ctx ((Int63.minus_one, v) :: l) (Int63.neg o);
         Some v, Int63.zero)
 
+  and ovar_of_formula ({r_ctx} as r) g =
+    match xvar_of_formula r g with
+    | S_Pos (Some v) ->
+      Some (S.ivar_of_bvar v), Int63.zero
+    | S_Neg (Some v) ->
+      Some (S.ivar_of_bvar (S.negate_bvar r_ctx v)), Int63.zero
+    | S_Pos None ->
+      None, Int63.one
+    | S_Neg None ->
+      None, Int63.zero
+
   and ovar_of_ibeither ({r_ctx} as r) = function
     | H_Int (P.G_Base b) ->
       ovar_of_flat_term_base r b
@@ -222,15 +235,7 @@ struct
         S.add_eq r_ctx ((Int63.minus_one, v) :: l) (Int63.neg o);
         Some v, Int63.zero)
     | H_Bool g ->
-      (match xvar_of_formula r g with
-      | S_Pos (Some v) ->
-        Some (S.ivar_of_bvar v), Int63.zero
-      | S_Neg (Some v) ->
-        Some (S.ivar_of_bvar (S.negate_bvar r_ctx v)), Int63.zero
-      | S_Pos None ->
-        None, Int63.one
-      | S_Neg None ->
-        None, Int63.zero)
+      ovar_of_formula r g
 
   and blast_atom ({r_ctx} as r) = function
     | P.G_Base t, O'_Le ->

@@ -15,9 +15,10 @@ module Make : functor (I : Lang_ids.Accessors) -> sig
   and iite = formula * term * term
 
   and term_base = private
-                  | B_Var   of  (I.c, int) Lang_ids.t
-                  | B_App   of  app
-                  | B_Ite   of  iite
+                  | B_Var      of  (I.c, int) Lang_ids.t
+                  | B_Formula  of  formula
+                  | B_App      of  app
+                  | B_Ite      of  iite
 
   and term = private
              | G_Base  of  term_base
