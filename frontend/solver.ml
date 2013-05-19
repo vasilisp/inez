@@ -47,6 +47,14 @@ struct
     sexp_of_t = sexp_of_bool_id
   }
 
+  let hashable_isum = {
+    Hashtbl.Hashable.
+    hash = Hashtbl.hash;
+    (* FIXME : compare and sexp in imt_intf *)
+    compare = compare_isum (compare : S.ivar -> S.ivar -> int);
+    sexp_of_t = fun _ -> raise (Unreachable.Exn _here_)
+  }
+
   let type_of_term :
   type t . t term -> t Lang_types.t =
     fun x -> M.type_of_t ~f:I.type_of_t' x
@@ -75,11 +83,14 @@ struct
   type ctx = {
     r_ctx              :  S.ctx;
     r_pre_ctx          :  P.ctx;
+    r_ivar_m           :  (int_id, S.ivar) Hashtbl.t;
+    r_bvar_m           :  (bool_id, S.bvar) Hashtbl.t;
     r_xvar_m           :  (P.formula, xvar) Hashtbl.t;
     r_fun_m            :  (fun_id, S.f) Hashtbl.t;
     r_call_m           :  (S.f * ovar list, S.ivar) Hashtbl.t;
-    r_ivar_m           :  (int_id, S.ivar) Hashtbl.t;
-    r_bvar_m           :  (bool_id, S.bvar) Hashtbl.t;
+    r_sum_m            :  (P.sum, S.ivar iexpr) Hashtbl.t;
+    r_var_of_sum_m     :  (S.ivar isum, S.ivar) Hashtbl.t;
+    r_ovar_of_iite_m   :  (P.iite, ovar) Hashtbl.t;
     r_q                :  P.formula Dequeue.t;
     mutable r_fun_cnt  :  int;
     mutable r_unsat    :  bool
@@ -115,15 +126,19 @@ struct
   (* linearizing terms and formulas: mutual recursion, because terms
      contain formulas and vice versa *)
 
-  let rec iexpr_of_sum r (l, o) =
-    let f (l, o) (c, t) =
-      match ovar_of_flat_term_base r t with
-      | Some v, x ->
-        (c, v) :: l, Int63.(o + c * x)
-      | None, x ->
-        l, Int63.(o + c * x)
-    and init = [], o in
-    List.fold_left ~init ~f l
+  let rec iexpr_of_sum ({r_sum_m} as r) (l, o) =
+    let l, o' =
+      Hashtbl.find_or_add r_sum_m l
+        ~default:(fun () ->
+          let f (l, o) (c, t) =
+            match ovar_of_flat_term_base r t with
+            | Some v, x ->
+              (c, v) :: l, Int63.(o + c * x)
+            | None, x ->
+              l, Int63.(o + c * x)
+          and init = [], Int63.zero in
+          List.fold_left ~init ~f l) in
+    l, Int63.(o' + o)
 
   and blast_le ?v ({r_ctx} as r) s =
     let l, o = iexpr_of_sum r s
@@ -169,22 +184,24 @@ struct
     S.add_indicator r_ctx xv  l                (Int63.neg o);
     S.add_indicator r_ctx xv  (negate_isum l)  o
 
-  and ovar_of_ite ({r_ctx} as r) g s t =
-    match xvar_of_formula r g with
-    | S_Pos None ->
-      ovar_of_term r s
-    | S_Neg None ->
-      ovar_of_term r t
-    | S_Pos (Some bv) ->
-      let v = S.new_ivar r_ctx mip_type_int in
-      blast_ite_branch r (S_Pos bv) v s;
-      blast_ite_branch r (S_Neg bv) v t;
-      Some v, Int63.zero
-    | S_Neg (Some bv) ->
-      let v = S.new_ivar r_ctx mip_type_int in
-      blast_ite_branch r (S_Neg bv) v s;
-      blast_ite_branch r (S_Pos bv) v t;
-      Some v, Int63.zero
+  and ovar_of_ite ({r_ctx; r_ovar_of_iite_m} as r) ((g, s, t) as i) =
+    let default () =
+      match xvar_of_formula r g with
+      | S_Pos None ->
+        ovar_of_term r s
+      | S_Neg None ->
+        ovar_of_term r t
+      | S_Pos (Some bv) ->
+        let v = S.new_ivar r_ctx mip_type_int in
+        blast_ite_branch r (S_Pos bv) v s;
+        blast_ite_branch r (S_Neg bv) v t;
+        Some v, Int63.zero
+      | S_Neg (Some bv) ->
+        let v = S.new_ivar r_ctx mip_type_int in
+        blast_ite_branch r (S_Neg bv) v s;
+        blast_ite_branch r (S_Pos bv) v t;
+        Some v, Int63.zero in
+    Hashtbl.find_or_add r_ovar_of_iite_m i ~default
 
   and ovar_of_flat_term_base r = function
     | P.B_Var v ->
@@ -193,10 +210,10 @@ struct
       ovar_of_formula r g
     | P.B_App (f_id, l) ->
       Some (var_of_app r f_id l mip_type_int), Int63.zero
-    | P.B_Ite (g, s, t) ->
-      ovar_of_ite r g s t
-
-  and ovar_of_term ({r_ctx} as r) = function
+    | P.B_Ite i ->
+      ovar_of_ite r i
+  
+  and ovar_of_term ({r_ctx; r_var_of_sum_m} as r) = function
     | P.G_Base b ->
       ovar_of_flat_term_base r b
     | P.G_Sum s ->
@@ -206,9 +223,13 @@ struct
       | [c, x], o when c = Int63.one ->
         Some x, o
       | l, o ->
-        let v = S.new_ivar r_ctx mip_type_int in
-        S.add_eq r_ctx ((Int63.minus_one, v) :: l) (Int63.neg o);
-        Some v, Int63.zero)
+        let v =
+          let default () =
+            let v = S.new_ivar r_ctx mip_type_int in
+            S.add_eq r_ctx ((Int63.minus_one, v) :: l) Int63.zero;
+            v in
+          Hashtbl.find_or_add r_var_of_sum_m l ~default in
+        Some v, o)
 
   and ovar_of_formula ({r_ctx} as r) g =
     match xvar_of_formula r g with
@@ -249,7 +270,7 @@ struct
 
   and blast_conjunction_map r acc = function
     | g :: tail ->
-      (match blast_formula r g with
+      (match xvar_of_formula r g with
       | S_Pos (Some x) ->
         blast_conjunction_map r (S_Pos x :: acc) tail
       | S_Pos None ->
@@ -282,6 +303,8 @@ struct
       ~default:xfalse
 
   and blast_formula r = function
+    | P.U_Not _ | P.U_Ite (_, _, _) ->
+      raise (Unreachable.Exn _here_)
     | P.U_Var v ->
       S_Pos (Some (get_bool_var r v))
     | P.U_App (f_id, l) ->
@@ -289,16 +312,17 @@ struct
                      (var_of_app r f_id l mip_type_bool)))
     | P.U_Atom (t, o) ->
       blast_atom r (t, o)
-    | P.U_Not g ->
-      snot (blast_formula r g)
     | P.U_And l ->
       blast_conjunction r l
-    | P.U_Ite (q, g, h) ->
-      blast_formula r (P.ff_ite q g h)
 
-  and xvar_of_formula ({r_xvar_m} as r) g =
-    let default () = blast_formula r g in
-    Hashtbl.find_or_add r_xvar_m g ~default
+  and xvar_of_formula ({r_xvar_m} as r) = function
+    | P.U_Not g ->
+      snot (xvar_of_formula r g)
+    | P.U_Ite (q, g, h) ->
+      xvar_of_formula r (P.ff_ite q g h)
+    | g ->
+      let default () = blast_formula r g in
+      Hashtbl.find_or_add r_xvar_m g ~default
 
   let assert_ivar_equal_constant {r_ctx} v c =
     S.add_eq r_ctx [Int63.one, v] c
@@ -390,16 +414,22 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
   let make_ctx () = {
     r_ctx     = S.new_ctx ();
     r_pre_ctx = P.make_ctx ();
+    r_ivar_m  =
+      Hashtbl.create () ~size:10240 ~hashable:hashable_int_id;
+    r_bvar_m  =
+      Hashtbl.create () ~size:10240 ~hashable:hashable_bool_id;
     r_xvar_m  =
       Hashtbl.create () ~size:10240 ~hashable:P.hashable_formula;
     r_fun_m   =
       Hashtbl.create () ~size:512 ~hashable:hashable_fun_id;
     r_call_m  =
       Hashtbl.Poly.create ~size:2048 ();
-    r_ivar_m  =
-      Hashtbl.create () ~size:10240 ~hashable:hashable_int_id;
-    r_bvar_m  =
-      Hashtbl.create () ~size:10240 ~hashable:hashable_bool_id;
+    r_sum_m =
+      Hashtbl.create ~size:2048 ~hashable:P.hashable_sum ();
+    r_var_of_sum_m =
+      Hashtbl.create ~size:2048 ~hashable:hashable_isum ();
+    r_ovar_of_iite_m =
+      Hashtbl.create ~size:2048 ~hashable:P.hashable_iite ();
     r_q       = Dequeue.create () ~dummy:P.dummy_formula;
     r_fun_cnt = 0;
     r_unsat   = false
