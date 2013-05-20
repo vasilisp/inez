@@ -2,6 +2,17 @@ open Core.Std
 open Terminology
 open Lang_abstract
 
+(* TODO: investigate why type_conv (or camlp4 itself?) breaks module
+   signatures, like:
+
+   module type Pre_step = sig
+     type ctx
+     type formula
+     val transform : ctx -> formula -> formula
+   end
+
+*)
+
 module Make (I : Lang_ids.Accessors) = struct
 
   type fun_id = I.c Lang_ids.Box_arrow.t 
@@ -107,6 +118,20 @@ module Make (I : Lang_ids.Accessors) = struct
 
   let dummy_formula = true_formula
 
+  type sharing_ctx = {
+
+    (* Tables that enforce sharing subterms / subformulas. Not every
+       single sub{term,formula} is shared, but we don't have to go
+       very deep before we find shared parts. *)
+
+    s_sum_h    :  (sum, sum) Hashtbl.t;
+    s_args_h   :  (args, args) Hashtbl.t;
+    s_iite_h   :  (iite, term_base) Hashtbl.t;
+    s_bite_h   :  (bite, formula) Hashtbl.t;
+    s_conj_h   :  (conj, formula) Hashtbl.t;
+  
+  }
+
   type ctx = {
 
     (* Tables to memoize top-level calls. This is to avoid translating
@@ -116,27 +141,23 @@ module Make (I : Lang_ids.Accessors) = struct
     r_bmemo_h  :  ((I.c, bool) M.t, formula) Hashtbl.Poly.t;
     r_fmemo_h  :  (I.c A.t Formula.t, formula) Hashtbl.Poly.t;
 
-    (* Tables that enforce sharing subterms / subformulas. Not every
-       single sub{term,formula} is shared, but we don't have to go
-       very deep before we find shared parts. *)
+    r_sharing  :  sharing_ctx;
     
-    r_sum_h    :  (sum, sum) Hashtbl.t;
-    r_args_h   :  (args, args) Hashtbl.t;
-    r_iite_h   :  (iite, term_base) Hashtbl.t;
-    r_bite_h   :  (bite, formula) Hashtbl.t;
-    r_conj_h   :  (conj, formula) Hashtbl.t;
-    
+  }
+
+  let make_sharing_ctx () = {
+    s_sum_h   = Hashtbl.create () ~size:2048 ~hashable:hashable_sum;
+    s_args_h  = Hashtbl.create () ~size:2048 ~hashable:hashable_args;
+    s_iite_h  = Hashtbl.create () ~size:2048 ~hashable:hashable_iite;
+    s_bite_h  = Hashtbl.create () ~size:2048 ~hashable:hashable_bite;
+    s_conj_h  = Hashtbl.create () ~size:2048 ~hashable:hashable_conj;
   }
 
   let make_ctx () = {
     r_imemo_h = Hashtbl.Poly.create () ~size:4096;
     r_bmemo_h = Hashtbl.Poly.create () ~size:4096;
     r_fmemo_h = Hashtbl.Poly.create () ~size:4096;
-    r_sum_h   = Hashtbl.create () ~size:2048 ~hashable:hashable_sum;
-    r_args_h  = Hashtbl.create () ~size:2048 ~hashable:hashable_args;
-    r_iite_h  = Hashtbl.create () ~size:2048 ~hashable:hashable_iite;
-    r_bite_h  = Hashtbl.create () ~size:2048 ~hashable:hashable_bite;
-    r_conj_h  = Hashtbl.create () ~size:2048 ~hashable:hashable_conj;
+    r_sharing = make_sharing_ctx ();
   }
 
   (* we will expand-out ITE right before blasting *)
@@ -164,20 +185,20 @@ module Make (I : Lang_ids.Accessors) = struct
         loop ~acc:(a :: acc) d in
     loop ~acc:[] l
 
-  let make_sum {r_sum_h} l o =
+  let make_sum {r_sharing = {s_sum_h}} l o =
     let l = dedup_sum l in
-    Hashtbl.find_or_add r_sum_h l ~default:(fun () -> l), o
+    Hashtbl.find_or_add s_sum_h l ~default:(fun () -> l), o
 
-  let make_args {r_args_h} l =
-    Hashtbl.find_or_add r_args_h l ~default:(fun () -> l)
+  let make_args {r_sharing = {s_args_h}} l =
+    Hashtbl.find_or_add s_args_h l ~default:(fun () -> l)
 
-  let make_iite {r_iite_h} a b c =
+  let make_iite {r_sharing = {s_iite_h}} a b c =
     let i = a, b, c in
-    Hashtbl.find_or_add r_iite_h i ~default:(fun () -> B_Ite i)
+    Hashtbl.find_or_add s_iite_h i ~default:(fun () -> B_Ite i)
 
-  let make_bite {r_bite_h} a b c =
+  let make_bite {r_sharing = {s_bite_h}} a b c =
     let i = a, b, c in
-    Hashtbl.find_or_add r_bite_h i ~default:(fun () -> U_Ite i)
+    Hashtbl.find_or_add s_bite_h i ~default:(fun () -> U_Ite i)
 
   let rec elim_not_not = function
     | U_Not U_Not g ->
@@ -295,12 +316,6 @@ module Make (I : Lang_ids.Accessors) = struct
     | _, _ ->
       None
 
-  (*
-    let make_conj {r_conj_h} l =
-    let default () = U_And l in
-    Hashtbl.find_or_add r_conj_h l ~default
-  *)
-
   let rec flatten_args :
   type s t . ctx -> ibflat list -> (I.c, s -> t) M.t -> app =
     fun r acc -> function
@@ -341,7 +356,7 @@ module Make (I : Lang_ids.Accessors) = struct
       | None ->
         (k, make_iite r c s t) :: d, x)
 
-  and flatten_int_term_aux ({r_sum_h} as r) = function
+  and flatten_int_term_aux ({r_sharing = {s_sum_h}} as r) = function
     | M.M_Var v ->
       G_Base (B_Var v)
     | M.M_Ite (c, s, t) ->
@@ -385,10 +400,10 @@ module Make (I : Lang_ids.Accessors) = struct
         (* not meant for functions *)
         raise (Unreachable.Exn _here_)
 
-  and make_conj ({r_conj_h} as r) l =
+  and make_conj ({r_sharing = {s_conj_h}} as r) l =
     let ret l =
       let default () = U_And l in
-      Hashtbl.find_or_add r_conj_h l ~default in
+      Hashtbl.find_or_add s_conj_h l ~default in
     let rec f acc = function
       | a :: U_Not ad :: dd
       | U_Not a :: ad :: dd when compare_formula a ad = 0 ->
@@ -469,5 +484,13 @@ module Make (I : Lang_ids.Accessors) = struct
   and flatten_formula ({r_fmemo_h} as r) g =
     Hashtbl.find_or_add r_fmemo_h g
       ~default:(fun () -> flatten_formula_aux r g)
+
+  module Step : sig
+    type ctx
+    val rewrite : ctx -> formula -> formula
+  end = struct
+    type ctx = sharing_ctx
+    let rewrite r g = g
+  end
 
 end
