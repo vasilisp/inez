@@ -1,38 +1,18 @@
 open Core.Std
 open Terminology
 
-type ('i, _) term =
-| M_Bool  :  'i atom Formula.t -> ('i, bool) term
-| M_Int   :  Core.Std.Int63.t -> ('i, int) term
-| M_Sum   :  ('i, int) term * ('i, int) term ->  ('i, int) term
-| M_Prod  :  Core.Std.Int63.t * ('i, int) term -> ('i, int) term
-| M_Ite   : 'i atom Formula.t * ('i, int) term * ('i, int) term ->
-  ('i, int) term
-| M_Var   :  ('i, 's) Lang_ids.t -> ('i, 's) term
-| M_App   :  ('i, 'r -> 's) term * ('i, 'r) term -> ('i, 's) term
+module rec M :
 
-and 'i atom =
-| A_Bool  of  ('i, bool) term
-| A_Le    of  ('i, int) term
-| A_Eq    of  ('i, int) term
+  (Lang_abstract_intf.Term_with_ops with type 'i a := 'i A.t) =
 
-module A = struct
-
-  type 'i t = 'i atom = | A_Bool  of  ('i, bool) term
-                        | A_Le    of  ('i, int) term
-                        | A_Eq    of  ('i, int) term
-    
-end
-
-module M = struct
+struct
 
   type ('i, 'q) t =
-    ('i, 'q) term =
-  | M_Bool  :  'i atom Formula.t -> ('i, bool) t
+  | M_Bool  :  'i A.t Formula.t -> ('i, bool) t
   | M_Int   :  Core.Std.Int63.t -> ('i, int) t
   | M_Sum   :  ('i, int) t * ('i, int) t ->  ('i, int) t
   | M_Prod  :  Core.Std.Int63.t * ('i, int) t -> ('i, int) t
-  | M_Ite   : 'i atom Formula.t * ('i, int) t * ('i, int) t ->
+  | M_Ite   :  'i A.t Formula.t * ('i, int) t * ('i, int) t ->
     ('i, int) t
   | M_Var   :  ('i, 's) Lang_ids.t -> ('i, 's) t
   | M_App   :  ('i, 'r -> 's) t * ('i, 'r) t -> ('i, 's) t
@@ -95,6 +75,9 @@ module M = struct
 
 end
 
+and A : (Lang_abstract_intf.Atom
+         with type ('i, 's) m := ('i, 's) M.t) = A
+
 (* boxed terms *)
 
 module Box = struct
@@ -108,6 +91,8 @@ module Ops = struct
   include (M : Ops_intf.Int
            with type ('i, 'q) t := ('i, 'q) M.t
            and type i := Int63.t)
+
+  include A
 
   include (Formula : Ops_intf.Prop
            with type 'a t := 'a formula)
