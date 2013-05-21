@@ -1,18 +1,18 @@
 open Core.Std
 open Terminology
 
-module rec M :
+module Make_term (T : Core.T.T1) :
 
-  (Lang_abstract_intf.Term_with_ops with type 'i a := 'i A.t) =
+  (Lang_abstract_intf.Term_with_ops with type 'i a := 'i T.t) =
 
 struct
 
   type ('i, 'q) t =
-  | M_Bool  :  'i A.t Formula.t -> ('i, bool) t
+  | M_Bool  :  'i T.t Formula.t -> ('i, bool) t
   | M_Int   :  Core.Std.Int63.t -> ('i, int) t
   | M_Sum   :  ('i, int) t * ('i, int) t ->  ('i, int) t
   | M_Prod  :  Core.Std.Int63.t * ('i, int) t -> ('i, int) t
-  | M_Ite   :  'i A.t Formula.t * ('i, int) t * ('i, int) t ->
+  | M_Ite   :  'i T.t Formula.t * ('i, int) t * ('i, int) t ->
     ('i, int) t
   | M_Var   :  ('i, 's) Lang_ids.t -> ('i, 's) t
   | M_App   :  ('i, 'r -> 's) t * ('i, 'r) t -> ('i, 's) t
@@ -74,6 +74,11 @@ struct
       a + (Int63.minus_one * b)
 
 end
+
+module rec M : (Lang_abstract_intf.Term_with_ops
+                with type 'i a := 'i A.t) =
+
+Make_term(A)
 
 and A : (Lang_abstract_intf.Atom
          with type ('i, 's) m := ('i, 's) M.t) = A

@@ -19,3 +19,6 @@ module Ops :
    and type 'i a := 'i A.t
    and type 'a f := 'a Formula.t
    and type i := Core.Std.Int63.t)
+
+module Make_term (T : Core.T.T1) :
+  (Lang_abstract_intf.Term_with_ops with type 'i a := 'i T.t)
