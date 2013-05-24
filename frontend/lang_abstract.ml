@@ -1,11 +1,14 @@
 open Core.Std
 open Terminology
+open Lang_abstract_intf
 
 module Make_term (T : Core.T.T1) :
 
-  (Lang_abstract_intf.Term_with_ops with type 'i a := 'i T.t) =
+  (Term_with_ops with type 'i a = 'i T.t) =
 
 struct
+
+  type 'i a = 'i T.t
 
   type ('i, 'q) t =
   | M_Bool  :  'i T.t Formula.t -> ('i, bool) t
@@ -75,13 +78,64 @@ struct
 
 end
 
-module rec M : (Lang_abstract_intf.Term_with_ops
-                with type 'i a := 'i A.t) =
+module rec M : (Term_with_ops with type 'i a = 'i A.t) =
+  Make_term(A)
 
-Make_term(A)
+and A : (Atom with type ('i, 's) m := ('i, 's) M.t) = A
 
-and A : (Lang_abstract_intf.Atom
-         with type ('i, 's) m := ('i, 's) M.t) = A
+(* conversions between terms *)
+
+module Make_term_conv (M1 : Term) (M2 : Term_with_ops) = struct
+
+  open M2
+
+  let rec map :
+  type s . ('c1, s) M1.t ->
+    f:('c1 M1.a -> 'c2 M2.a) -> fv:(('c1, 'c2) Lang_ids.id_mapper) ->
+    ('c2, s) t =
+    fun s ~f ~fv ->
+      match s with
+      | M1.M_Bool g ->
+        M_Bool (Formula.map g ~f)
+      | M1.M_Int i ->
+        M_Int i
+      | M1.M_Sum (a, b) ->
+        map a ~f ~fv + map b ~f ~fv
+      | M1.M_Prod (c, a) ->
+        c * map a ~f ~fv
+      | M1.M_Ite (q, a, b) ->
+        M_Ite (Formula.map q ~f, map a ~f ~fv, map b ~f ~fv)
+      | M1.M_Var i ->
+        M_Var (Lang_ids.(fv.f_id) i)
+      | M1.M_App (a, b) ->
+        M_App (map a ~f ~fv, map b ~f ~fv)
+
+  let rec map_non_atomic :
+  type s . ('c1, s) M1.t ->
+    f:('c1 M1.a -> 'c2 M2.a Formula.t) ->
+    fv:(('c1, 'c2) Lang_ids.id_mapper) ->
+    ('c2, s) t =
+    fun s ~f ~fv ->
+      match s with
+      | M1.M_Bool g ->
+        M_Bool (Formula.map_non_atomic g ~f)
+      | M1.M_Int i ->
+        M_Int i
+      | M1.M_Sum (a, b) ->
+        map_non_atomic a ~f ~fv + map_non_atomic b ~f ~fv
+      | M1.M_Prod (c, a) ->
+        c * map_non_atomic a ~f ~fv
+      | M1.M_Ite (q, a, b) ->
+        M_Ite (Formula.map_non_atomic q ~f,
+               map_non_atomic a ~f ~fv,
+               map_non_atomic b ~f ~fv)
+      | M1.M_Var i ->
+        M_Var (Lang_ids.(fv.f_id) i)
+      | M1.M_App (a, b) ->
+        M_App (map_non_atomic a ~f ~fv,
+               map_non_atomic b ~f ~fv)
+
+end
 
 (* boxed terms *)
 

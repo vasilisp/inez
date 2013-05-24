@@ -235,12 +235,11 @@ struct
     match xvar_of_formula r g with
     | S_Pos (Some v) ->
       Some (S.ivar_of_bvar v), Int63.zero
-    | S_Neg (Some v) ->
-      Some (S.ivar_of_bvar (S.negate_bvar r_ctx v)), Int63.zero
     | S_Pos None ->
       None, Int63.one
-    | S_Neg None ->
-      None, Int63.zero
+    | S_Neg v ->
+      (let f v = S.ivar_of_bvar (S.negate_bvar r_ctx v) in
+       Option.map v ~f), Int63.zero
 
   and ovar_of_ibeither ({r_ctx} as r) = function
     | H_Int (P.G_Base b) ->
@@ -392,18 +391,10 @@ struct
       S.solve r_ctx
 
   let deref_int {r_ctx; r_ivar_m} id =
-    match Hashtbl.find r_ivar_m id with
-    | Some v ->
-      S.ideref r_ctx v
-    | None ->
-      None
+    Option.(Hashtbl.find r_ivar_m id >>= S.ideref r_ctx)
 
   let deref_bool {r_ctx; r_bvar_m} id =
-    match Hashtbl.find r_bvar_m id with
-    | Some v ->
-      S.bderef r_ctx v
-    | None ->
-      None
+    Option.(Hashtbl.find r_bvar_m id >>= S.bderef r_ctx)
 
 end
 

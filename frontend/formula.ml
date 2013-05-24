@@ -71,15 +71,20 @@ let forall_pairs l ~f =
 let exists l ~f =
   not (forall l ~f:(Fn.compose (not) f))
 
-let rec map g ~f =
+let rec map_non_atomic g ~f =
   match g with
   | F_True ->
     F_True
   | F_Atom a ->
-    F_Atom (f a)
+    f a
   | F_Not g ->
-    not (map g ~f)
+    not (map_non_atomic g ~f)
   | F_And (g, h) ->
-    map g ~f && map h ~f
+    map_non_atomic g ~f && map_non_atomic h ~f
   | F_Ite (q, g, h) ->
-    ite (map q ~f) (map g ~f) (map h ~f)
+    ite (map_non_atomic q ~f)
+      (map_non_atomic g ~f)
+      (map_non_atomic h ~f)
+
+let rec map g ~f =
+  map_non_atomic g ~f:(fun x -> F_Atom (f x))

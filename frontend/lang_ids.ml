@@ -17,6 +17,10 @@ end
 
 include M
 
+type ('c1, 'c2) id_mapper = {
+  f_id : 's . ('c1, 's) t -> ('c2, 's) t
+}
+
 module Box = struct
 
   type 'c t = Box : ('c, _) M.t -> 'c t
@@ -112,4 +116,25 @@ module Make (U : Unit.S) : S = struct
 
   let sexp_of_c _ = Unit.sexp_of_t ()
 
+end
+
+module Make_mapper (I1 : S) (I2 : S) = struct
+
+  let hashable_box = {
+    Hashtbl.Hashable.
+    hash = Hashtbl.hash;
+    compare = Box.compare I1.compare_c;
+    sexp_of_t = Box.sexp_of_t I1.sexp_of_c
+  }
+
+  let m = Hashtbl.create () ~size:20480 ~hashable:hashable_box
+
+  let f : (I1.c, 'u) t -> (I2.c, 'u) t =
+    fun ((_, y) as id) ->
+      Hashtbl.find_or_add m (Box.Box id)
+        ~default:(fun () -> Tuple.T2.get1 (I2.gen_id y)),
+      y
+
+  let f' = {f_id = f}
+    
 end

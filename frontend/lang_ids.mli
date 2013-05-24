@@ -8,6 +8,10 @@ val sexp_of_t :
   ('a -> Sexplib.Sexp.t) -> ('b -> Sexplib.Sexp.t) ->
   ('a, 'b) t -> Sexplib.Sexp.t
 
+type ('c1, 'c2) id_mapper = {
+  f_id : 's . ('c1, 's) t -> ('c2, 's) t
+}
+
 module Box :
   Box_intf.S2 with type ('c, 's) b := ('c, 's) t
 
@@ -35,4 +39,9 @@ module type S = sig
   include Accessors with type c := c
 end
 
-module Make : functor (U : Core.Std.Unit.S) -> S
+module Make (U : Core.Std.Unit.S) : S
+
+module Make_mapper (I1 : S) (I2 : S) : sig
+  val f : (I1.c, 'u) t -> (I2.c, 'u) t
+  val f' : (I1.c, I2.c) id_mapper
+end
