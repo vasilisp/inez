@@ -26,6 +26,15 @@ struct
   type bool_id = (I.c, bool) Lang_ids.t
   with sexp_of, compare
 
+  type ovar = S.ivar option offset
+  with sexp_of, compare
+
+  type bg_call = S.f * ovar list
+  with sexp_of, compare
+
+  type bg_isum = S.ivar isum
+  with sexp_of, compare
+
   let hashable_fun_id = {
     Hashtbl.Hashable.
     hash = Hashtbl.hash;
@@ -47,12 +56,18 @@ struct
     sexp_of_t = sexp_of_bool_id
   }
 
-  let hashable_isum = {
+  let hashable_bg_call = {
     Hashtbl.Hashable.
     hash = Hashtbl.hash;
-    (* FIXME : compare and sexp in imt_intf *)
-    compare = compare_isum (compare : S.ivar -> S.ivar -> int);
-    sexp_of_t = fun _ -> raise (Unreachable.Exn _here_)
+    compare = compare_bg_call;
+    sexp_of_t = sexp_of_bg_call;
+  }
+
+  let hashable_bg_isum = {
+    Hashtbl.Hashable.
+    hash = Hashtbl.hash;
+    compare = compare_bg_isum;
+    sexp_of_t = sexp_of_bg_isum;
   }
 
   let type_of_term :
@@ -61,8 +76,6 @@ struct
 
   let flat_sum_negate (l, x) =
     List.map l ~f:(Tuple.T2.map1 ~f:Int63.neg), Int63.neg x
-
-  type ovar = S.ivar option offset
 
   (* optional var, possibly negated (S_Pos None means true) *)
 
@@ -87,9 +100,9 @@ struct
     r_bvar_m           :  (bool_id, S.bvar) Hashtbl.t;
     r_xvar_m           :  (P.formula, xvar) Hashtbl.t;
     r_fun_m            :  (fun_id, S.f) Hashtbl.t;
-    r_call_m           :  (S.f * ovar list, S.ivar) Hashtbl.t;
+    r_call_m           :  (bg_call, S.ivar) Hashtbl.t;
     r_sum_m            :  (P.sum, S.ivar iexpr) Hashtbl.t;
-    r_var_of_sum_m     :  (S.ivar isum, S.ivar) Hashtbl.t;
+    r_var_of_sum_m     :  (bg_isum, S.ivar) Hashtbl.t;
     r_ovar_of_iite_m   :  (P.iite, ovar) Hashtbl.t;
     r_q                :  P.formula Dequeue.t;
     mutable r_fun_cnt  :  int;
@@ -414,11 +427,11 @@ module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
     r_fun_m   =
       Hashtbl.create () ~size:512 ~hashable:hashable_fun_id;
     r_call_m  =
-      Hashtbl.Poly.create ~size:2048 ();
+      Hashtbl.create ~size:2048 () ~hashable:hashable_bg_call;
     r_sum_m =
       Hashtbl.create ~size:2048 ~hashable:P.hashable_sum ();
     r_var_of_sum_m =
-      Hashtbl.create ~size:2048 ~hashable:hashable_isum ();
+      Hashtbl.create ~size:2048 ~hashable:hashable_bg_isum ();
     r_ovar_of_iite_m =
       Hashtbl.create ~size:2048 ~hashable:P.hashable_iite ();
     r_q       = Dequeue.create () ~dummy:P.dummy_formula;

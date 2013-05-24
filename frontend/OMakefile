@@ -161,15 +161,15 @@ Camlp4o(lang_concrete)
 MyOCamlProgram(inez, terminology unreachable scip_idl scip util	\
                formula lang_types lang_ids lang_abstract pre solver	\
                smtlib_lexer smtlib_parser smtlib_solver main,		\
-               camlidl_dummy scip_idl_stubs)
+               native_utils scip_idl_stubs)
 
 OCamlTop(inez, terminology unreachable scip_idl scip util formula	\
          lang_types lang_ids lang_abstract lang_concrete pre solver,	\
-         camlidl_dummy scip_idl_stubs)
+         native_utils scip_idl_stubs)
 
 OCamlTop(inez-db, terminology unreachable scip_idl scip util formula	\
          lang_types lang_ids lang_abstract db_lang_abstract		\
-         lang_concrete pre solver, camlidl_dummy scip_idl_stubs)
+         lang_concrete pre solver, native_utils scip_idl_stubs)
 
 .PHONY: clean
 

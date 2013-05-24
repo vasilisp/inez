@@ -4,13 +4,15 @@ open Terminology
 
 exception Scip_Exn of (Here.t * retcode)
 
+external address_of_value: 'a -> int = "address_of_value"
+
 (* implementation first, then wrapping things up in modules and
    functors *)
 
 type scip_ctx = {
   r_ctx: scip;
   r_cch: cch;
-  r_var_d: var option Dequeue.t;
+  r_var_d: var Dequeue.t;
   mutable r_constraints_n: int;
   mutable r_has_objective: bool;
   mutable r_sol: sol option;
@@ -18,15 +20,20 @@ type scip_ctx = {
 
 let dummy_f = ""
 
-(* type var = Scip_idl.var *)
+type var = Scip_idl.var
+
+let compare_var x y =
+  Int.compare (address_of_value x) (address_of_value y)
+
+let hash_var = address_of_value
+
+let sexp_of_var v =
+  Int.sexp_of_t (address_of_value v)
 
 let ivar_of_bvar x = x
 
 (* TODO : check bounds *)
 let bvar_of_ivar x = x
-
-let sv {r_var_d} x =
-  Option.value_exn (Dequeue.get_exn r_var_d x)
 
 type named_constraint = cons
 
@@ -111,7 +118,7 @@ let new_ctx () =
   assert_ok _here_ (sCIPincludeDefaultPlugins r_ctx);
   assert_ok _here_ (sCIPcreateProbBasic r_ctx "prob");
   run_config_list r_ctx;
-  let r_var_d = Dequeue.create () ~dummy:None
+  let r_var_d = Dequeue.create () ~dummy:(cc_handler_zero_var r_cch)
   and r_constraints_n = 0
   and r_has_objective = false
   and r_sol = None in
@@ -124,7 +131,7 @@ let new_ctx_dp dp =
   assert_ok _here_ (sCIPincludeDefaultPlugins r_ctx);
   assert_ok _here_ (sCIPcreateProbBasic r_ctx "prob");
   run_config_list r_ctx;
-  let r_var_d = Dequeue.create () ~dummy:None
+  let r_var_d = Dequeue.create () ~dummy:(cc_handler_zero_var r_cch)
   and r_constraints_n = 0
   and r_has_objective = false
   and r_sol = None in
@@ -163,7 +170,7 @@ let new_ivar ({r_ctx; r_var_d} as r) t =
           r_ctx id (scip_lb_float r lb) (scip_ub_float r ub)
           0. SCIP_VARTYPE_CONTINUOUS) in
   assert_ok _here_ (sCIPaddVar r_ctx v);
-  Dequeue.push_back r_var_d (Some v); i
+  Dequeue.push_back r_var_d v; v
 
 let new_bvar {r_ctx; r_var_d} =
   let i = Dequeue.length r_var_d in
@@ -172,12 +179,11 @@ let new_bvar {r_ctx; r_var_d} =
     assert_ok1 _here_
       (sCIPcreateVarBasic r_ctx id 0.0 1.0 0. SCIP_VARTYPE_BINARY) in
   assert_ok _here_ (sCIPaddVar r_ctx v);
-  Dequeue.push_back r_var_d (Some v); i
+  Dequeue.push_back r_var_d v; v
 
-let negate_bvar ({r_ctx; r_var_d} as r) v =
-  let v = assert_ok1 _here_ (sCIPgetNegatedVar r_ctx (sv r v))
-  and i = Dequeue.length r_var_d in
-  Dequeue.push_back r_var_d (Some v); i
+let negate_bvar {r_ctx; r_var_d} v =
+  let v = assert_ok1 _here_ (sCIPgetNegatedVar r_ctx v) in
+  Dequeue.push_back r_var_d v; v
 
 let iexpr_vars (l, o) =
   Array.of_list (List.map l ~f:snd)
@@ -191,7 +197,7 @@ let create_constraint ({r_ctx} as r) eq l o =
   assert_ok1 _here_
     (sCIPcreateConsBasicLinear r_ctx
        (make_constraint_id r)
-       (Array.of_list_map ~f:(Fn.compose (sv r) snd) l)
+       (Array.of_list_map ~f:snd l)
        (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
        (-.
            (if eq then
@@ -208,11 +214,11 @@ let add_le ({r_ctx} as r) l o =
   let c = create_constraint r false l o in
   assert_ok _here_ (sCIPaddCons r_ctx c)
 
-let var_of_var_signed ({r_ctx} as r) = function
+let var_of_var_signed {r_ctx} = function
   | S_Pos v ->
-    sv r v
+    v
   | S_Neg v ->
-    assert_ok1 _here_ (sCIPgetNegatedVar r_ctx (sv r v))
+    assert_ok1 _here_ (sCIPgetNegatedVar r_ctx v)
 
 let add_indicator ({r_ctx} as r) v l o =
   let c =
@@ -220,7 +226,7 @@ let add_indicator ({r_ctx} as r) v l o =
       (sCIPcreateConsBasicIndicator r_ctx
          (make_constraint_id r)
          (var_of_var_signed r v)
-         (Array.of_list_map ~f:(Fn.compose (sv r) snd) l)
+         (Array.of_list_map ~f:snd l)
          (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
          (Int63.to_float o)) in
   assert_ok _here_ (sCIPaddCons r_ctx c)
@@ -231,16 +237,15 @@ let add_clause ({r_ctx; r_constraints_n} as r) l =
       (let l =
          Array.of_list_map l
            ~f:(function
-           | S_Pos v -> sv r v
+           | S_Pos v ->
+             v
            | S_Neg v ->
-             let k, v = sCIPgetNegatedVar r_ctx (sv r v) in
-             assert_ok _here_ k; v) in
+             assert_ok1 _here_ (sCIPgetNegatedVar r_ctx v)) in
        sCIPcreateConsBasicLogicor r_ctx (make_constraint_id r) l) in
   assert_ok _here_ (sCIPaddCons r_ctx c)
 
-let var_of_var_option ({r_cch} as r) =
-  Option.value_map ~f:(sv r)
-    ~default:(cc_handler_zero_var r_cch)
+let var_of_var_option {r_cch} =
+  Option.value ~default:(cc_handler_zero_var r_cch)
 
 let add_call ({r_cch} as r) (v, o) f l =
   Scip_idl.cc_handler_call r_cch
@@ -248,16 +253,15 @@ let add_call ({r_cch} as r) (v, o) f l =
     (Array.of_list_map l ~f:(Fn.compose (var_of_var_option r) fst))
     (Array.of_list_map l ~f:(Fn.compose Int63.to_int64 snd))
 
-let add_objective ({r_ctx; r_has_objective} as r) l =
+let add_objective {r_ctx; r_has_objective} l =
   if r_has_objective then
     `Duplicate
   else
     (List.iter l
        ~f:(fun (c, v) ->
          let c = Int63.to_float c in
-         assert_ok _here_ (sCIPchgVarObj r_ctx (sv r v) c));
+         assert_ok _here_ (sCIPchgVarObj r_ctx v c));
      `Ok)
-  
 
 let result_of_status = function
   | SCIP_STATUS_OPTIMAL ->
@@ -282,9 +286,9 @@ let solve ({r_ctx; r_cch} as r) =
   | _ -> ());
   rval
 
-let ideref ({r_ctx; r_sol} as r) v =
+let ideref {r_ctx; r_sol} v =
   let f sol =
-    let x = sCIPgetSolVal r_ctx sol (sv r v) in
+    let x = sCIPgetSolVal r_ctx sol v in
     let i = Int63.of_float x in
     if Float.(x > Int63.to_float i + 0.5) then
       Int63.succ i
@@ -292,9 +296,9 @@ let ideref ({r_ctx; r_sol} as r) v =
       i in
   Option.map r_sol ~f
 
-let bderef ({r_ctx; r_sol} as r) v =
+let bderef {r_ctx; r_sol} v =
   Option.map r_sol
-    ~f:(fun r_sol -> sCIPgetSolVal r_ctx r_sol (sv r v) > 0.5)
+    ~f:(fun r_sol -> sCIPgetSolVal r_ctx r_sol v > 0.5)
 
 let variables_number {r_var_d} = Dequeue.length r_var_d
 
@@ -302,9 +306,18 @@ let constraints_number {r_constraints_n} = r_constraints_n
 
 module Access = struct
   type ctx = scip_ctx
-  type ivar = int
-  type bvar = int
+  type ivar = var
+  type bvar = var
   type f = string
+  let compare_f = String.compare
+  let hash_f = String.hash
+  let sexp_of_f = String.sexp_of_t
+  let compare_ivar = compare_var
+  let hash_ivar = hash_var
+  let sexp_of_ivar = sexp_of_var
+  let compare_bvar = compare_var
+  let hash_bvar = hash_var
+  let sexp_of_bvar = sexp_of_var
   let ivar_of_bvar = ivar_of_bvar
   let bvar_of_ivar = bvar_of_ivar
   let dummy_f = dummy_f

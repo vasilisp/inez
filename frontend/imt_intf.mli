@@ -16,6 +16,24 @@ module type S_access = sig
   (** function identifiers *)
   type f
 
+  val compare_f : f -> f -> int
+
+  val hash_f : f -> int
+
+  val sexp_of_f : f -> Sexplib.Sexp.t
+
+  val compare_ivar : ivar -> ivar -> int
+
+  val hash_ivar : ivar -> int
+
+  val sexp_of_ivar : ivar -> Sexplib.Sexp.t
+
+  val compare_bvar : bvar -> bvar -> int
+
+  val hash_bvar : bvar -> int
+
+  val sexp_of_bvar : bvar -> Sexplib.Sexp.t
+
   val ivar_of_bvar : bvar -> ivar
 
   val bvar_of_ivar : ivar -> bvar
