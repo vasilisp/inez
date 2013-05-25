@@ -148,8 +148,7 @@ public.OCamlTop(name, files, cfiles) =
 Camlp4o_lib(lang_ids, herelib, herelib)
 Camlp4o_lib(lang_types, herelib type_conv comparelib sexplib, herelib \
                         type_conv compare sexp_conv)
-Camlp4o_lib(solver, herelib type_conv comparelib sexplib, herelib \
-                    type_conv compare sexp_conv)
+Camlp4o_lib(solver, herelib, herelib)
 Camlp4o_lib(pre, herelib type_conv comparelib sexplib, herelib	\
             type_conv compare sexp_conv)
 Camlp4o_lib(scip, herelib, herelib)

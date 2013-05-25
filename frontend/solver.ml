@@ -1,9 +1,27 @@
 open Core.Std
 open Terminology
 
+module type S_converter = sig
+  type ctx
+  type c
+  type ivar
+  type bvar
+  val iid_of_ivar : ctx -> ivar -> (c, int) Lang_ids.t option
+  val bid_of_bvar : ctx -> bvar -> (c, bool) Lang_ids.t option
+end
+
+module type S_compiler = sig
+  include Solver_intf.S
+  include S_converter with type ctx := ctx and type c := c
+  type sctx
+  type dctx
+  val make_ctx : sctx -> ctx
+end
+
 module Make_compiler
 
-  (S : Imt_intf.S_access) (I : Lang_ids.Accessors) =
+  (S : Imt_intf.S_access)
+  (I : Lang_ids.Accessors) =
 
 struct
 
@@ -17,44 +35,85 @@ struct
 
   type formula = I.c A.t Formula.t
 
-  type fun_id = I.c Lang_ids.Box_arrow.t
-  with sexp_of, compare
+  (*
 
-  type int_id  = (I.c, int) Lang_ids.t
-  with sexp_of, compare
-  
-  type bool_id = (I.c, bool) Lang_ids.t
-  with sexp_of, compare
+    Types come with boilerplate for comparison and sexp conversion.
+
+    Type_conv can generate these automatically, but it breaks module
+    definitions and recursive modules.
+
+  *)
+
+  let hashable_ivar = {
+    Hashtbl.Hashable.
+    hash = Hashtbl.hash;
+    compare = S.compare_ivar;
+    sexp_of_t = S.sexp_of_ivar
+  }
+
+  let hashable_bvar = {
+    Hashtbl.Hashable.
+    hash = Hashtbl.hash;
+    compare = S.compare_bvar;
+    sexp_of_t = S.sexp_of_bvar
+  }
+
+  type fid = I.c Lang_ids.Box_arrow.t
+
+  let compare_fid = Lang_ids.Box_arrow.compare I.compare_c
+
+  let sexp_of_fid = Lang_ids.Box_arrow.sexp_of_t I.sexp_of_c
+
+  let hashable_fid = {
+    Hashtbl.Hashable.
+    hash = Hashtbl.hash;
+    compare = compare_fid;
+    sexp_of_t = sexp_of_fid
+  }
+
+  type iid  = (I.c, int) Lang_ids.t
+
+  let compare_iid = Lang_ids.compare I.compare_c Int.compare
+
+  let sexp_of_iid = Lang_ids.sexp_of_t I.sexp_of_c Int.sexp_of_t
+
+  let hashable_iid = {
+    Hashtbl.Hashable.
+    hash = Hashtbl.hash;
+    compare = compare_iid;
+    sexp_of_t = sexp_of_iid
+  }
+
+  type bid = (I.c, bool) Lang_ids.t
+
+  let compare_bid = Lang_ids.compare I.compare_c Bool.compare
+
+  let sexp_of_bid = Lang_ids.sexp_of_t I.sexp_of_c Bool.sexp_of_t
+
+  let hashable_bid = {
+    Hashtbl.Hashable.
+    hash = Hashtbl.hash;
+    compare = compare_bid;
+    sexp_of_t = sexp_of_bid
+  }
 
   type ovar = S.ivar option offset
-  with sexp_of, compare
+    
+  let compare_ovar =
+    compare_offset (Option.compare ~cmp:S.compare_ivar)
+
+  let sexp_of_ovar =
+    sexp_of_offset (Option.sexp_of_t S.sexp_of_ivar)
 
   type bg_call = S.f * ovar list
-  with sexp_of, compare
 
-  type bg_isum = S.ivar isum
-  with sexp_of, compare
+  let compare_bg_call =
+    Tuple.T2.compare
+      ~cmp1:S.compare_f
+      ~cmp2:(List.compare ~cmp:compare_ovar)
 
-  let hashable_fun_id = {
-    Hashtbl.Hashable.
-    hash = Hashtbl.hash;
-    compare = compare_fun_id;
-    sexp_of_t = sexp_of_fun_id
-  }
-
-  let hashable_int_id = {
-    Hashtbl.Hashable.
-    hash = Hashtbl.hash;
-    compare = compare_int_id;
-    sexp_of_t = sexp_of_int_id
-  }
-
-  let hashable_bool_id = {
-    Hashtbl.Hashable.
-    hash = Hashtbl.hash;
-    compare = compare_bool_id;
-    sexp_of_t = sexp_of_bool_id
-  }
+  let sexp_of_bg_call =
+    Tuple.T2.sexp_of_t S.sexp_of_f (List.sexp_of_t sexp_of_ovar)
 
   let hashable_bg_call = {
     Hashtbl.Hashable.
@@ -63,9 +122,15 @@ struct
     sexp_of_t = sexp_of_bg_call;
   }
 
+  type bg_isum = S.ivar isum
+
+  let compare_bg_isum = compare_isum S.compare_ivar
+
+  and sexp_of_bg_isum = sexp_of_isum S.sexp_of_ivar
+
   let hashable_bg_isum = {
     Hashtbl.Hashable.
-    hash = Hashtbl.hash;
+    hash = Hashtbl.hash; 
     compare = compare_bg_isum;
     sexp_of_t = sexp_of_bg_isum;
   }
@@ -96,10 +161,12 @@ struct
   type ctx = {
     r_ctx              :  S.ctx;
     r_pre_ctx          :  P.ctx;
-    r_ivar_m           :  (int_id, S.ivar) Hashtbl.t;
-    r_bvar_m           :  (bool_id, S.bvar) Hashtbl.t;
+    r_ivar_m           :  (iid, S.ivar) Hashtbl.t;
+    r_bvar_m           :  (bid, S.bvar) Hashtbl.t;
+    r_iid_m            :  (S.ivar, iid) Hashtbl.t;
+    r_bid_m            :  (S.bvar, bid) Hashtbl.t;
     r_xvar_m           :  (P.formula, xvar) Hashtbl.t;
-    r_fun_m            :  (fun_id, S.f) Hashtbl.t;
+    r_fun_m            :  (fid, S.f) Hashtbl.t;
     r_call_m           :  (bg_call, S.ivar) Hashtbl.t;
     r_sum_m            :  (P.sum, S.ivar iexpr) Hashtbl.t;
     r_var_of_sum_m     :  (bg_isum, S.ivar) Hashtbl.t;
@@ -107,6 +174,35 @@ struct
     r_q                :  P.formula Dequeue.t;
     mutable r_fun_cnt  :  int;
     mutable r_unsat    :  bool
+  }
+
+  let make_ctx s = {
+    r_ctx     = s;
+    r_pre_ctx = P.make_ctx ();
+    r_ivar_m  =
+      Hashtbl.create ()  ~size:10240  ~hashable:hashable_iid;
+    r_bvar_m  = 
+      Hashtbl.create ()  ~size:10240  ~hashable:hashable_bid;
+    r_iid_m =
+      Hashtbl.create ()  ~size:10240  ~hashable:hashable_ivar;
+    r_bid_m =
+      Hashtbl.create ()  ~size:10240  ~hashable:hashable_bvar;
+    r_xvar_m  =
+      Hashtbl.create ()  ~size:10240  ~hashable:P.hashable_formula;
+    r_fun_m   =
+      Hashtbl.create ()  ~size:512    ~hashable:hashable_fid;
+    r_call_m  =
+      Hashtbl.create ()  ~size:2048   ~hashable:hashable_bg_call;
+    r_sum_m =
+      Hashtbl.create ()  ~size:2048   ~hashable:P.hashable_sum;
+    r_var_of_sum_m =
+      Hashtbl.create ()  ~size:2048   ~hashable:hashable_bg_isum;
+    r_ovar_of_iite_m =
+      Hashtbl.create ()  ~size:2048   ~hashable:P.hashable_iite;
+    r_q       =
+      Dequeue.create () ~dummy:P.dummy_formula;
+    r_fun_cnt = 0;
+    r_unsat   = false;
   }
 
   let get_f ({r_ctx; r_fun_m; r_fun_cnt} as r)
@@ -118,13 +214,21 @@ struct
         r.r_fun_cnt <- r.r_fun_cnt + 1;
         S.new_f r_ctx s (Lang_types.count_arrows t))
 
-  let get_int_var {r_ctx; r_ivar_m} (x : int_id) =
+  let ivar_of_iid {r_ctx; r_ivar_m; r_iid_m} x =
     Hashtbl.find_or_add r_ivar_m x
-      ~default:(fun () -> S.new_ivar r_ctx mip_type_int)
+      ~default:(fun () ->
+        let v = S.new_ivar r_ctx mip_type_int in
+        Hashtbl.replace r_iid_m v x; v)
 
-  let get_bool_var {r_ctx; r_bvar_m} (x : bool_id) =
+  let bvar_of_bid {r_ctx; r_bvar_m; r_bid_m} x =
     Hashtbl.find_or_add r_bvar_m x
-      ~default:(fun () -> S.new_bvar r_ctx)
+      ~default:(fun () ->
+        let v = S.new_bvar r_ctx in
+        Hashtbl.replace r_bid_m v x; v)
+
+  let iid_of_ivar {r_iid_m} = Hashtbl.find r_iid_m
+
+  let bid_of_bvar {r_bid_m} = Hashtbl.find r_bid_m
 
   (* linearizing terms and formulas: utilities before we get into the
      mutually recursive part *)
@@ -218,7 +322,7 @@ struct
 
   and ovar_of_flat_term_base r = function
     | P.B_Var v ->
-      Some (get_int_var r v), Int63.zero
+      Some (ivar_of_iid r v), Int63.zero
     | P.B_Formula g ->
       ovar_of_formula r g
     | P.B_App (f_id, l) ->
@@ -318,7 +422,7 @@ struct
     | P.U_Not _ | P.U_Ite (_, _, _) ->
       raise (Unreachable.Exn _here_)
     | P.U_Var v ->
-      S_Pos (Some (get_bool_var r v))
+      S_Pos (Some (bvar_of_bid r v))
     | P.U_App (f_id, l) ->
       S_Pos (Some (S.bvar_of_ivar
                      (var_of_app r f_id l mip_type_bool)))
@@ -360,7 +464,7 @@ struct
     | P.U_And l ->
       List.iter l ~f:(finally_assert_formula r)
     | P.U_Var v ->
-      assert_bvar_equal_constant r (get_bool_var r v) Int63.one
+      assert_bvar_equal_constant r (bvar_of_bid r v) Int63.one
     | P.U_App (f_id, l) ->
       let v = var_of_app r f_id l mip_type_bool in
       assert_ivar_equal_constant r v Int63.one
@@ -412,34 +516,35 @@ struct
 end
 
 module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
-
   include Make_compiler(S)(I)
-
-  let make_ctx () = {
-    r_ctx     = S.new_ctx ();
-    r_pre_ctx = P.make_ctx ();
-    r_ivar_m  =
-      Hashtbl.create () ~size:10240 ~hashable:hashable_int_id;
-    r_bvar_m  =
-      Hashtbl.create () ~size:10240 ~hashable:hashable_bool_id;
-    r_xvar_m  =
-      Hashtbl.create () ~size:10240 ~hashable:P.hashable_formula;
-    r_fun_m   =
-      Hashtbl.create () ~size:512 ~hashable:hashable_fun_id;
-    r_call_m  =
-      Hashtbl.create ~size:2048 () ~hashable:hashable_bg_call;
-    r_sum_m =
-      Hashtbl.create ~size:2048 ~hashable:P.hashable_sum ();
-    r_var_of_sum_m =
-      Hashtbl.create ~size:2048 ~hashable:hashable_bg_isum ();
-    r_ovar_of_iite_m =
-      Hashtbl.create ~size:2048 ~hashable:P.hashable_iite ();
-    r_q       = Dequeue.create () ~dummy:P.dummy_formula;
-    r_fun_cnt = 0;
-    r_unsat   = false
-  }
-
+  let make_ctx () = make_ctx (S.make_ctx ())
 end
 
-(* TODO : implement a variant of Make that also accepts a DP
-   module. *)
+module Make_with_dp
+  
+  (S : Imt_intf.S_dp)
+  (I : Lang_ids.S)
+  (D : Solver_intf.Dp with type c := I.c) =
+
+struct
+
+  module C = Make_compiler(S)(I)
+
+  module S' = S.F (struct
+    type ctx = C.ctx option ref * D.ctx
+    let receive ({contents = rc}, rd) a b d =
+      let rc = Option.value_exn rc in
+      let a = Option.value_exn (C.iid_of_ivar rc a)
+      and b = Option.value_exn (C.iid_of_ivar rc b) in
+      D.receive rd a b d
+  end)
+
+  include C
+
+  let make_ctx d =
+    let rr, d as pair = ref None, d in
+    let rec r = make_ctx (S'.make_ctx pair) in
+    rr := Some r;
+    r
+
+end

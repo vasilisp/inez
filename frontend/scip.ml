@@ -111,7 +111,7 @@ let make_dp () =
   end in
   call_my_dp (Some (make_dP o))
 
-let new_ctx () =
+let make_ctx () =
   let r_ctx = assert_ok1 _here_ (sCIPcreate ()) in
   let r_cch = new_cc_handler r_ctx in
   cc_handler_include r_cch;
@@ -124,7 +124,7 @@ let new_ctx () =
   and r_sol = None in
   {r_ctx; r_cch; r_var_d; r_constraints_n; r_has_objective; r_sol}
 
-let new_ctx_dp dp =
+let make_ctx_dp dp =
   let r_ctx = assert_ok1 _here_ (sCIPcreate ()) in
   let r_cch = new_cc_handler r_ctx in
   cc_handler_include r_cch;
@@ -339,18 +339,22 @@ end
 
 module Scip_basic : Imt_intf.S = struct
   include Access
-  let new_ctx = new_ctx
+  let make_ctx = make_ctx
 end
 
-module Make (D : Imt_intf.S_dp) = struct
+module Scip_with_dp = struct
 
   include Access
 
-  module D' = D.F(Access)
+  module type Dp = sig
+    type ctx
+    val receive : ctx -> ivar -> ivar -> Int63.t -> response
+  end
 
-  let new_ctx r =
-    new_ctx_dp (object method receive = D'.receive r end)
-
-  let register _ _ _ = ()
+  module F (Dp : Dp) = struct
+    let make_ctx r =
+      make_ctx_dp (object method receive = Dp.receive r end)
+    let register _ _ _ = ()
+  end
 
 end

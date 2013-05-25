@@ -1,8 +1,7 @@
+open Core.Std
 open Terminology
 
 module type S_access = sig
-
-  open Core.Std
 
   (** context *)
   type ctx
@@ -51,7 +50,7 @@ module type S_access = sig
   val new_bvar : ctx -> bvar
 
   (** [negate_var ctx v] = not v *)
-  (* A dump solver can implement negate_bvar by introducing a fresh
+  (* A dumb solver can implement negate_bvar by introducing a fresh
      bvar v_neg and enforcing v_neg + v = 1. SCIP can represent
      negation symbolically. We need negated variables to appear in the
      left-hand side of indicators. *)
@@ -89,7 +88,14 @@ end
 
 module type S = sig
   include S_access
-  val new_ctx : unit -> ctx
+  include (Ctx_intf.S_creatable
+           with type ctx := ctx
+           and type carg := unit)
+end
+
+module type S' = sig
+  include S_access
+  include (Ctx_intf.S_creatable with type ctx := ctx)
 end
 
 (* Higher-level functorial interface for connecting decision
@@ -106,16 +112,16 @@ module type S_dp = sig
   (* The theory solver may want to keep a reference to the low-level
      context ([X.ctx]). It doesn't have to. *)
 
-  type 'a ctx
+  include S_access
 
-  module F (X : S_access) : sig
-    val receive : X.ctx ctx -> X.ivar -> X.ivar -> response
+  module type Dp = sig
+    type ctx
+    val receive : ctx -> ivar -> ivar -> Int63.t -> response
   end
 
-end
+  module F (Dp : Dp) : sig
+    val make_ctx : Dp.ctx -> ctx
+    val register : ctx -> ivar -> ivar -> unit
+  end
 
-module type S_make = functor (X : S_dp) -> sig
-  include S_access
-  val new_ctx : ctx X.ctx -> ctx
-  val register : ctx -> ivar -> ivar -> unit
 end

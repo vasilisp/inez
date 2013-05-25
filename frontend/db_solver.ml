@@ -192,4 +192,10 @@ struct
   and purify_formula x =
     Formula.map_non_atomic ~f:(purify_atom x)
 
+  let purify_formula_top x g =
+    if existential g then
+      Some (purify_formula x)
+    else
+      None
+
 end

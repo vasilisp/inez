@@ -26,7 +26,8 @@ end
 
 module Make
 
-  (S : Solver_intf.S) (I : Lang_ids.S with type c = S.c) =
+  (S : Solver_intf.S_unit_creatable)
+  (I : Lang_ids.S with type c = S.c) =
 
 struct
 

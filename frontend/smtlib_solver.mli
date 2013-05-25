@@ -10,10 +10,10 @@ module R : sig
 
 end
 
-module Make :
-
-  functor (S : Solver_intf.S) ->
-    functor (I : Lang_ids.S with type c = S.c) ->
+module Make
+  
+  (S : Solver_intf.S_unit_creatable)
+  (I : Lang_ids.S with type c = S.c) :
 
 sig
 
