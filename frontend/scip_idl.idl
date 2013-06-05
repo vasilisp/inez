@@ -184,8 +184,8 @@ retcode SCIPinferVarLbCons
  [in] cons c,
  [in] int inferinfo,
  [in] boolean force,
- [out] boolean infeasible,
- [out] boolean tightened);
+ [out] boolean* infeasible,
+ [out] boolean* tightened);
 
 retcode SCIPinferVarUbCons
 ([in] scip s,
@@ -194,8 +194,8 @@ retcode SCIPinferVarUbCons
  [in] cons c,
  [in] int inferinfo,
  [in] boolean force,
- [out] boolean infeasible,
- [out] boolean tightened);
+ [out] boolean* infeasible,
+ [out] boolean* tightened);
 
 retcode SCIPchgVarObj([in] scip s, [in] var v, [in] double newobj);
 

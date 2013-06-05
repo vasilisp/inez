@@ -39,35 +39,23 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
 
   module Lb = struct
     let (<=) lb lb' =
-      match lb, lb' with
-      | Some lb, Some lb' ->
-        Int63.(lb <= lb')
-      | Some lb, None ->
-        false
-      | None, _ ->
-        true
+      let lb =  Option.value lb  ~default:Int63.min_value
+      and lb' = Option.value lb' ~default:Int63.min_value in
+      Int63.(lb <= lb')
   end
 
   module Ub = struct
     let (<=) ub ub' =
-      match ub, ub' with
-      | Some ub, Some ub' ->
-        Int63.(ub <= ub')
-      | Some ub, None ->
-        true
-      | None, _ ->
-        false
+      let ub  = Option.value ub  ~default:Int63.max_value
+      and ub' = Option.value ub' ~default:Int63.max_value in
+      Int63.(ub <= ub')
   end
   
   module Lb_ub = struct
     let (<=) lb ub =
-      match lb, ub with
-      | Some lb, Some ub ->
-        Int63.(lb <= ub)
-      | Some lb, None ->
-        true
-      | None, _ ->
-        true
+      let lb = Option.value lb ~default:Int63.min_value
+      and ub = Option.value ub ~default:Int63.max_value in
+      Int63.(lb <= ub)
   end
 
   module Ub_lb = struct
@@ -94,10 +82,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
 
   module Theory_solver = struct
 
-    type elmt = Imt.ivar option offset
-    with compare, sexp_of
-
-    type row = elmt array
+    type row = Imt.ivar option offset array
     with compare, sexp_of
 
     type db = row list
@@ -121,8 +106,10 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
     }
 
     type index = row Int63.Map.t * row list
+    with compare, sexp_of
 
     type occ = row * index * int
+    with compare, sexp_of
 
     let dequeue_exists d ~f =
       let back = Dequeue.back_index d in
@@ -202,7 +189,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
       let index = index_of_db r l 0 in
       if not (bvar_in_dequeue r_bvar_d b) then
         Dequeue.push_back r_bvar_d (Some b);
-      Hashtbl.add_multi r_occ_h b (e, index, 0)
+      let occ = e, index, 0 in
+      Hashtbl.add_multi r_occ_h b occ
 
     module F
 
@@ -236,14 +224,22 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
         let f ov = lb_of_ovar r' ov, ub_of_ovar r' ov in
         Array.map ~f
 
+      type dbg_type =
+        (Int63.t option * Int63.t option) *
+          (Int63.t option * Int63.t option)
+      with sexp_of
+
       let bounds_within_for_dim (lb, ub) (lb', ub') =
         (Lb.(lb' <= lb) && Lb_ub.(lb <= ub')) ||
           (Lb_ub.(lb' <= ub) && Ub.(ub <= ub'))
 
+      let bounds_within_for_dim b b' =
+        bounds_within_for_dim b b' || bounds_within_for_dim b' b
+
       let get_diff_lb {r_diff_h} r' v1 v2 =
         if Imt.compare_ivar v1 v2 = 0 then
           Some Int63.zero
-        else if Imt.compare_ivar v1 v2 > 0 then
+        else if Imt.compare_ivar v1 v2 < 0 then
           let open Option in
           Hashtbl.find r_diff_h (v1, v2) >>= S.get_lb_local r'
         else
@@ -254,7 +250,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
       let get_diff_ub {r_diff_h} r' v1 v2 =
         if Imt.compare_ivar v1 v2 = 0 then
           Some Int63.zero
-        else if Imt.compare_ivar v1 v2 > 0 then
+        else if Imt.compare_ivar v1 v2 < 0 then
           let open Option in
           Hashtbl.find r_diff_h (v1, v2) >>= S.get_ub_local r'
         else
@@ -442,7 +438,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
         | None, None ->
           fb (Int63.equal o1 o2)
 
-      let propagate_for_occ r r' (row, index, i as occ) =
+      let propagate_for_occ r r' (row, _, i as occ) =
         match approx_candidates r r' occ with
         | _, Zom.Z0 ->
           (* no candidates *)
@@ -578,18 +574,17 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
           if Imt.compare_ivar v1 v2 = 0 then
             false
           else if Imt.compare_ivar v1 v2 > 0 then
-            doit v2 v1 d
+            doit v2 v1 (Int63.neg d)
           else
-            doit v1 v2 Int63.(neg d)
+            doit v1 v2 d
         | _, _ ->
           false
 
       let branch1_for_occ r r' (row, index, i as occ) =
-        exists_candidate r r' occ
-          ~f:(fun row2 ~bounds ->
-            not (Array.for_all2_exn row row2
-                   ~f:(fun ov1 ov2 ->
-                     not (branch_on_diff r r' ov1 ov2))))
+        let f row2 ~bounds =
+          let f ov1 ov2 = not (branch_on_diff r r' ov1 ov2) in
+          not (Array.for_all2_exn row row2 ~f) in
+        exists_candidate r r' occ ~f
 
       let branch1 r r' =
         branch r ~f:(branch_for_bvar r r' ~f:(branch1_for_occ r r'))
