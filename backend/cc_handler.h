@@ -112,6 +112,7 @@ private:
   boost::scoped_ptr<dvar_map> dvar_m;
   boost::scoped_ptr<scip_callback> cback;
   context ctx;
+  dp* ocaml_dp;
 
   // typedef-ing maps, because we frequently have to refer to the
   // types of their iterators
@@ -216,7 +217,7 @@ private:
 
 public:
 
-  cc_handler(SCIP*);
+  cc_handler(SCIP*, dp*);
 
   virtual ~cc_handler();
 
@@ -272,7 +273,7 @@ extern "C" {
 #endif
 
 #if defined(__STDC__) || defined(__cplusplus) // ANSI C prototypes
-	extern cc_handler* new_cc_handler(SCIP* s);
+	extern cc_handler* new_cc_handler(SCIP* s, struct dp*);
 	extern void delete_cc_handler(cc_handler*);
 	extern void cc_handler_call(cc_handler*,
 				    SCIP_VAR*, llint, char*,
@@ -280,7 +281,6 @@ extern "C" {
 	extern void cc_handler_finalize(cc_handler*);
 	extern void cc_handler_include(cc_handler*);
 	extern SCIP_VAR* cc_handler_zero_var(cc_handler*);
-	extern void call_my_dp(struct DP*);
 #else // K&R style prototypes
 	extern cc_handler* new_cc_handler();
 	extern void delete_cc_handler();
@@ -288,7 +288,6 @@ extern "C" {
 	extern void cc_handler_finalize();
 	extern void cc_handler_include();
 	extern SCIP_VAR* cc_handler_zero_var();
-	extern void call_my_dp();
 #endif
 
 #ifdef __cplusplus

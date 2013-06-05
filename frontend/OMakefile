@@ -148,12 +148,15 @@ public.OCamlTop(name, files, cfiles) =
 Camlp4o_lib(lang_ids, herelib, herelib)
 Camlp4o_lib(lang_types, herelib type_conv comparelib sexplib, herelib \
                         type_conv compare sexp_conv)
-Camlp4o_lib(solver, herelib, herelib)
+Camlp4o_lib(solver, herelib type_conv comparelib sexplib, herelib \
+                    type_conv compare sexp_conv)
 Camlp4o_lib(pre, herelib type_conv comparelib sexplib, herelib	\
             type_conv compare sexp_conv)
 Camlp4o_lib(scip, herelib, herelib)
 Camlp4o_lib(terminology, type_conv comparelib sexplib, type_conv	\
                          compare sexp_conv)
+Camlp4o_lib(db_solver, herelib type_conv comparelib sexplib, \
+                       herelib type_conv compare sexp_conv)
 
 Camlp4o(lang_concrete)
 
@@ -168,7 +171,8 @@ OCamlTop(inez, terminology unreachable scip_idl scip util formula	\
 
 OCamlTop(inez-db, terminology unreachable scip_idl scip util formula	\
          lang_types lang_ids lang_abstract db_lang_abstract		\
-         lang_concrete pre solver, native_utils scip_idl_stubs)
+         lang_concrete pre solver db_solver, native_utils		\
+         scip_idl_stubs)
 
 .PHONY: clean
 

@@ -16,11 +16,16 @@ using boost::unordered::piecewise_construct;
 typedef int HRESULT;
 typedef struct { unsigned char data[16]; } IID;
 
-struct DP {
+struct dp {
   virtual HRESULT QueryInterface(int iid, void** p) = 0;
   virtual unsigned long AddRef() = 0;
   virtual unsigned long Release() = 0;
-  virtual long long int receive(SCIP*, SCIP_VAR*, SCIP_VAR*, llint);
+  void push_level();
+  void backtrack();
+  void backtrack_root();
+  virtual SCIP_RESULT propagate();
+  virtual bool check();
+  virtual bool branch();
 };
 
 #define ASSERT_SCIP_POINTER(s) \
@@ -157,7 +162,7 @@ void scip_callback_sol::operator()(symbol a, symbol b, llint x)
 
 /* cc_handler methods */
 
-cc_handler::cc_handler(SCIP* scip)
+cc_handler::cc_handler(SCIP* scip, dp* d)
   : scip::ObjConshdlr(scip, "cc", "congruence closure",
                       1, -100000, -100000, 0, 1, 0, -1,
                       TRUE, TRUE, TRUE, FALSE, 1),
@@ -167,6 +172,7 @@ cc_handler::cc_handler(SCIP* scip)
     seen_node(false),
     node_infeasible(false),
     dvar_m(new dvar_map()),
+    ocaml_dp(d),
     cback(new scip_callback(scip, dvar_m.get(), &node_infeasible,
                             &bound_changed)),
     ctx(cback.get()),
@@ -350,8 +356,7 @@ bool cc_handler::branch_on_diff()
         const scip_ovar& ov2 = *it2;
         SCIP_VAR* v2 = ov2.base;
         bool branched = v1 > v2 ?
-          branch_on_diff(ov1, ov2) :
-          branch_on_diff(ov2, ov1);
+          branch_on_diff(ov1, ov2) : branch_on_diff(ov2, ov1);
         if (branched) return true;
         it2++;
       }
@@ -622,7 +627,12 @@ SCIP_RESULT cc_handler::scip_prop_impl(context& c)
 
   if (node_infeasible || !c.get_consistent())
     return SCIP_CUTOFF;
-  return bound_changed ? SCIP_REDUCEDDOM : SCIP_DIDNOTFIND;
+
+  if (bound_changed) return SCIP_REDUCEDDOM;
+
+  if (ocaml_dp) return ocaml_dp->propagate();
+
+  return SCIP_DIDNOTFIND;
   
 }
 
@@ -686,6 +696,9 @@ SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
     } else
       fcall_lookup_m.emplace(k, r);
   }
+
+  if (ocaml_dp)
+    return ocaml_dp->check() ? SCIP_FEASIBLE : SCIP_INFEASIBLE;
 
   return SCIP_FEASIBLE;
 
@@ -752,7 +765,7 @@ SCIP_RETCODE cc_handler::scip_enfolp
 #ifdef DEBUG
       cout << "[CB] ... failed to propagate\n";
 #endif
-      if (!branch_on_diff()) {
+      if (!branch_on_diff() && !ocaml_dp && !ocaml_dp->branch()) {
         dvar_rev_map::iterator it = dvar_rev_m.begin();
         while (it != dvar_rev_m.end()) {
           cout << "[AS] " << var_id(it->first) << " = "
@@ -761,7 +774,7 @@ SCIP_RETCODE cc_handler::scip_enfolp
                << SCIPvarGetUbLocal(it->first) << "]\n";
           it++;
         }
-        assert(false);
+        unreachable();
       }
       *r = SCIP_BRANCHED;
       break;
@@ -938,11 +951,12 @@ SCIP_RETCODE cc_handler::scip_exec_nodefocused(SCIP_EVENT* e)
 
 }
 
-SCIP_RETCODE cc_handler::scip_exec_relaxed(SCIP_VAR* ev,
-                                           SCIP_Real old_lb,
-                                           SCIP_Real new_lb,
-                                           SCIP_Real old_ub,
-                                           SCIP_Real new_ub)
+SCIP_RETCODE cc_handler::scip_exec_relaxed
+(SCIP_VAR* ev,
+ SCIP_Real old_lb,
+ SCIP_Real new_lb,
+ SCIP_Real old_ub,
+ SCIP_Real new_ub)
 {
   
   SCIP*& scip = scip::ObjEventhdlr::scip_;
@@ -1008,7 +1022,8 @@ SCIP_RETCODE cc_handler::scip_exec_relaxed(SCIP_VAR* ev,
   cout << "[EV] bound for " << var_id(ev) << " relaxed to ["
        << new_lb << ", " << new_ub
        << "]; no need to backtrack\n";
-  if (node_infeasible) cout << "[EV] note: node remains infeasible\n";
+  if (node_infeasible)
+    cout << "[EV] note: node remains infeasible\n";
 #endif
 
   return SCIP_OKAY;
@@ -1096,9 +1111,10 @@ void cc_handler::register_var(SCIP_VAR* v)
 
 }
 
-void cc_handler::register_ret(const string* s,
-                              const vector<scip_ovar>& vv,
-                              const scip_ovar& ov)
+void cc_handler::register_ret
+(const string* s,
+ const vector<scip_ovar>& vv,
+ const scip_ovar& ov)
 {
 
   // TODO: avoid constructing a temporary ffcall_slave_map (can't
@@ -1327,9 +1343,9 @@ void cc_handler::include()
 
 /* C wrappers */
 
-cc_handler* new_cc_handler(SCIP* s)
+cc_handler* new_cc_handler(SCIP* s, dp* d)
 {
-  return new cc_handler(s);
+  return new cc_handler(s, d);
 }
 
 void delete_cc_handler(cc_handler* c)
@@ -1365,9 +1381,4 @@ void cc_handler_include(cc_handler* c)
 SCIP_VAR* cc_handler_zero_var(cc_handler* c)
 {
   return NULL;
-}
-
-void call_my_dp(struct DP* d)
-{
-  cout << d->receive(NULL, NULL, NULL, 0) << endl;
 }

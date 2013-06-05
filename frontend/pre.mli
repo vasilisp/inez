@@ -48,6 +48,12 @@ module Make : functor (I : Lang_ids.Accessors) -> sig
 
   val dummy_formula : formula
 
+  val flatten_int_term :
+    ctx -> (I.c, int) Lang_abstract.M.t -> term
+
+  val flatten_bool_term :
+    ctx -> (I.c, bool) Lang_abstract.M.t -> formula
+
   val flatten_formula :
     ctx -> I.c Lang_abstract.A.t Formula.t -> formula
 

@@ -16,9 +16,19 @@ typedef [abstract] void* var;
 typedef [abstract] void* cons;
 typedef [abstract] void* sol;
 typedef [abstract] void* cch;
+typedef [abstract] void* node;
 typedef [abstract] void** voidstarstar;
 
 typedef unsigned int proptiming;
+
+// make sure the enums stay in sync with their C/C++ versions
+
+typedef enum
+{
+  SCIP_DIDNOTFIND = 3,
+  SCIP_CUTOFF = 7,
+  SCIP_REDUCEDDOM = 10
+} result;
 
 typedef enum
 {
@@ -88,7 +98,7 @@ typedef enum
   SCIP_PARAMSETTING_OFF = 3
 } param_setting;
 
-retcode SCIPcreate([out] scip *s);
+retcode SCIPcreate([out] scip* s);
 
 retcode SCIPcreateProbBasic
 ([in] scip s,
@@ -100,7 +110,7 @@ retcode SCIPsolve([in] scip s);
 
 retcode SCIPcreateVarBasic
 ([in] scip s,
- [out] var *v,
+ [out] var* v,
  [in,string] const char *name,
  [in] double lb,
  [in] double ub,
@@ -161,6 +171,32 @@ double SCIPvarGetSol([in] var v, [in] boolean getlpval);
 
 double SCIPgetVarSol([in] scip s, [in] var v);
 
+double SCIPvarGetLbLocal([in] var v);
+
+double SCIPvarGetUbLocal([in] var v);
+
+boolean SCIPisEQ([in] scip s, [in] double v1, [in] double v2);
+
+retcode SCIPinferVarLbCons
+([in] scip s,
+ [in] var v,
+ [in] double newbound,
+ [in] cons c,
+ [in] int inferinfo,
+ [in] boolean force,
+ [out] boolean infeasible,
+ [out] boolean tightened);
+
+retcode SCIPinferVarUbCons
+([in] scip s,
+ [in] var v,
+ [in] double newbound,
+ [in] cons c,
+ [in] int inferinfo,
+ [in] boolean force,
+ [out] boolean infeasible,
+ [out] boolean tightened);
+
 retcode SCIPchgVarObj([in] scip s, [in] var v, [in] double newobj);
 
 retcode SCIPsetIntParam([in] scip s, [in,string] const char* name,
@@ -179,7 +215,27 @@ sol SCIPgetBestSol([in] scip s);
 
 double SCIPgetSolVal([in] scip s, [in] sol sl, [in] var v);
 
-cch new_cc_handler([in] scip s);
+retcode SCIPbranchVarVal([in] scip s,
+                         [in] var v,
+                         [in] float x,
+                         [out] node* downchild,
+                         [out] node* eqchild,
+                         [out] node* upchild);
+
+// COM interface for theory solvers in OCaml
+
+[object] interface DP : IUnknown {
+  void push_level();
+  void backtrack();
+  result propagate();
+  boolean check([in] sol s);
+  boolean branch();
+}
+
+// performs congruence closure and dispatches stuff to Ocaml theory
+// solvers
+
+cch new_cc_handler([in] scip s, [in] DP* dp);
 
 void delete_cc_handler([in] cch c);
 
@@ -195,16 +251,9 @@ void cc_handler_finalize([in] cch c);
 
 void cc_handler_include([in] cch c);
 
-/* simply returns NULL */
-var cc_handler_zero_var([in] cch c);
+var cc_handler_zero_var();
 
-// COM interface for theory solvers in OCaml
 
-[object] interface DP : IUnknown {
-  boolean receive([in] scip s,
-                  [in] var v1,
-                  [in] var v2,
-                  [in] long long int offset);
-}
 
-void call_my_dp([in] DP* d);
+// implemented in native_utils
+cons scip_null_cons();

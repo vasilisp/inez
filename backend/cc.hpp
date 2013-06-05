@@ -16,9 +16,6 @@
 // for the data structures and algorithms, see Niewenhuis & Oliveras,
 // "Fast CC & Extensions"
 
-// TODO: it seems like other theory solvers will follow similar
-// patterns. Abstract away details and provide a reusable template.
-
 // #define DEBUG
 
 namespace cc {

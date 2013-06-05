@@ -25,33 +25,33 @@ and D : (Db_with_ops
   
 struct
 
-    type 'i a = 'i A.t
-      
-    type ('i, 's) r = ('i, 's) R.t
+  type 'i a = 'i A.t
+    
+  type ('i, 's) r = ('i, 's) R.t
 
-    type ('i, _) t =
-    | D_Input  :  'r S.t * ('i, 'r) r list ->
-      ('i, 'r) t
-    | D_Cross  :  ('i, 'r) t * ('i, 's) t ->
-      ('i, 'r * 's) t
-    | D_Sel    :  ('i, 'r) t * (('i, 'r) r -> 'i a Formula.t) ->
-      ('i, 'r) t
+  type ('i, _) t =
+  | D_Input  :  'r S.t * ('i, 'r) r list ->
+    ('i, 'r) t
+  | D_Cross  :  ('i, 'r) t * ('i, 's) t ->
+    ('i, 'r * 's) t
+  | D_Sel    :  ('i, 'r) t * (('i, 'r) r -> 'i a Formula.t) ->
+    ('i, 'r) t
 
-    let sel a f = D_Sel (a, f)
+  let sel a f = D_Sel (a, f)
 
-    let cross a b = D_Cross (a, b)
+  let cross a b = D_Cross (a, b)
 
-    let rec schema_of_t :
-    type r . ('i, r) t -> r S.t =
-      function
-      | D_Input (s, _) ->
-        s
-      | D_Cross (a, b) ->
-        S.S_Pair (schema_of_t a, schema_of_t b)
-      | D_Sel (a, _) ->
-        schema_of_t a
+  let rec schema_of_t :
+  type r . ('i, r) t -> r S.t =
+    function
+    | D_Input (s, _) ->
+      s
+    | D_Cross (a, b) ->
+      S.S_Pair (schema_of_t a, schema_of_t b)
+    | D_Sel (a, _) ->
+      schema_of_t a
 
-  end
+end
 
 and A :
 

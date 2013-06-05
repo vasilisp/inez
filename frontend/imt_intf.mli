@@ -1,7 +1,7 @@
 open Core.Std
 open Terminology
 
-module type S_access = sig
+module type S_types = sig
 
   (** context *)
   type ctx
@@ -11,15 +11,6 @@ module type S_access = sig
 
   (** boolean variable *)
   type bvar
-
-  (** function identifiers *)
-  type f
-
-  val compare_f : f -> f -> int
-
-  val hash_f : f -> int
-
-  val sexp_of_f : f -> Sexplib.Sexp.t
 
   val compare_ivar : ivar -> ivar -> int
 
@@ -37,8 +28,28 @@ module type S_access = sig
 
   val bvar_of_ivar : ivar -> bvar
 
+end
+
+module type S_types_uf = sig
+
+  type f
+
+  val compare_f : f -> f -> int
+
+  val hash_f : f -> int
+
+  val sexp_of_f : f -> Sexplib.Sexp.t
+
   (** dummy function symbol *)
   val dummy_f : f
+
+end
+
+module type S_access = sig
+
+  include S_types
+
+  include S_types_uf
 
   val new_f : ctx -> string -> int -> f
 
@@ -49,11 +60,7 @@ module type S_access = sig
   (** define a boolean variable *)
   val new_bvar : ctx -> bvar
 
-  (** [negate_var ctx v] = not v *)
-  (* A dumb solver can implement negate_bvar by introducing a fresh
-     bvar v_neg and enforcing v_neg + v = 1. SCIP can represent
-     negation symbolically. We need negated variables to appear in the
-     left-hand side of indicators. *)
+  (** [negate_bvar ctx v] = not v *)
   val negate_bvar : ctx -> bvar -> bvar
 
   (** [add_eq ctx i rhs] asserts i = rhs *) 
@@ -86,42 +93,158 @@ module type S_access = sig
 
 end
 
-module type S = sig
+module type S_dp_access = sig
+
+  include S_types
+
+  val bderef_local : ctx -> bvar -> bool option
+
+  val get_lb_local : ctx -> ivar -> Int63.t option
+  
+  val get_ub_local : ctx -> ivar -> Int63.t option
+
+  val set_lb_local :
+    ctx -> ivar -> Int63.t -> [`Infeasible | `Ok | `Tightened]
+  
+  val set_ub_local :
+    ctx -> ivar -> Int63.t -> [`Infeasible | `Ok | `Tightened]
+
+  (* maybe redundant? *)
+  val name_diff :
+    ctx -> ivar -> ivar -> ivar option
+
+  val ibranch :
+    ctx -> ivar -> float -> [`Ok | `Fail]
+
+  val bbranch :
+    ctx -> bvar -> [`Ok | `Fail]
+
+  type sol
+
+  val ideref_sol : ctx -> sol -> ivar -> Int63.t
+
+  val bderef_sol : ctx -> sol -> bvar -> bool
+
+end
+
+module type S_unit_creatable = sig
   include S_access
   include (Ctx_intf.S_creatable
            with type ctx := ctx
            and type carg := unit)
 end
 
-module type S' = sig
+module type S_creatable = sig
   include S_access
   include (Ctx_intf.S_creatable with type ctx := ctx)
 end
 
-(* Higher-level functorial interface for connecting decision
-   procedures. The decision procedure expects some access to the
-   underlying solver, and gets it via the argument to [F]. Once we
-   plug-in something that satisfies [S_dp], we get back a solver for
-   ILP Modulo (T U EUF).
-
-   This interface is a bit over-engineered as of now. Things will get
-   more complicated, and it will make more sense. *)
-
 module type S_dp = sig
+
+  type ivar_plug
+  type bvar_plug
+
+  include Ctx_intf.S_unit_creatable
+
+  module F
+
+    (S : S_dp_access
+     with type ivar = ivar_plug
+     and type bvar = bvar_plug) :
+
+  sig
     
-  (* The theory solver may want to keep a reference to the low-level
-     context ([X.ctx]). It doesn't have to. *)
+    val push_level :
+      ctx -> S.ctx -> unit
+    
+    val backtrack :
+      ctx -> S.ctx -> unit
 
-  include S_access
+    val check :
+      ctx -> S.ctx -> S.sol -> bool
 
-  module type Dp = sig
-    type ctx
-    val receive : ctx -> ivar -> ivar -> Int63.t -> response
+    val propagate :
+      ctx -> S.ctx -> response
+
+    val branch :
+      ctx -> S.ctx -> [`Ok | `Fail]
+
   end
 
-  module F (Dp : Dp) : sig
-    val make_ctx : Dp.ctx -> ctx
+end
+
+module type S_dp_finegrained = sig
+
+  type ivar_plug
+  type bvar_plug
+
+  include Ctx_intf.S_unit_creatable
+
+  module F
+
+    (S : S_dp_access
+     with type ivar = ivar_plug
+     and type bvar = bvar_plug) :
+
+  sig
+    
+    val push_level :
+      ctx -> S.ctx -> unit
+    
+    val backtrack :
+      ctx -> S.ctx -> unit
+    
+    val backtrack_root :
+      ctx -> S.ctx -> unit
+
+    val check :
+      ctx -> S.ctx -> S.sol -> bool
+
+    val receive_lb :
+      ctx -> S.ctx -> S.ivar -> Int63.t -> response
+
+    val receive_ub :
+      ctx -> S.ctx -> S.ivar -> Int63.t -> response
+
+    val receive_diff :
+      ctx -> S.ctx -> S.ivar -> S.ivar -> Int63.t -> response
+
+  end
+
+end
+
+module type S_with_dp = sig
+    
+  include S_types
+  include S_types_uf
+
+  module F
+
+    (D : S_dp
+     with type ivar_plug := ivar
+     and type bvar_plug := bvar) :
+
+  sig
+
+    include
+      (S_types
+       with type ctx = ctx
+       and type ivar = ivar
+       and type bvar = bvar)
+      
+    include
+      (S_types_uf with type f = f)
+      
+    include
+      (S_access
+       with type ctx := ctx
+       and type ivar := ivar
+       and type bvar := bvar
+       and type f := f)
+
+    val make_ctx : D.ctx -> ctx
     val register : ctx -> ivar -> ivar -> unit
+
   end
 
 end

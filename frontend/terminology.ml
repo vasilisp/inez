@@ -33,7 +33,7 @@ type result             =  R_Opt | R_Unbounded | R_Sat
                            | R_Unsat | R_Unknown
 with compare, sexp
 
-type response           =  N_Ok | N_Unsat
+type response           =  N_Ok | N_Unsat | N_Tightened
 with compare, sexp
 
 type 't signed          =  S_Pos of 't | S_Neg of 't

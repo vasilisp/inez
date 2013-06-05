@@ -8,7 +8,7 @@ module M = struct
   type ('c, 'u) t = Id.t * 'u Lang_types.t
 
   let sexp_of_t _ f x =
-    Tuple.T2.sexp_of_t Id.sexp_of_t (Lang_types.sexp_of_t f) x
+    Tuple2.sexp_of_t Id.sexp_of_t (Lang_types.sexp_of_t f) x
 
   let compare _ _ (id1, _) (id2, _) =
     Id.compare id1 id2
@@ -108,7 +108,7 @@ module Make (U : Unit.S) : S = struct
 
   let type_of_t :
   type u . (c, u) t -> u Lang_types.t =
-    Tuple.T2.get2
+    Tuple2.get2
 
   let type_of_t' = { a_f = type_of_t }
 
@@ -132,7 +132,7 @@ module Make_mapper (I1 : S) (I2 : S) = struct
   let f : (I1.c, 'u) t -> (I2.c, 'u) t =
     fun ((_, y) as id) ->
       Hashtbl.find_or_add m (Box.Box id)
-        ~default:(fun () -> Tuple.T2.get1 (I2.gen_id y)),
+        ~default:(fun () -> Tuple2.get1 (I2.gen_id y)),
       y
 
   let f' = {f_id = f}

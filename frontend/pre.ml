@@ -167,7 +167,7 @@ module Make (I : Lang_ids.Accessors) = struct
     U_And [ff_or (ff_not q) g; ff_or q h]
 
   let sum_negate (l, x) =
-    List.map l ~f:(Tuple.T2.map1 ~f:Int63.neg), Int63.neg x
+    List.map l ~f:(Tuple2.map1 ~f:Int63.neg), Int63.neg x
 
   (* flatten terms and formulas; SCC impractical to break *)
   let dedup_sum l =
@@ -328,7 +328,7 @@ module Make (I : Lang_ids.Accessors) = struct
     | G_Base b ->
       (k, b) :: d, x
     | G_Sum (l, o) ->
-      List.rev_map_append l d ~f:(Tuple.T2.map1 ~f:(Int63.( * ) k)),
+      List.rev_map_append l d ~f:(Tuple2.map1 ~f:(Int63.( * ) k)),
       Int63.(x + o * k)
 
   and flatten_int_term_sum r (d, x) k (t : (_, int) M.t) =

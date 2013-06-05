@@ -1,24 +1,7 @@
 open Core.Std
 open Terminology
 
-module type S_converter = sig
-  type ctx
-  type c
-  type ivar
-  type bvar
-  val iid_of_ivar : ctx -> ivar -> (c, int) Lang_ids.t option
-  val bid_of_bvar : ctx -> bvar -> (c, bool) Lang_ids.t option
-end
-
-module type S_compiler = sig
-  include Solver_intf.S
-  include S_converter with type ctx := ctx and type c := c
-  type sctx
-  type dctx
-  val make_ctx : sctx -> ctx
-end
-
-module Make_compiler
+module Make
 
   (S : Imt_intf.S_access)
   (I : Lang_ids.Accessors) =
@@ -59,10 +42,7 @@ struct
   }
 
   type fid = I.c Lang_ids.Box_arrow.t
-
-  let compare_fid = Lang_ids.Box_arrow.compare I.compare_c
-
-  let sexp_of_fid = Lang_ids.Box_arrow.sexp_of_t I.sexp_of_c
+  with compare, sexp_of
 
   let hashable_fid = {
     Hashtbl.Hashable.
@@ -72,10 +52,7 @@ struct
   }
 
   type iid  = (I.c, int) Lang_ids.t
-
-  let compare_iid = Lang_ids.compare I.compare_c Int.compare
-
-  let sexp_of_iid = Lang_ids.sexp_of_t I.sexp_of_c Int.sexp_of_t
+  with compare, sexp_of
 
   let hashable_iid = {
     Hashtbl.Hashable.
@@ -85,10 +62,7 @@ struct
   }
 
   type bid = (I.c, bool) Lang_ids.t
-
-  let compare_bid = Lang_ids.compare I.compare_c Bool.compare
-
-  let sexp_of_bid = Lang_ids.sexp_of_t I.sexp_of_c Bool.sexp_of_t
+  with compare, sexp_of
 
   let hashable_bid = {
     Hashtbl.Hashable.
@@ -98,22 +72,18 @@ struct
   }
 
   type ovar = S.ivar option offset
+  with compare, sexp_of
     
-  let compare_ovar =
-    compare_offset (Option.compare ~cmp:S.compare_ivar)
-
-  let sexp_of_ovar =
-    sexp_of_offset (Option.sexp_of_t S.sexp_of_ivar)
-
   type bg_call = S.f * ovar list
+  with compare, sexp_of
 
   let compare_bg_call =
-    Tuple.T2.compare
+    Tuple2.compare
       ~cmp1:S.compare_f
       ~cmp2:(List.compare ~cmp:compare_ovar)
 
   let sexp_of_bg_call =
-    Tuple.T2.sexp_of_t S.sexp_of_f (List.sexp_of_t sexp_of_ovar)
+    Tuple2.sexp_of_t S.sexp_of_f (List.sexp_of_t sexp_of_ovar)
 
   let hashable_bg_call = {
     Hashtbl.Hashable.
@@ -123,10 +93,7 @@ struct
   }
 
   type bg_isum = S.ivar isum
-
-  let compare_bg_isum = compare_isum S.compare_ivar
-
-  and sexp_of_bg_isum = sexp_of_isum S.sexp_of_ivar
+  with compare, sexp_of
 
   let hashable_bg_isum = {
     Hashtbl.Hashable.
@@ -140,11 +107,12 @@ struct
     fun x -> M.type_of_t ~f:I.type_of_t' x
 
   let flat_sum_negate (l, x) =
-    List.map l ~f:(Tuple.T2.map1 ~f:Int63.neg), Int63.neg x
+    List.map l ~f:(Tuple2.map1 ~f:Int63.neg), Int63.neg x
 
   (* optional var, possibly negated (S_Pos None means true) *)
 
   type xvar = S.bvar option signed
+  with compare, sexp_of
 
   let xtrue = S_Pos None
 
@@ -238,7 +206,7 @@ struct
     | S_Neg x -> S_Pos x
 
   let negate_isum =
-    List.map ~f:(Tuple.T2.map1 ~f:Int63.neg)
+    List.map ~f:(Tuple2.map1 ~f:Int63.neg)
 
   (* linearizing terms and formulas: mutual recursion, because terms
      contain formulas and vice versa *)
@@ -303,7 +271,7 @@ struct
 
   and ovar_of_ite ({r_ctx; r_ovar_of_iite_m} as r) ((g, s, t) as i) =
     let default () =
-      match xvar_of_formula r g with
+      match xvar_of_formula_doit r g with
       | S_Pos None ->
         ovar_of_term r s
       | S_Neg None ->
@@ -329,7 +297,7 @@ struct
       Some (var_of_app r f_id l mip_type_int), Int63.zero
     | P.B_Ite i ->
       ovar_of_ite r i
-  
+        
   and ovar_of_term ({r_ctx; r_var_of_sum_m} as r) = function
     | P.G_Base b ->
       ovar_of_flat_term_base r b
@@ -349,7 +317,7 @@ struct
         Some v, o)
 
   and ovar_of_formula ({r_ctx} as r) g =
-    match xvar_of_formula r g with
+    match xvar_of_formula_doit r g with
     | S_Pos (Some v) ->
       Some (S.ivar_of_bvar v), Int63.zero
     | S_Pos None ->
@@ -386,7 +354,7 @@ struct
 
   and blast_conjunction_map r acc = function
     | g :: tail ->
-      (match xvar_of_formula r g with
+      (match xvar_of_formula_doit r g with
       | S_Pos (Some x) ->
         blast_conjunction_map r (S_Pos x :: acc) tail
       | S_Pos None ->
@@ -424,18 +392,19 @@ struct
     | P.U_Var v ->
       S_Pos (Some (bvar_of_bid r v))
     | P.U_App (f_id, l) ->
-      S_Pos (Some (S.bvar_of_ivar
-                     (var_of_app r f_id l mip_type_bool)))
+      S_Pos (Some
+               (S.bvar_of_ivar
+                  (var_of_app r f_id l mip_type_bool)))
     | P.U_Atom (t, o) ->
       blast_atom r (t, o)
     | P.U_And l ->
       blast_conjunction r l
 
-  and xvar_of_formula ({r_xvar_m} as r) = function
+  and xvar_of_formula_doit ({r_xvar_m} as r) = function
     | P.U_Not g ->
-      snot (xvar_of_formula r g)
+      snot (xvar_of_formula_doit r g)
     | P.U_Ite (q, g, h) ->
-      xvar_of_formula r (P.ff_ite q g h)
+      xvar_of_formula_doit r (P.ff_ite q g h)
     | g ->
       let default () = blast_formula r g in
       Hashtbl.find_or_add r_xvar_m g ~default
@@ -491,17 +460,37 @@ struct
       | Some v, o ->
         assert_ivar_equal_constant r v (Int63.neg o))
     | g ->
-      finally_assert_unit r (xvar_of_formula r g)
+      finally_assert_unit r (xvar_of_formula_doit r g)
 
   let assert_formula {r_pre_ctx; r_q} g =
     Dequeue.push_back r_q (P.flatten_formula r_pre_ctx g)
 
+  let negate_bvar {r_ctx} v =
+    S.negate_bvar r_ctx v
+
+  let xvar_of_formula ({r_pre_ctx} as r) g =
+    let g = P.flatten_formula r_pre_ctx g in
+    lazy (xvar_of_formula_doit r g)
+
+  let xvar_of_term ({r_pre_ctx} as r) m =
+    let g = P.flatten_bool_term r_pre_ctx m in
+    lazy (xvar_of_formula_doit r g)
+
+  let ovar_of_term ({r_pre_ctx} as r) m =
+    let m = P.flatten_int_term r_pre_ctx m in
+    lazy (ovar_of_term r m)
+
+  let bvar_of_id = bvar_of_bid
+
   let write_bg_ctx {r_ctx} =
     S.write_ctx r_ctx
 
-  let solve ({r_q; r_ctx} as r) =
+  let bg_assert_all_cached ({r_q} as r) =
     Dequeue.iter r_q ~f:(finally_assert_formula r);
-    Dequeue.clear r_q;
+    Dequeue.clear r_q
+
+  let solve ({r_ctx} as r) =
+    bg_assert_all_cached r;
     if r.r_unsat then
       R_Unsat
     else
@@ -512,39 +501,5 @@ struct
 
   let deref_bool {r_ctx; r_bvar_m} id =
     Option.(Hashtbl.find r_bvar_m id >>= S.bderef r_ctx)
-
-end
-
-module Make (S : Imt_intf.S) (I : Lang_ids.Accessors) = struct
-  include Make_compiler(S)(I)
-  let make_ctx () = make_ctx (S.make_ctx ())
-end
-
-module Make_with_dp
-  
-  (S : Imt_intf.S_dp)
-  (I : Lang_ids.S)
-  (D : Solver_intf.Dp with type c := I.c) =
-
-struct
-
-  module C = Make_compiler(S)(I)
-
-  module S' = S.F (struct
-    type ctx = C.ctx option ref * D.ctx
-    let receive ({contents = rc}, rd) a b d =
-      let rc = Option.value_exn rc in
-      let a = Option.value_exn (C.iid_of_ivar rc a)
-      and b = Option.value_exn (C.iid_of_ivar rc b) in
-      D.receive rd a b d
-  end)
-
-  include C
-
-  let make_ctx d =
-    let rr, d as pair = ref None, d in
-    let rec r = make_ctx (S'.make_ctx pair) in
-    rr := Some r;
-    r
 
 end

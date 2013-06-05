@@ -9,3 +9,8 @@ value address_of_value(value v)
 {
 	return (Val_long(((unsigned long)v) / sizeof(long)));
 }
+
+void* scip_null_cons()
+{
+	return NULL;
+}
