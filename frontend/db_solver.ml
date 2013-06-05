@@ -236,7 +236,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
       let bounds_within_for_dim b b' =
         bounds_within_for_dim b b' || bounds_within_for_dim b' b
 
-      let get_diff_lb {r_diff_h} r' v1 v2 =
+      let lb_of_diff {r_diff_h} r' v1 v2 =
         if Imt.compare_ivar v1 v2 = 0 then
           Some Int63.zero
         else if Imt.compare_ivar v1 v2 < 0 then
@@ -247,7 +247,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
           Hashtbl.find r_diff_h (v2, v1) >>=
             S.get_ub_local r' >>| Int63.neg
 
-      let get_diff_ub {r_diff_h} r' v1 v2 =
+      let ub_of_diff {r_diff_h} r' v1 v2 =
         if Imt.compare_ivar v1 v2 = 0 then
           Some Int63.zero
         else if Imt.compare_ivar v1 v2 < 0 then
@@ -269,8 +269,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
                | (Some v1, o1), (Some v2, o2) ->
                  let open Int63 in
                  let d = o2 - o1
-                 and lb = get_diff_lb r r' v1 v2
-                 and ub = get_diff_ub r r' v1 v2
+                 and lb = lb_of_diff r r' v1 v2
+                 and ub = ub_of_diff r r' v1 v2
                  and default = true in
                  Option.value_map lb ~f:((>=) d) ~default &&
                    Option.value_map ub ~f:((<=) d) ~default
@@ -555,13 +555,6 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
         and f1 = branch_for_bvar r r' ~f:f1 in
         branch r ~f:f0 || branch r ~f:f1
 
-      (* 
-         let branch1 r r' =
-         let f v = branch1_for_bvar r r' v in
-         let f v = f (Option.value_exn v ~here:_here_) in
-         dequeue_exists r_bvar_d ~f
-      *)
-
       let branch_on_diff {r_diff_h} r' (v1, o1) (v2, o2) =
         let doit v1 v2 x =
           let v = Hashtbl.find r_diff_h (v1, v2) in
@@ -812,10 +805,10 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
         purify_membership x d r
       and b = I.gen_id Lang_types.Y_Bool in
       register_membership_bulk x b l;
-      Formula.(&&)
+      Formula.(&&) g
         (Formula.F_Atom
            (Lang_abstract.A.A_Bool
-              (Lang_abstract.M.M_Var b))) g
+              (Lang_abstract.M.M_Var b)))
     | A.A_Bool b ->
       Formula.F_Atom
         (Lang_abstract.A.A_Bool
@@ -841,8 +834,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
   let assert_formula ({r_ctx} as x) g =
     match purify_formula_top x g with
     | Some g ->
-      S'.assert_formula r_ctx g;
-      `Ok
+      S'.assert_formula r_ctx g; `Ok
     | None ->
       `Fail
 
