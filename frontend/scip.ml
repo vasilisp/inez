@@ -1,6 +1,7 @@
 open Core.Std
 open Scip_idl
 open Terminology
+open Core.Int_replace_polymorphic_compare
 
 exception Scip_Exn of (Here.t * retcode)
 
@@ -290,7 +291,7 @@ let ideref_sol {r_ctx} sol v =
     i
 
 let bderef_sol {r_ctx} sol v =
-  sCIPgetSolVal r_ctx sol v > 0.5
+  Float.(>) (sCIPgetSolVal r_ctx sol v) 0.5
 
 let ideref ({r_sol} as r) v =
   Option.map r_sol ~f:(fun s -> ideref_sol r s v)

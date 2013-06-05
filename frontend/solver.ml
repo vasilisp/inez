@@ -1,5 +1,6 @@
 open Core.Std
 open Terminology
+open Core.Int_replace_polymorphic_compare
 
 module Make
 
@@ -305,7 +306,7 @@ struct
       (match iexpr_of_sum r s with
       | [], o ->
         None, o
-      | [c, x], o when c = Int63.one ->
+      | [c, x], o when Int63.(c = one) ->
         Some x, o
       | l, o ->
         let v =
@@ -333,7 +334,7 @@ struct
       (match iexpr_of_sum r s with
       | [], o ->
         None, o
-      | [c, x], o when c = Int63.one ->
+      | [c, x], o when Int63.(c = one) ->
         Some x, o
       | l, o ->
         let v = S.new_ivar r_ctx mip_type_int in
