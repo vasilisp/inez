@@ -1,6 +1,7 @@
 open Core.Std
 open Db_lang_abstract
 open Terminology
+open Core.Int_replace_polymorphic_compare
 
 module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
 
@@ -176,9 +177,9 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
       dequeue_exists d ~f
 
     let rec ivar_of_diff ({r_diff_h} as r) v1 v2 ~fd =
-      if compare v1 v2 > 0 then
+      if Imt.compare_ivar v1 v2 > 0 then
         ivar_of_diff r v2 v1 ~fd
-      else if compare v1 v2 = 0 then
+      else if Imt.compare_ivar v1 v2 = 0 then
         None
       else
         let default () = fd v1 v2 in
@@ -188,7 +189,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
       Array.iter2_exn row1 row2
         ~f:(fun (v1, _) (v2, _) ->
           match v1, v2 with
-          | Some v1, Some v2 when not (compare v1 v2 = 0) ->
+          | Some v1, Some v2 when not (Imt.compare_ivar v1 v2 = 0) ->
             ignore (ivar_of_diff r v1 v2 ~fd)
           | _, _ ->
             ())
@@ -240,9 +241,9 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
           (Lb_ub.(lb' <= ub) && Ub.(ub <= ub'))
 
       let get_diff_lb {r_diff_h} r' v1 v2 =
-        if compare v1 v2 = 0 then
+        if Imt.compare_ivar v1 v2 = 0 then
           Some Int63.zero
-        else if compare v1 v2 > 0 then
+        else if Imt.compare_ivar v1 v2 > 0 then
           let open Option in
           Hashtbl.find r_diff_h (v1, v2) >>= S.get_lb_local r'
         else
@@ -251,9 +252,9 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
             S.get_ub_local r' >>| Int63.neg
 
       let get_diff_ub {r_diff_h} r' v1 v2 =
-        if compare v1 v2 = 0 then
+        if Imt.compare_ivar v1 v2 = 0 then
           Some Int63.zero
-        else if compare v1 v2 > 0 then
+        else if Imt.compare_ivar v1 v2 > 0 then
           let open Option in
           Hashtbl.find r_diff_h (v1, v2) >>= S.get_ub_local r'
         else

@@ -23,20 +23,18 @@ let fresh_bool_var () =
     (Db_lang_abstract.A.A_Bool
        (Db_lang_abstract.M.M_Var (Id.gen_id Lang_types.Y_Bool)));;
 
-(*
 let ideref = function
-  | Lang_abstract.M.M_Var v ->
+  | Db_lang_abstract.M.M_Var v ->
     S.deref_int ctx v
   | _ ->
     None;;
 
 let bderef = function
   | Formula.F_Atom
-      (Lang_abstract.A.A_Bool (Lang_abstract.M.M_Var v)) ->
+      (Db_lang_abstract.A.A_Bool (Db_lang_abstract.M.M_Var v)) ->
     S.deref_bool ctx v
   | _ ->
     None;;
-*)
 
 let toi x = Db_lang_abstract.M.M_Int (Int63.of_int x);;
 
