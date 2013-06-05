@@ -156,7 +156,7 @@ module type S_dp = sig
     
     val push_level :
       ctx -> S.ctx -> unit
-    
+
     val backtrack :
       ctx -> S.ctx -> unit
 

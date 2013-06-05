@@ -20,9 +20,8 @@ struct dp {
   virtual HRESULT QueryInterface(int iid, void** p) = 0;
   virtual unsigned long AddRef() = 0;
   virtual unsigned long Release() = 0;
-  void push_level();
-  void backtrack();
-  void backtrack_root();
+  virtual void push_level();
+  virtual void backtrack();
   virtual SCIP_RESULT propagate();
   virtual bool check();
   virtual bool branch();
@@ -187,8 +186,7 @@ cc_handler::cc_handler(SCIP* scip, dp* d)
     vars(),
     dvars(),
     frames()
-{
-}
+{}
 
 cc_handler::~cc_handler()
 {
@@ -630,7 +628,8 @@ SCIP_RESULT cc_handler::scip_prop_impl(context& c)
 
   if (bound_changed) return SCIP_REDUCEDDOM;
 
-  if (ocaml_dp) return ocaml_dp->propagate();
+  if (ocaml_dp)
+    return ocaml_dp->propagate();
 
   return SCIP_DIDNOTFIND;
   
@@ -698,7 +697,7 @@ SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
   }
 
   if (ocaml_dp)
-    return ocaml_dp->check() ? SCIP_FEASIBLE : SCIP_INFEASIBLE;
+    return (ocaml_dp->check() ? SCIP_FEASIBLE : SCIP_INFEASIBLE);
 
   return SCIP_FEASIBLE;
 

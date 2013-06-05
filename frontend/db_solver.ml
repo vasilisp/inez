@@ -610,8 +610,6 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
 
       let backtrack _ _ = ()
 
-      let backtrack_root _ _ = ()
-
     end
 
   end
@@ -647,7 +645,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
     let r_theory_ctx = Theory_solver.make_ctx () in
     let r_bg_ctx = Imt'.make_ctx r_theory_ctx in {
       r_ctx =
-        S'.make_ctx (Imt'.make_ctx r_theory_ctx);
+        S'.make_ctx r_bg_ctx;
       r_bg_ctx;
       r_theory_ctx;
       (* TODO : monomorphic hashtable *)
