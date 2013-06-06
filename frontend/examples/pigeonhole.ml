@@ -46,12 +46,12 @@ let m = make_map pigeons holes;;
 
 constrain
   (logic in (forall pigeons
-               ~f:(fun p -> sum holes ~f:(m p) == 1)));;
+               ~f:(fun p -> sum holes ~f:(m p) = 1)));;
 
 (* each hole contains one pigeon *)
 
 constrain
   (logic in (forall holes
-               ~f:(fun h -> sum pigeons ~f:(Fn.flip m h) == 1)));;
+               ~f:(fun h -> sum pigeons ~f:(Fn.flip m h) = 1)));;
 
 solve ();;

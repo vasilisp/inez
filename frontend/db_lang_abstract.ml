@@ -22,7 +22,7 @@ and D : (Db_with_ops
          with type 'i a := 'i A.t
          and type 's s := 's S.t
          and type ('i, 's) r := ('i, 's) R.t) =
-  
+
 struct
 
   type 'i a = 'i A.t
@@ -58,3 +58,35 @@ and A :
   (Atom with type ('i, 's) d := ('i, 's) D.t
         and type ('i, 's) m := ('i, 's) M.t) = A
 
+(* I copy-pasted the module below from lang_abstract.ml . There is no
+   obvious way of functorizing it, because the atoms (A) differ. *)
+
+module Ops = struct
+
+  type 'a formula = 'a Formula.t
+
+  include (M : Ops_intf.Int
+           with type ('i, 'q) t := ('i, 'q) M.t
+           and type i := Int63.t)
+
+  include A
+
+  include (Formula : Ops_intf.Prop
+           with type 'a t := 'a formula)
+
+  let iite c a b = M.M_Ite (c, a, b)
+
+  let (<) a b =
+    Formula.F_Atom (A_Le (M.(a + M_Int Int63.one - b)))
+
+  let (<=) a b =
+    Formula.F_Atom (A_Le M.(a - b))
+
+  let (=) a b =
+    Formula.F_Atom (A_Eq M.(a - b))
+
+  let (>=) a b = b <= a
+
+  let (>) a b = b < a
+
+end

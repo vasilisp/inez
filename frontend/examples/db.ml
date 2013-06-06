@@ -22,10 +22,9 @@ constrain
   (exists
      (sel db
         (fun (R.R_Pair (_, R.R_Int x)) ->
-          Formula.F_Atom (A.A_Eq (M.(x + toi 1821)))))) ;;
+          (Ops.(x = toi 1821))))) ;;
 
-constrain
-  (Formula.F_Atom (A.A_Eq (M.(v + toi 18)))) ;;
+constrain (Ops.(v = toi 18)) ;;
 
 solve () ;;
 

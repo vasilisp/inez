@@ -38,7 +38,7 @@ let g =
 
 let h =
   Formula.forall_pairs pigeons
-    ~f:(fun p1 p2 -> logic in not (m p1 == m p2));;
+    ~f:(fun p1 p2 -> logic in not (m p1 = m p2));;
 
 (* call solver *)
 

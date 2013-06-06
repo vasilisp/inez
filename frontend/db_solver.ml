@@ -3,6 +3,114 @@ open Db_lang_abstract
 open Terminology
 open Core.Int_replace_polymorphic_compare
 
+let dequeue_exists d ~f =
+  let back = Dequeue.back_index d in
+  let rec g i =
+    if i <= back then
+      if f (Dequeue.get_exn d i) then
+        true
+      else
+        g (i + 1)
+    else
+      false in
+  g (Dequeue.front_index d)
+
+let dequeue_for_all d ~f =
+  not (dequeue_exists d ~f:(Fn.non f))
+
+let array_foldi_responses a ~f =
+  let n = Array.length a in
+  let rec g i acc =
+    if i >= n then
+      acc
+    else
+      match f i a.(i) with
+      | N_Unsat ->
+        N_Unsat
+      | N_Tightened ->
+        g (i + 1) N_Tightened
+      | N_Ok ->
+        g (i + 1) acc in
+  g 0 N_Ok
+
+let dequeue_foldi_responses d ~f =
+  let n = Dequeue.back_index d in
+  let rec g i acc =
+    if i > n then
+      acc
+    else
+      match f i (Dequeue.get_exn d i) with
+      | N_Unsat ->
+        N_Unsat
+      | N_Tightened ->
+        g (i + 1) N_Tightened
+      | N_Ok ->
+        g (i + 1) acc in
+  g (Dequeue.front_index d) N_Ok
+
+let list_foldi_responses l ~f =
+  let rec g i l acc =
+    match l with
+    | a :: d ->
+      (match f i a with
+      | N_Unsat ->
+        N_Unsat
+      | N_Tightened ->
+        g (i + 1) d N_Tightened
+      | N_Ok ->
+        g (i + 1) d acc)
+    | [] ->
+      acc in
+  g 0 l N_Ok
+
+module Lb = struct
+  let (<=) lb lb' =
+    let lb =  Option.value lb  ~default:Int63.min_value
+    and lb' = Option.value lb' ~default:Int63.min_value in
+    Int63.(lb <= lb')
+end
+
+module Ub = struct
+  let (<=) ub ub' =
+    let ub  = Option.value ub  ~default:Int63.max_value
+    and ub' = Option.value ub' ~default:Int63.max_value in
+    Int63.(ub <= ub')
+end
+  
+module Lb_ub = struct
+  let (<=) lb ub =
+    let lb = Option.value lb ~default:Int63.min_value
+    and ub = Option.value ub ~default:Int63.max_value in
+    Int63.(lb <= ub)
+end
+
+module Ub_lb = struct
+  let (<=) a b = Lb_ub.(b <= a)
+end
+
+module Zom = struct
+
+  type 'a t = Z0 | Z1 of 'a | Zn
+
+  let update z x ~equal =
+    match z with
+    | Z0 ->
+      Z1 x
+    | Z1 x' when equal x x' ->
+      z
+    | _ ->
+      Zn
+
+end
+
+let ok_for_true = function
+  | true  -> `Ok
+  | false -> `Fail
+
+let bool_of_ok_or_fail = function
+  | `Ok   -> true
+  | `Fail -> false
+
 module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
 
   type int_id = (I.c, int) Lang_ids.t
@@ -37,46 +145,6 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
     sexp_of_t = Imt.sexp_of_bvar
   }
 
-  module Lb = struct
-    let (<=) lb lb' =
-      let lb =  Option.value lb  ~default:Int63.min_value
-      and lb' = Option.value lb' ~default:Int63.min_value in
-      Int63.(lb <= lb')
-  end
-
-  module Ub = struct
-    let (<=) ub ub' =
-      let ub  = Option.value ub  ~default:Int63.max_value
-      and ub' = Option.value ub' ~default:Int63.max_value in
-      Int63.(ub <= ub')
-  end
-  
-  module Lb_ub = struct
-    let (<=) lb ub =
-      let lb = Option.value lb ~default:Int63.min_value
-      and ub = Option.value ub ~default:Int63.max_value in
-      Int63.(lb <= ub)
-  end
-
-  module Ub_lb = struct
-    let (<=) a b = Lb_ub.(b <= a)
-  end
-
-  module Zom = struct
-
-    type 'a t = Z0 | Z1 of 'a | Zn
-
-    let update z x ~equal =
-      match z with
-      | Z0 ->
-        Z1 x
-      | Z1 x' when equal x x' ->
-        z
-      | _ ->
-        Zn
-
-  end
-
   (* We provide a theory solver (module [D]) and instantiate BC(T)
      accordingly ([Imt.F(D)]). *)
 
@@ -110,21 +178,6 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
 
     type occ = row * index * int
     with compare, sexp_of
-
-    let dequeue_exists d ~f =
-      let back = Dequeue.back_index d in
-      let rec g i =
-        if i <= back then
-          if f (Dequeue.get_exn d i) then
-            true
-          else
-            g (i + 1)
-        else
-          false in
-      g (Dequeue.front_index d)
-
-    let dequeue_for_all d ~f =
-      not (dequeue_exists d ~f:(Fn.non f))
 
     type ctx = {
       r_idb_h   :  (db, index) Hashtbl.t;
@@ -223,11 +276,6 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
       let bounds_of_row r' =
         let f ov = lb_of_ovar r' ov, ub_of_ovar r' ov in
         Array.map ~f
-
-      type dbg_type =
-        (Int63.t option * Int63.t option) *
-          (Int63.t option * Int63.t option)
-      with sexp_of
 
       let bounds_within_for_dim (lb, ub) (lb', ub') =
         (Lb.(lb' <= lb) && Lb_ub.(lb <= ub')) ||
@@ -371,51 +419,6 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
           (S.set_lb_local r v x)
           (S.set_ub_local r v x)
 
-      let array_foldi_responses a ~f =
-        let n = Array.length a in
-        let rec g i acc =
-          if i >= n then
-            acc
-          else
-            match f i a.(i) with
-            | N_Unsat ->
-              N_Unsat
-            | N_Tightened ->
-              g (i + 1) N_Tightened
-            | N_Ok ->
-              g (i + 1) acc in
-        g 0 N_Ok
-
-      let dequeue_foldi_responses d ~f =
-        let n = Dequeue.back_index d in
-        let rec g i acc =
-          if i > n then
-            acc
-          else
-            match f i (Dequeue.get_exn d i) with
-            | N_Unsat ->
-              N_Unsat
-            | N_Tightened ->
-              g (i + 1) N_Tightened
-            | N_Ok ->
-              g (i + 1) acc in
-        g (Dequeue.front_index d) N_Ok
-
-      let list_foldi_responses l ~f =
-        let rec g i l acc =
-          match l with
-          | a :: d ->
-            (match f i a with
-            | N_Unsat ->
-              N_Unsat
-            | N_Tightened ->
-              g (i + 1) d N_Tightened
-            | N_Ok ->
-              g (i + 1) d acc)
-          | [] ->
-            acc in
-        g 0 l N_Ok
-
       let assert_ovar_equal {r_diff_h} r' (v1, o1) (v2, o2) =
         let fb b = if b then N_Ok else N_Unsat
         and f v1 v2 x =
@@ -503,13 +506,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
         let f = Fn.compose f (Option.value_exn ~here:_here_) in
         dequeue_for_all r_bvar_d ~f
 
-      let ok_for_true = function
-        | true  -> `Ok
-        | false -> `Fail
-
-      let bool_of_ok_or_fail = function
-        | `Ok   -> true
-        | `Fail -> false
+      (* branching *)
 
       let branch_for_bvar r r' v ~f =
         match S.bderef_local r' v with
@@ -751,13 +748,14 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
   type s. ibentry list -> ctx -> (I.c, s) R.t ->
     ibentry list =
     fun acc ({r_ctx} as x) r ->
+      let f = purify_atom x in
       match r with
       | R.R_Int m ->
-        let m = C.map_non_atomic m ~f:(purify_atom x) ~fv in
+        let m = C.map_non_atomic m ~f ~fv in
         let m = S'.ovar_of_term r_ctx m in
         H_Int m :: acc
       | R.R_Bool m ->
-        let m = C.map_non_atomic m ~f:(purify_atom x) ~fv in
+        let m = C.map_non_atomic m ~f ~fv in
         let m = S'.xvar_of_term r_ctx m in
         H_Bool m :: acc
       | R.R_Pair (r1, r2) ->

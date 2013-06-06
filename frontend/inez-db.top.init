@@ -44,4 +44,5 @@ let sel l f =
 let exists l =
   Formula.F_Atom (Db_lang_abstract.A.A_Exists l);;
 
-    
+let cross l1 l2 = 
+  Db_lang_abstract.D.D_Cross (l1, l2);;

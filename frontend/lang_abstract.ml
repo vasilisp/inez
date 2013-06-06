@@ -164,7 +164,7 @@ module Ops = struct
   let (<=) a b =
     Formula.F_Atom (A_Le M.(a - b))
 
-  let (==) a b =
+  let (=) a b =
     Formula.F_Atom (A_Eq M.(a - b))
 
   let (>=) a b = b <= a

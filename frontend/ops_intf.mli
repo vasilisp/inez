@@ -22,7 +22,7 @@ module type Prop = sig
 end
 
 module type Int = sig
-    
+
   type (_, _) t
   type i
 
@@ -51,7 +51,7 @@ module type Mixed = sig
 
   val ( < ) : ('i, int) t -> ('i, int) t -> 'i a f
   val ( <= ) : ('i, int) t -> ('i, int) t -> 'i a f
-  val ( == ) : ('i, int) t -> ('i, int) t -> 'i a f
+  val ( = ) : ('i, int) t -> ('i, int) t -> 'i a f
   val ( >= ) : ('i, int) t -> ('i, int) t -> 'i a f
   val ( > ) : ('i, int) t -> ('i, int) t -> 'i a f
 
