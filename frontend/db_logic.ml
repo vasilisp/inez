@@ -1,6 +1,6 @@
 open Core.Std
 
-open Db_lang_abstract_intf
+open Db_logic_intf
 
 module S : Schema = struct
 
@@ -11,12 +11,53 @@ module S : Schema = struct
 
 end
 
-module rec M : (Lang_abstract_intf.Term_with_ops
-                with type 'i a = 'i A.t) =
+module rec M : (Logic_intf.Term_with_ops
+                with type 'i atom = 'i A.t) =
   
-  Lang_abstract.Make_term(A)
+  Logic.Make_term(A)
 
-and R : (Row with type ('i, 's) m := ('i, 's) M.t) = R
+and R : (Row_with_ops with type ('i, 's) m := ('i, 's) M.t
+                      and type 'i a := 'i A.t
+                      and type 'u s := 'u S.t) =
+
+struct
+
+  open Terminology
+
+  type ('i, _) t =
+  | R_Int   :  ('i, int) M.t ->
+    ('i, int) t
+  | R_Bool  :  ('i, bool) M.t ->
+    ('i, bool) t
+  | R_Pair  :  ('i, 'r) t * ('i, 's) t ->
+    ('i, 'r * 's) t
+
+  let rec of_list :
+  type s . s S.t ->
+    (('i, int) M.t, 'i A.t Formula.t) ibeither list ->
+    (('i, s) R.t *
+        (('i, int) M.t, 'i A.t Formula.t) ibeither list) option =
+    fun s l ->
+      match s, l with
+      | S.S_Int, H_Int x :: d ->
+        Some (R_Int x, d)
+      | S.S_Bool, H_Bool (Formula.F_Atom (A.A_Bool x)) :: d ->
+        Some (R_Bool x, d)
+      | S.S_Bool, H_Bool x :: d ->
+        Some (R_Bool (M.M_Bool x), d)
+      | S.S_Pair (s1, s2), l ->
+        let open Option in
+        of_list s1 l >>= (fun (x, l) ->
+          of_list s2 l >>| (fun (y, l) ->
+            R_Pair (x, y), l))
+      | _ ->
+        None
+
+  let of_list s l =
+    let open Option in
+    of_list s l >>= function r, [] -> Some r | _ -> None
+
+end
 
 and D : (Db_with_ops
          with type 'i a := 'i A.t
@@ -58,8 +99,9 @@ and A :
   (Atom with type ('i, 's) d := ('i, 's) D.t
         and type ('i, 's) m := ('i, 's) M.t) = A
 
-(* I copy-pasted the module below from lang_abstract.ml . There is no
-   obvious way of functorizing it, because the atoms (A) differ. *)
+(* I copy-pasted the module below from lang_abstract.ml ; everything
+   seems to work. There is no obvious way of functorizing Ops, because
+   the atoms (A) differ. *)
 
 module Ops = struct
 
@@ -67,7 +109,7 @@ module Ops = struct
 
   include (M : Ops_intf.Int
            with type ('i, 'q) t := ('i, 'q) M.t
-           and type i := Int63.t)
+           and type int_plug := Int63.t)
 
   include A
 

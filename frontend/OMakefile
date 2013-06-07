@@ -8,6 +8,8 @@ USE_OCAMLFIND = true
 OCAMLPACKS = core camlp4 camlidl camlp4.lib herelib
 INCLUDES = $(CAMLIDL_INCLUDE_PATH)
 
+CFLAGS = -fPIC
+
 OCAMLDEP_MODULES_ENABLED = true
 
 OCAML_CLIBS = ../backend/libbct
@@ -21,7 +23,7 @@ private.EXT_COBJ = .o
 %_idl.ml %_idl.mli %_idl.h %_idl_stubs.c: %_idl.idl
     camlidl -header %_idl.idl
 
-# copied from
+# recipe from
 #   http://www.camlcity.org/knowledge/kb_001_omake_recipes.html
 
 Camlp4o(module) =
@@ -105,6 +107,36 @@ public.MyOCamlProgram(name, files, cfiles) =
                    $(if $(NATIVE_ENABLED), $(OPTPROG)), \
                    $(if $(BYTE_ENABLED), $(BYTEPROG)))
 
+public.OcamlShared(name, files, cfiles) =
+
+    private.CMXFILES = $(addsuffix .cmx, $(files))
+    private.OFILES = $(addsuffix $(EXT_OBJ), $(files))
+
+    private.COFILES = $(addsuffix $(EXT_COBJ), $(cfiles))
+
+    private.CMXAFILES = $(addsuffix .cmxa, $(OCAML_LIBS))
+    private.ARFILES = $(addsuffix $(EXT_LIB), $(OCAML_LIBS))
+    private.CMXA_OTHER_FILES = $(addsuffix .cmxa, $(OCAML_OTHER_LIBS))
+
+    private.CLIBS = $(addsuffix $(EXT_LIB), $(OCAML_CLIBS))
+
+    private.name = $(file $(name))
+
+    private.OUTPUT = $(file $(name).cmxs)
+
+    OCAML_LINK_FLAGS += -shared
+
+    $(OUTPUT): $(CMXAFILES) $(ARFILES) $(CMXFILES) $(OFILES) $(CLIBS)	\
+            $(COFILES)
+        $(OCAMLFIND) $(OCAMLOPTLINK) $(LAZY_OCAMLFINDFLAGS)		\
+                $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS) $(OCAMLOPTFLAGS)	\
+                $(PREFIXED_OCAMLINCLUDES) -o $@ $(CMXA_OTHER_FILES)	\
+                $(CMXAFILES) $(COFILES) $(OCamlLinkSort $(CMXFILES))	\
+                $(CLIBS) $(OCAML_LINK_FLAGS)				\
+                $(OCAML_NATIVE_LINK_FLAGS)
+
+    return $(OUTPUT)
+
 public.OCamlTop(name, files, cfiles) =
 
     private.CMOFILES = $(addsuffix .cmo, $(files))
@@ -142,12 +174,12 @@ public.OCamlTop(name, files, cfiles) =
 # OCAMLFIND_COMMANDS='ocamlmktop=mkcamlp4' \
 # ocamlfind ocamlmktop \
 #     -thread -linkpkg -package compiler-libs.toplevel,core \
-#     -I +camlp4 camlp4o.cma lang_concrete.cmo \
+#     -I +camlp4 camlp4o.cma pa_logic_impl.cmo pa_logic.cmo \
 #     -o inez.pp -custom
 
-Camlp4o_lib(lang_ids, herelib, herelib)
-Camlp4o_lib(lang_types, herelib type_conv comparelib sexplib, herelib \
-                        type_conv compare sexp_conv)
+Camlp4o_lib(id, herelib, herelib)
+Camlp4o_lib(type, herelib type_conv comparelib sexplib, herelib \
+                  type_conv compare sexp_conv)
 Camlp4o_lib(solver, herelib type_conv comparelib sexplib, herelib \
                     type_conv compare sexp_conv)
 Camlp4o_lib(pre, herelib type_conv comparelib sexplib, herelib	\
@@ -158,25 +190,24 @@ Camlp4o_lib(terminology, type_conv comparelib sexplib, type_conv	\
 Camlp4o_lib(db_solver, herelib type_conv comparelib sexplib, \
                        herelib type_conv compare sexp_conv)
 
-Camlp4o(lang_concrete)
+Camlp4o(pa_logic_impl)
 
 MyOCamlProgram(inez, terminology unreachable scip_idl scip util	\
-               formula lang_types lang_ids lang_abstract pre solver	\
-               smtlib_lexer smtlib_parser smtlib_solver main,		\
-               native_utils scip_idl_stubs)
+               formula type id logic pre solver smtlib_lexer	\
+               smtlib_parser smtlib_solver main, native_utils	\
+               scip_idl_stubs)
 
 OCamlTop(inez, terminology unreachable scip_idl scip util formula	\
-         lang_types lang_ids lang_abstract lang_concrete pre solver,	\
+         type id logic pa_logic_impl pa_logic pre solver,		\
          native_utils scip_idl_stubs)
 
-OCamlTop(inez-db, terminology unreachable scip_idl scip util formula	\
-         lang_types lang_ids lang_abstract db_lang_abstract		\
-         lang_concrete pre solver db_solver, native_utils		\
-         scip_idl_stubs)
+OCamlTop(inezdb, terminology unreachable scip_idl scip util formula	\
+         type id logic db_logic pa_logic_impl pa_db_logic pre solver	\
+         db_solver, native_utils scip_idl_stubs)
 
 .PHONY: clean
 
 clean:
     rm -f *.o *.cm[iox] smtlib_lexer.ml inez inez.opt inez.run	\
-            inez-db.top inez.top *.omc scip_idl.ml scip_idl.mli	\
+            inezdb.top inez.top *.omc scip_idl.ml scip_idl.mli	\
             scip_idl.h scip_idl_stubs.c

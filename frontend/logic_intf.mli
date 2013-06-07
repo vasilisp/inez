@@ -1,9 +1,9 @@
 module type Term = sig
 
-  type _ a
+  type _ atom
 
   type ('i, _) t =
-  | M_Bool  :  'i a Formula.t ->
+  | M_Bool  :  'i atom Formula.t ->
     ('i, bool) t
   | M_Int   :  Core.Std.Int63.t ->
     ('i, int) t
@@ -11,9 +11,9 @@ module type Term = sig
     ('i, int) t
   | M_Prod  :  Core.Std.Int63.t * ('i, int) t ->
     ('i, int) t
-  | M_Ite   :  'i a Formula.t * ('i, int) t * ('i, int) t ->
+  | M_Ite   :  'i atom Formula.t * ('i, int) t * ('i, int) t ->
     ('i, int) t
-  | M_Var   :  ('i, 's) Lang_ids.t ->
+  | M_Var   :  ('i, 's) Id.t ->
     ('i, 's) t
   | M_App   :  ('i, 'r -> 's) t * ('i, 'r) t ->
     ('i, 's) t
@@ -34,22 +34,22 @@ module type Term_with_ops = sig
   (* type utilities *)
 
   val type_of_t :
-    ('i, 's) t -> f:'i Lang_ids.t_arrow_type -> 's Lang_types.t
+    ('i, 's) t -> f:'i Id.t_arrow_type -> 's Type.t
 
   (* infix operators *)
 
   include (Ops_intf.Int with type ('i, 's) t := ('i, 's) t
-                        and type i := Core.Std.Int63.t)
+                        and type int_plug := Core.Std.Int63.t)
 
 end
 
 module type Atom = sig
 
-  type (_, _) m
+  type (_, _) term_plug
 
   type 'i t =
-  | A_Bool  of  ('i, bool) m
-  | A_Le    of  ('i, int) m
-  | A_Eq    of  ('i, int) m
+  | A_Bool  of  ('i, bool) term_plug
+  | A_Le    of  ('i, int) term_plug
+  | A_Eq    of  ('i, int) term_plug
 
 end

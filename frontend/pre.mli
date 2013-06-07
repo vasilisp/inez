@@ -1,6 +1,6 @@
-module Make : functor (I : Lang_ids.Accessors) -> sig
+module Make : functor (I : Id.Accessors) -> sig
 
-  type fun_id = I.c Lang_ids.Box_arrow.t
+  type fun_id = I.c Id.Box_arrow.t
 
   type ibflat = (term, formula) Terminology.ibeither
 
@@ -15,7 +15,7 @@ module Make : functor (I : Lang_ids.Accessors) -> sig
   and iite = formula * term * term
 
   and term_base = private
-                  | B_Var      of  (I.c, int) Lang_ids.t
+                  | B_Var      of  (I.c, int) Id.t
                   | B_Formula  of  formula
                   | B_App      of  app
                   | B_Ite      of  iite
@@ -27,7 +27,7 @@ module Make : functor (I : Lang_ids.Accessors) -> sig
   and bite = formula * formula * formula
 
   and formula = private
-                | U_Var   of  (I.c, bool) Lang_ids.t
+                | U_Var   of  (I.c, bool) Id.t
                 | U_Atom  of  term * Terminology.op'
                 | U_Not   of  formula
                 | U_And   of  formula list
@@ -49,13 +49,13 @@ module Make : functor (I : Lang_ids.Accessors) -> sig
   val dummy_formula : formula
 
   val flatten_int_term :
-    ctx -> (I.c, int) Lang_abstract.M.t -> term
+    ctx -> (I.c, int) Logic.M.t -> term
 
   val flatten_bool_term :
-    ctx -> (I.c, bool) Lang_abstract.M.t -> formula
+    ctx -> (I.c, bool) Logic.M.t -> formula
 
   val flatten_formula :
-    ctx -> I.c Lang_abstract.A.t Formula.t -> formula
+    ctx -> I.c Logic.A.t Formula.t -> formula
 
   val ff_ite : formula -> formula -> formula -> formula
 

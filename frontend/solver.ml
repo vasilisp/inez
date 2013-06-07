@@ -5,11 +5,11 @@ open Core.Int_replace_polymorphic_compare
 module Make
 
   (S : Imt_intf.S_access)
-  (I : Lang_ids.Accessors) =
+  (I : Id.Accessors) =
 
 struct
 
-  open Lang_abstract
+  open Logic
 
   module P = Pre.Make(I)
 
@@ -42,7 +42,7 @@ struct
     sexp_of_t = S.sexp_of_bvar
   }
 
-  type fid = I.c Lang_ids.Box_arrow.t
+  type fid = I.c Id.Box_arrow.t
   with compare, sexp_of
 
   let hashable_fid = {
@@ -52,7 +52,7 @@ struct
     sexp_of_t = sexp_of_fid
   }
 
-  type iid  = (I.c, int) Lang_ids.t
+  type iid  = (I.c, int) Id.t
   with compare, sexp_of
 
   let hashable_iid = {
@@ -62,7 +62,7 @@ struct
     sexp_of_t = sexp_of_iid
   }
 
-  type bid = (I.c, bool) Lang_ids.t
+  type bid = (I.c, bool) Id.t
   with compare, sexp_of
 
   let hashable_bid = {
@@ -104,7 +104,7 @@ struct
   }
 
   let type_of_term :
-  type t . t term -> t Lang_types.t =
+  type t . t term -> t Type.t =
     fun x -> M.type_of_t ~f:I.type_of_t' x
 
   let flat_sum_negate (l, x) =
@@ -175,13 +175,13 @@ struct
   }
 
   let get_f ({r_ctx; r_fun_m; r_fun_cnt} as r)
-      (Lang_ids.Box_arrow.Box id' as id) =
+      (Id.Box_arrow.Box id' as id) =
     let t = I.type_of_t id' in
     Hashtbl.find_or_add r_fun_m id
       ~default:(fun () ->
         let s = Printf.sprintf "f_%d" r_fun_cnt in
         r.r_fun_cnt <- r.r_fun_cnt + 1;
-        S.new_f r_ctx s (Lang_types.count_arrows t))
+        S.new_f r_ctx s (Type.count_arrows t))
 
   let ivar_of_iid {r_ctx; r_ivar_m; r_iid_m} x =
     Hashtbl.find_or_add r_ivar_m x

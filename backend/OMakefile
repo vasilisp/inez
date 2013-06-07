@@ -2,7 +2,8 @@ open build/C
 
 INCLUDES = $(BOOST_DIR) $(SCIP_SRC_DIR)
 
-CXXFLAGS += -O3
+CXXFLAGS += -O3 -fPIC
+CFLAGS += -fPIC
 
 StaticCXXLibrary(libbct, util scip_utils cc_handler)
 

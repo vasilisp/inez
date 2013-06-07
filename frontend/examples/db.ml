@@ -1,4 +1,4 @@
-open Db_lang_abstract
+open Db_logic
 
 let ideref_human x =
   Option.(ideref x >>= Int63.to_int) ;;

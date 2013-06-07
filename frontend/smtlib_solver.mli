@@ -13,7 +13,7 @@ end
 module Make
   
   (S : Solver_intf.S_unit_creatable)
-  (I : Lang_ids.S with type c = S.c) :
+  (I : Id.S with type c = S.c) :
 
 sig
 

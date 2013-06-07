@@ -1,6 +1,6 @@
 open Core.Std
 open Terminology
-open Lang_abstract
+open Logic
 
 (* TODO: investigate why type_conv (or camlp4 itself?) breaks module
    signatures, like:
@@ -13,9 +13,9 @@ open Lang_abstract
 
 *)
 
-module Make (I : Lang_ids.Accessors) = struct
+module Make (I : Id.Accessors) = struct
 
-  type fun_id = I.c Lang_ids.Box_arrow.t 
+  type fun_id = I.c Id.Box_arrow.t 
   with compare, sexp_of
 
   let fun_id_of_sexp x =
@@ -43,7 +43,7 @@ module Make (I : Lang_ids.Accessors) = struct
     formula * term * term
 
   and term_base =
-  | B_Var      of  (I.c, int) Lang_ids.t
+  | B_Var      of  (I.c, int) Id.t
   | B_Formula  of  formula
   | B_App      of  app
   | B_Ite      of  iite
@@ -57,7 +57,7 @@ module Make (I : Lang_ids.Accessors) = struct
   and conj = formula list
 
   and formula =
-  | U_Var   of  (I.c, bool) Lang_ids.t
+  | U_Var   of  (I.c, bool) Id.t
   | U_Atom  of  term * op'
   | U_Not   of  formula
   | U_And   of  conj
@@ -322,7 +322,7 @@ module Make (I : Lang_ids.Accessors) = struct
     | M.M_App (f, t) ->
       flatten_args r (flatten_term r t :: acc) f
     | M.M_Var v ->
-      Lang_ids.Box_arrow.Box v, make_args r (List.rev acc)
+      Id.Box_arrow.Box v, make_args r (List.rev acc)
 
   and inline_term r (d, x) k = function
     | G_Base b ->
@@ -392,9 +392,9 @@ module Make (I : Lang_ids.Accessors) = struct
   type s . ctx -> (I.c, s) M.t -> ibflat =
     fun r t ->
       match M.type_of_t t ~f:I.type_of_t' with
-      | Lang_types.Y_Int ->
+      | Type.Y_Int ->
         H_Int (flatten_int_term r t)
-      | Lang_types.Y_Bool ->
+      | Type.Y_Bool ->
         H_Bool (flatten_bool_term r t)
       | _ ->
         (* not meant for functions *)

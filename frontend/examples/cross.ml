@@ -1,4 +1,4 @@
-open Db_lang_abstract
+open Db_logic
 
 let ideref_human x =
   Option.(ideref x >>= Int63.to_int) ;;
@@ -29,7 +29,7 @@ constrain
   (exists
      (sel db_cross
         (fun (R.R_Pair (R.R_Pair (_, R.R_Int x), R.R_Pair (R.R_Int y, _))) ->
-          Ops.(x = y + toi 1)))) ;;
+          logic in x = y + 1))) ;;
 
 (* constrain (Ops.(u = toi 32)) ;; *)
 

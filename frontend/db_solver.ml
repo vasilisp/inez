@@ -1,5 +1,5 @@
 open Core.Std
-open Db_lang_abstract
+open Db_logic
 open Terminology
 open Core.Int_replace_polymorphic_compare
 
@@ -111,24 +111,24 @@ let bool_of_ok_or_fail = function
   | `Ok   -> true
   | `Fail -> false
 
-module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
+module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
 
-  type int_id = (I.c, int) Lang_ids.t
+  type int_id = (I.c, int) Id.t
   
-  type bool_id = (I.c, bool) Lang_ids.t
+  type bool_id = (I.c, bool) Id.t
 
   let hashable_int_id = {
     Hashtbl.Hashable.
     hash = Hashtbl.hash;
-    compare = Lang_ids.compare I.compare_c Int.compare;
-    sexp_of_t = Lang_ids.sexp_of_t I.sexp_of_c Int.sexp_of_t
+    compare = Id.compare I.compare_c Int.compare;
+    sexp_of_t = Id.sexp_of_t I.sexp_of_c Int.sexp_of_t
   }
 
   let hashable_bool_id = {
     Hashtbl.Hashable.
     hash = Hashtbl.hash;
-    compare = Lang_ids.compare I.compare_c Bool.compare;
-    sexp_of_t = Lang_ids.sexp_of_t I.sexp_of_c Bool.sexp_of_t
+    compare = Id.compare I.compare_c Bool.compare;
+    sexp_of_t = Id.sexp_of_t I.sexp_of_c Bool.sexp_of_t
   }
 
   let hashable_ivar = {
@@ -604,10 +604,10 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
   module S' = Solver.Make(Imt')(I)
 
   (* 2nd namespace; to be used for dummy variables *)
-  (* module I' = Lang_ids.Make(struct end) *)
+  (* module I' = Id.Make(struct end) *)
   module I' = I
 
-  module C  =  Lang_abstract.Make_term_conv(M)(Lang_abstract.M)
+  module C  =  Logic.Make_term_conv(M)(Logic.M)
 
   type ibentry =
     (S'.ovar Lazy.t, S'.xvar Lazy.t) ibeither
@@ -644,9 +644,9 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
   type s . s S.t -> (I'.c, s) R.t =
     function
     | S.S_Int ->
-      R.R_Int (M.M_Var (I'.gen_id Lang_types.Y_Int))
+      R.R_Int (M.M_Var (I'.gen_id Type.Y_Int))
     | S.S_Bool ->
-      R.R_Bool (M.M_Var (I'.gen_id Lang_types.Y_Bool))
+      R.R_Bool (M.M_Var (I'.gen_id Type.Y_Bool))
     | S.S_Pair (a, b) ->
       R.R_Pair (get_dummy_row a, get_dummy_row b)
 
@@ -664,9 +664,9 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
   type s . s S.t -> (I.c, s) R.t =
     function
     | S.S_Int ->
-      R.R_Int (M.M_Var (I.gen_id Lang_types.Y_Int))
+      R.R_Int (M.M_Var (I.gen_id Type.Y_Int))
     | S.S_Bool ->
-      R.R_Bool (M.M_Var (I.gen_id Lang_types.Y_Bool))
+      R.R_Bool (M.M_Var (I.gen_id Type.Y_Bool))
     | S.S_Pair (a, b) ->
       R.R_Pair (get_symbolic_row a, get_symbolic_row b)
 
@@ -742,7 +742,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
       | Some l1 -> Some (List.append l l1)
       | None -> Some l)
 
-  let fv = {Lang_ids.f_id = Fn.id}
+  let fv = {Id.f_id = Fn.id}
 
   let rec list_of_row_aux :
   type s. ibentry list -> ctx -> (I.c, s) R.t ->
@@ -778,7 +778,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
   and purify_membership :
   type s . ?acc:(in_constraint_lazy list) -> ctx ->
     (I.c, s) D.t -> (I.c, s) R.t ->
-    in_constraint_lazy list * I.c Lang_abstract.A.t Formula.t =
+    in_constraint_lazy list * I.c Logic.A.t Formula.t =
     fun ?acc:(acc = []) x d r ->
       match d, r with
       | D.D_Input (_, l), _ ->
@@ -795,29 +795,29 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Lang_ids.S) = struct
         acc, Formula.(g1 && g2)
 
   and purify_atom :
-  ctx -> I.c A.t -> I.c Lang_abstract.A.t Formula.t =
+  ctx -> I.c A.t -> I.c Logic.A.t Formula.t =
   fun ({r_ctx} as x) -> function
     | A.A_Exists d ->
       let l, g =
         let r = get_symbolic_row_db d in
         purify_membership x d r
-      and b = I.gen_id Lang_types.Y_Bool in
+      and b = I.gen_id Type.Y_Bool in
       register_membership_bulk x b l;
       Formula.(&&) g
         (Formula.F_Atom
-           (Lang_abstract.A.A_Bool
-              (Lang_abstract.M.M_Var b)))
+           (Logic.A.A_Bool
+              (Logic.M.M_Var b)))
     | A.A_Bool b ->
       Formula.F_Atom
-        (Lang_abstract.A.A_Bool
+        (Logic.A.A_Bool
            (C.map_non_atomic b ~f:(purify_atom x) ~fv))
     | A.A_Le s ->
       Formula.F_Atom
-        (Lang_abstract.A.A_Le
+        (Logic.A.A_Le
            (C.map_non_atomic s ~f:(purify_atom x) ~fv))
     | A.A_Eq s ->
       Formula.F_Atom
-        (Lang_abstract.A.A_Eq
+        (Logic.A.A_Eq
            (C.map_non_atomic s ~f:(purify_atom x) ~fv))
 
   and purify_formula x =

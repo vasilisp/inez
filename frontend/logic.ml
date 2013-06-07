@@ -1,14 +1,14 @@
 open Core.Std
 open Terminology
-open Lang_abstract_intf
+open Logic_intf
 
 module Make_term (T : Core.T.T1) :
 
-  (Term_with_ops with type 'i a = 'i T.t) =
+  (Term_with_ops with type 'i atom = 'i T.t) =
 
 struct
 
-  type 'i a = 'i T.t
+  type 'i atom = 'i T.t
 
   type ('i, 'q) t =
   | M_Bool  :  'i T.t Formula.t -> ('i, bool) t
@@ -17,7 +17,7 @@ struct
   | M_Prod  :  Core.Std.Int63.t * ('i, int) t -> ('i, int) t
   | M_Ite   :  'i T.t Formula.t * ('i, int) t * ('i, int) t ->
     ('i, int) t
-  | M_Var   :  ('i, 's) Lang_ids.t -> ('i, 's) t
+  | M_Var   :  ('i, 's) Id.t -> ('i, 's) t
   | M_App   :  ('i, 'r -> 's) t * ('i, 'r) t -> ('i, 's) t
 
   let zero = M_Int Int63.zero
@@ -27,26 +27,26 @@ struct
   let of_int63 x = M_Int x
 
   let rec type_of_t :
-  type s . ('i, s) t -> f:('i Lang_ids.t_arrow_type) ->
-    s Lang_types.t =
-    fun x ~f:({Lang_ids.a_f} as f) ->
+  type s . ('i, s) t -> f:('i Id.t_arrow_type) ->
+    s Type.t =
+    fun x ~f:({Id.a_f} as f) ->
       match x with
       | M_Bool _ ->
-        Lang_types.Y_Bool
+        Type.Y_Bool
       | M_Int _ ->
-        Lang_types.Y_Int
+        Type.Y_Int
       | M_Sum (_, _) ->
-        Lang_types.Y_Int
+        Type.Y_Int
       | M_Prod (_, _) ->
-        Lang_types.Y_Int
+        Type.Y_Int
       | M_Ite (_, _, _) ->
-        Lang_types.Y_Int
+        Type.Y_Int
       | M_Var id ->
         a_f id
       | M_App (a, b) ->
         let t_a = type_of_t a ~f
         and t_b = type_of_t b ~f in
-        Lang_types.t_of_app t_a t_b
+        Type.t_of_app t_a t_b
 
   let ( + ) a b =
     match a, b with
@@ -78,10 +78,10 @@ struct
 
 end
 
-module rec M : (Term_with_ops with type 'i a = 'i A.t) =
+module rec M : (Term_with_ops with type 'i atom = 'i A.t) =
   Make_term(A)
 
-and A : (Atom with type ('i, 's) m := ('i, 's) M.t) = A
+and A : (Atom with type ('i, 's) term_plug := ('i, 's) M.t) = A
 
 (* conversions between terms *)
 
@@ -91,7 +91,8 @@ module Make_term_conv (M1 : Term) (M2 : Term_with_ops) = struct
 
   let rec map :
   type s . ('c1, s) M1.t ->
-    f:('c1 M1.a -> 'c2 M2.a) -> fv:(('c1, 'c2) Lang_ids.id_mapper) ->
+    f:('c1 M1.atom -> 'c2 M2.atom) ->
+    fv:(('c1, 'c2) Id.id_mapper) ->
     ('c2, s) t =
     fun s ~f ~fv ->
       match s with
@@ -106,14 +107,14 @@ module Make_term_conv (M1 : Term) (M2 : Term_with_ops) = struct
       | M1.M_Ite (q, a, b) ->
         M_Ite (Formula.map q ~f, map a ~f ~fv, map b ~f ~fv)
       | M1.M_Var i ->
-        M_Var (Lang_ids.(fv.f_id) i)
+        M_Var (Id.(fv.f_id) i)
       | M1.M_App (a, b) ->
         M_App (map a ~f ~fv, map b ~f ~fv)
 
   let rec map_non_atomic :
   type s . ('c1, s) M1.t ->
-    f:('c1 M1.a -> 'c2 M2.a Formula.t) ->
-    fv:(('c1, 'c2) Lang_ids.id_mapper) ->
+    f:('c1 M1.atom -> 'c2 M2.atom Formula.t) ->
+    fv:(('c1, 'c2) Id.id_mapper) ->
     ('c2, s) t =
     fun s ~f ~fv ->
       match s with
@@ -130,7 +131,7 @@ module Make_term_conv (M1 : Term) (M2 : Term_with_ops) = struct
                map_non_atomic a ~f ~fv,
                map_non_atomic b ~f ~fv)
       | M1.M_Var i ->
-        M_Var (Lang_ids.(fv.f_id) i)
+        M_Var (Id.(fv.f_id) i)
       | M1.M_App (a, b) ->
         M_App (map_non_atomic a ~f ~fv,
                map_non_atomic b ~f ~fv)
@@ -149,7 +150,7 @@ module Ops = struct
 
   include (M : Ops_intf.Int
            with type ('i, 'q) t := ('i, 'q) M.t
-           and type i := Int63.t)
+           and type int_plug := Int63.t)
 
   include A
 

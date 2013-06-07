@@ -21,6 +21,21 @@ module type Row = sig
 
 end
 
+module type Row_with_ops = sig
+
+  include Row
+
+  type _ a
+
+  type _ s
+
+  val of_list :
+    'u s ->
+    (('i, int) m, 'i a Formula.t) Terminology.ibeither list ->
+    ('i, 'u) t option
+
+end
+
 module type Db = sig
 
   type _ a

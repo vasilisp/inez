@@ -1,7 +1,7 @@
 open Core.Std
 open Terminology
 
-module I = Lang_ids.Make (struct end)
+module I = Id.Make (struct end)
 
 module Scip_solver = struct
   include Solver.Make(Scip.Scip_basic)(I)

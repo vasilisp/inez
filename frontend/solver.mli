@@ -1,7 +1,7 @@
 module Make
 
   (S : Imt_intf.S_access)
-  (I : Lang_ids.Accessors) :
+  (I : Id.Accessors) :
 
 sig
   type c = I.c

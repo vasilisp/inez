@@ -7,15 +7,15 @@ module type S = sig
 
   (** assert constraint *)
   val assert_formula :
-    ctx -> c Lang_abstract.A.t Formula.t -> unit
+    ctx -> c Logic.A.t Formula.t -> unit
 
   val solve : ctx -> Terminology.result
 
   val deref_int :
-    ctx -> (c, int) Lang_ids.t -> Core.Std.Int63.t option
+    ctx -> (c, int) Id.t -> Core.Std.Int63.t option
 
   val deref_bool :
-    ctx -> (c, bool) Lang_ids.t -> bool option
+    ctx -> (c, bool) Id.t -> bool option
 
   val write_bg_ctx : ctx -> string -> unit
 
@@ -50,16 +50,16 @@ module type S_with_holes = sig
      execution may lead to better internal encoding. *)
 
   val xvar_of_formula :
-    ctx -> c Lang_abstract.A.t Formula.t -> xvar Lazy.t
+    ctx -> c Logic.A.t Formula.t -> xvar Lazy.t
 
   val xvar_of_term :
-    ctx -> (c, bool) Lang_abstract.M.t -> xvar Lazy.t
+    ctx -> (c, bool) Logic.M.t -> xvar Lazy.t
 
   val ovar_of_term :
-    ctx -> (c, int) Lang_abstract.M.t -> ovar Lazy.t
+    ctx -> (c, int) Logic.M.t -> ovar Lazy.t
 
   val bvar_of_id :
-    ctx -> (c, bool) Lang_ids.t -> bvar
+    ctx -> (c, bool) Id.t -> bvar
 
   val bg_assert_all_cached : ctx -> unit
 

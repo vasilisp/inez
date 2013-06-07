@@ -11,7 +11,7 @@
 *)
 
 open Core.Std
-open Lang_abstract
+open Logic
 open Terminology
 
 module F = Formula
@@ -72,12 +72,12 @@ type 'c tbox = 'c Box.t
 type 'c env = {
   e_find     :  string -> 'c tbox option;
   e_replace  :  string -> 'c tbox -> 'c env;
-  e_type     :  't . ('c, 't) M.t -> 't Lang_types.t
+  e_type     :  't . ('c, 't) M.t -> 't Type.t
 }
 
 (* utilities *)
 
-let tbx x = Lang_types.Box.Box x
+let tbx x = Type.Box.Box x
 
 let lbx x = Box.Box x
 
@@ -93,7 +93,7 @@ let sum ~f =
      ~f:(fun acc x -> M.(acc + f x)))
 
 let map_matching_types e1 e2 ~fi ~fb =
-  Lang_types.(match e1, e2 with
+  Type.(match e1, e2 with
   | H_Int e1, H_Int e2 ->
     fi e1 e2
   | H_Bool e1, H_Bool e2 ->
@@ -116,9 +116,9 @@ let rec parse_nonlist {e_find; e_type} = function
       raise (Smtlib_Exn "unknown id")
     | Some (Box.Box e) ->
       match e_type e with
-      | Lang_types.Y_Int ->
+      | Type.Y_Int ->
         H_Int e
-      | Lang_types.Y_Bool ->
+      | Type.Y_Bool ->
         H_Bool (F.F_Atom (A.A_Bool e))
       | _ ->
         raise (Smtlib_Exn (Printf.sprintf "%s is a function" s)))
@@ -177,31 +177,31 @@ and parse_mult m l =
     H_Int (M.of_int63 c)
 
 and parse_app_aux :
-type t . 'c env -> ('c, t) M.t -> t Lang_types.t ->
+type t . 'c env -> ('c, t) M.t -> t Type.t ->
   smtlib_sexp list -> 'c ibterm =
   fun m f t l ->
     match t, l with
     (* base cases *)
-    | Lang_types.Y_Int, [] ->
+    | Type.Y_Int, [] ->
       H_Int f
-    | Lang_types.Y_Bool, [] ->
+    | Type.Y_Bool, [] ->
       H_Bool (F.F_Atom (A.A_Bool f))
     (* erroneous base cases *)
-    | Lang_types.Y_Int, _ ->
+    | Type.Y_Int, _ ->
       raise (Smtlib_Exn "wrong number of arguments")
-    | Lang_types.Y_Bool, _ ->
+    | Type.Y_Bool, _ ->
       raise (Smtlib_Exn "wrong number of arguments")
     (* recursive cases *)
-    | Lang_types.Y_Int_Arrow t, a :: l ->
+    | Type.Y_Int_Arrow t, a :: l ->
       let a = parse_int m a in
       parse_app_aux m (M.M_App (f, a)) t l
-    | Lang_types.Y_Bool_Arrow t, a :: l ->
+    | Type.Y_Bool_Arrow t, a :: l ->
       let a = parse_bool m a in
       parse_app_aux m (M.M_App (f, term_of_formula a)) t l
     (* erroneous recursive cases *)
-    | Lang_types.Y_Int_Arrow _, [] ->
+    | Type.Y_Int_Arrow _, [] ->
       raise (Smtlib_Exn "wrong number of arguments")
-    | Lang_types.Y_Bool_Arrow _, [] ->
+    | Type.Y_Bool_Arrow _, [] ->
       raise (Smtlib_Exn "wrong number of arguments")
 
 and parse_app ({e_find; e_type} as m) s l =
@@ -210,9 +210,9 @@ and parse_app ({e_find; e_type} as m) s l =
     raise (Smtlib_Exn (Printf.sprintf "unknown id: %s" s))
   | Some (Box.Box e) ->
     (match e_type e with
-    | Lang_types.Y_Int ->
+    | Type.Y_Int ->
       raise (Smtlib_Exn "function expected")
-    | Lang_types.Y_Bool ->
+    | Type.Y_Bool ->
       raise (Smtlib_Exn "function expected")
     | t ->
       parse_app_aux m e t l)
