@@ -127,7 +127,7 @@ let make_ctx () =
   assert_ok _here_ (sCIPincludeDefaultPlugins r_ctx);
   assert_ok _here_ (sCIPcreateProbBasic r_ctx "prob");
   run_config_list r_ctx;
-  let r_var_d = Dequeue.create () ~dummy:dummy_var
+  let r_var_d = Dequeue.create () ~initial_length:1023
   and r_constraints_n = 0
   and r_has_objective = false
   and r_sol = None in
@@ -166,7 +166,7 @@ let new_ivar ({r_ctx; r_var_d} as r) t =
           r_ctx id (scip_lb_float r lb) (scip_ub_float r ub)
           0. SCIP_VARTYPE_CONTINUOUS) in
   assert_ok _here_ (sCIPaddVar r_ctx v);
-  Dequeue.push_back r_var_d v; v
+  Dequeue.enqueue_back r_var_d v; v
 
 let new_bvar {r_ctx; r_var_d} =
   let i = Dequeue.length r_var_d in
@@ -175,11 +175,11 @@ let new_bvar {r_ctx; r_var_d} =
     assert_ok1 _here_
       (sCIPcreateVarBasic r_ctx id 0.0 1.0 0. SCIP_VARTYPE_BINARY) in
   assert_ok _here_ (sCIPaddVar r_ctx v);
-  Dequeue.push_back r_var_d v; v
+  Dequeue.enqueue_back r_var_d v; v
 
 let negate_bvar {r_ctx; r_var_d} v =
   let v = assert_ok1 _here_ (sCIPgetNegatedVar r_ctx v) in
-  Dequeue.push_back r_var_d v; v
+  Dequeue.enqueue_back r_var_d v; v
 
 let iexpr_vars (l, o) =
   Array.of_list (List.map l ~f:snd)
@@ -462,7 +462,7 @@ module Scip_with_dp = struct
     let make_ctx d =
       let r_ctx = assert_ok1 _here_ (sCIPcreate ())
       and r_cch = None
-      and r_var_d = Dequeue.create () ~dummy:dummy_var
+      and r_var_d = Dequeue.create ()
       and r_constraints_n = 0
       and r_has_objective = false
       and r_sol = None in

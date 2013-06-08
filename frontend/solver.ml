@@ -169,7 +169,7 @@ struct
     r_ovar_of_iite_m =
       Hashtbl.create ()  ~size:2048   ~hashable:P.hashable_iite;
     r_q       =
-      Dequeue.create () ~dummy:P.dummy_formula;
+      Dequeue.create () ~initial_length:63;
     r_fun_cnt = 0;
     r_unsat   = false;
   }
@@ -464,7 +464,7 @@ struct
       finally_assert_unit r (xvar_of_formula_doit r g)
 
   let assert_formula {r_pre_ctx; r_q} g =
-    Dequeue.push_back r_q (P.flatten_formula r_pre_ctx g)
+    Dequeue.enqueue_back r_q (P.flatten_formula r_pre_ctx g)
 
   let negate_bvar {r_ctx} v =
     S.negate_bvar r_ctx v
