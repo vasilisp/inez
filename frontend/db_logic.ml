@@ -57,6 +57,18 @@ struct
     let open Option in
     of_list s l >>= function r, [] -> Some r | _ -> None
 
+  (* TODO : tail recursive *)
+  let rec to_list :
+  type s . ('i, s) t ->
+    (('i, int) M.t, 'i A.t Formula.t) ibeither list =
+    function
+    | R_Int m ->
+      [H_Int m]
+    | R_Bool m ->
+      [H_Bool (Formula.F_Atom (A.A_Bool m))]
+    | R_Pair (m1, m2) ->
+      List.append (to_list m1) (to_list m2)
+
 end
 
 and D : (Db_with_ops

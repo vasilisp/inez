@@ -34,6 +34,10 @@ module type Row_with_ops = sig
     (('i, int) m, 'i a Formula.t) Terminology.ibeither list ->
     ('i, 'u) t option
 
+  val to_list :
+    ('i, 's) t ->
+    (('i, int) m, 'i a Formula.t) Terminology.ibeither list
+
 end
 
 module type Db = sig

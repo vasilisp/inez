@@ -3,6 +3,12 @@ open Core.Std
 
 exception Type_Exn of string
 
+let gensym =
+  let cnt = ref 0 in
+  fun ?(prefix = "_x") () ->
+    incr cnt;
+    sprintf "%s__%03i_" prefix !cnt
+
 module Make
 
   (ModuleName : sig val name : string end)
@@ -14,14 +20,6 @@ struct
   include Syntax
 
   type uf_type = Type.ibtype list * Type.ibtype
-
-  let la _loc = <:module_expr< $uid:ModuleName.name$ >>
-
-    let gensym =
-      let cnt = ref 0 in
-      fun ?(prefix = "_x") () ->
-        incr cnt;
-        sprintf "%s__%03i_" prefix !cnt
 
   let uf_ast_fun _loc (l, rtype) =
     let fold l init =
@@ -82,7 +80,7 @@ struct
            (uf_ast_apps _loc <:expr< $lid:id$ >> l_ids l_types))
         l_ids
     and binding = uf_ast_fun _loc (l_types, r_type) in
-    <:expr< let $lid:id$ = $binding$ in $inside$ >>;;
+    <:expr< let $lid:id$ = $binding$ in $inside$ >>
 
   let subst_obj _loc = object
       
@@ -106,19 +104,21 @@ struct
     | e ->
       super#expr e
         
-  end;;
+  end
 
-let lpatt = Gram.Entry.mk "lpatt"
+  let lpatt = Gram.Entry.mk "lpatt"
 
   EXTEND Gram
 
   (* "limited pattern" *)
   lpatt:
-  [ [ "("; "_"; ":"; tid = LIDENT; ")" ->
-  ground_type_of_id _loc tid
-    ]
-  | [ "("; _ = LIDENT; ":"; tid = LIDENT; ")" ->
-  ground_type_of_id _loc tid
+  [ [ _ = LIDENT -> ground_type_of_id _loc "int" ]
+  | [ "("; "_"; ":"; tid = LIDENT;
+      ")" ->
+      ground_type_of_id _loc tid ]
+  | [ "("; _ = LIDENT; ":"; tid = LIDENT;
+      ")" ->
+      ground_type_of_id _loc tid
     ] ];
 
   expr:

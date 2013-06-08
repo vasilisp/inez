@@ -9,9 +9,11 @@ module S = Db_solver.Make(Scip.Scip_with_dp)(Id)
 
 let ctx = S.make_ctx ();;
 
-let constrain g = S.assert_formula ctx g;;
+let constrain g =
+  S.assert_formula ctx g;;
 
-let solve () = S.solve ctx;;
+let solve () =
+  S.solve ctx;;
 
 let gen_id = Id.gen_id
 

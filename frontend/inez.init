@@ -9,9 +9,11 @@ module S = Solver.Make(Scip.Scip_basic)(Id)
 
 let ctx = S.make_ctx (Scip.Scip_basic.make_ctx ());;
 
-let constrain g = S.assert_formula ctx g;;
+let constrain g =
+  S.assert_formula ctx g;;
 
-let solve () = S.solve ctx;;
+let solve () =
+  S.solve ctx;;
 
 let gen_id = Id.gen_id
 
@@ -30,8 +32,7 @@ let ideref = function
     None;;
 
 let bderef = function
-  | Formula.F_Atom
-      (Logic.A.A_Bool (Logic.M.M_Var v)) ->
+  | Formula.F_Atom (Logic.A.A_Bool (Logic.M.M_Var v)) ->
     S.deref_bool ctx v
   | _ ->
     None;;

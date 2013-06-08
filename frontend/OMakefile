@@ -192,6 +192,8 @@ Camlp4o_lib(db_solver, herelib type_conv comparelib sexplib, \
 
 Camlp4o(pa_logic_impl)
 
+Camlp4o(pa_db_logic)
+
 MyOCamlProgram(inez, terminology unreachable scip_idl scip util	\
                formula type id logic pre solver smtlib_lexer	\
                smtlib_parser smtlib_solver main, native_utils	\
