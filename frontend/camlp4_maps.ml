@@ -67,41 +67,29 @@ let rec type_of_uf ?acc:(acc = []) =
   | <:expr< fun ($lid:_$ : Bool) -> $e$ >>
   | <:expr< fun (_ : Bool) -> $e$ >> ->
     type_of_uf ~acc:(Type.E_Bool :: acc) e
-  | <:expr< (free : Int) >>
-  | <:expr< free >> ->
+  | <:expr< ~free >>
+  | <:expr< (~free : Int) >> ->
     Some (List.rev acc, Type.E_Int)
-  | <:expr< (free : Bool) >> ->
+  | <:expr< (~free : Bool) >> ->
     Some (List.rev acc, Type.E_Bool)
   | _ ->
     None
 
-let map_uf mid = object
-    
-  inherit Ast.map as super
+let transform_uf mid = function
+  | <:expr@loc< fun ($lid:_$ : Int) -> $_$ >>
+  | <:expr@loc< fun ($lid:_$ : Bool) -> $_$ >>
+  | <:expr@loc< fun (_ : Int) -> $_$ >>
+  | <:expr@loc< fun (_ : Bool) -> $_$ >> as e ->
+    (match type_of_uf e with
+    | Some y ->
+      uf_ast loc mid y
+    | None ->
+      e)
+  | e ->
+    e
 
-  method expr e =
-    match e with
-    | <:expr@loc< fun ($lid:_$ : Int) -> $_$ >>
-    | <:expr@loc< fun ($lid:_$ : Bool) -> $_$ >>
-    | <:expr@loc< fun (_ : Int) -> $_$ >>
-    | <:expr@loc< fun (_ : Bool) -> $_$ >> ->
-      (match type_of_uf e with
-      | Some y ->
-        uf_ast loc mid y
-      | None ->
-        e)
-    | <:expr@loc< free >> ->
-      Loc.raise loc (Reserved "free")
-    | _ ->
-      super#expr e
-
-  method ident = function
-  | <:ident@loc< free >> ->
-    Loc.raise loc (Reserved "free")
-  | i ->
-    super#ident i
-
-end
+let map_uf mid =
+  Ast.map_expr (transform_uf mid)
 
 let transform_logic_aux mid e =
   let _loc = Ast.loc_of_expr e in

@@ -24,7 +24,7 @@ let pigeons = make_n n_pigeons ~f:(fun p_id -> {p_id}) ;;
 (* UF: pigeons to holes *)
 
 let m =
-  let um = fun (x : Int) -> free in
+  let um = fun (x : Int) -> ~free in
   fun {p_id} -> um (toi p_id) ;;
 
 (* constraints *)
