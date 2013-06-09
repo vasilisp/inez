@@ -122,12 +122,10 @@ let map_logic_aux mid =
 
 let transform_logic mid e =
   match e with
-  | <:expr@loc< let open $uid:mid'$ in $e'$ >> ->
-    if String.(mid = mid') then
-      let m = (map_logic_aux mid)#expr in
-      <:expr@loc< let open $uid:mid$.Ops in $m e'$ >>
-    else
-      e
+  | <:expr@loc< let _ = ~logic in $e'$ >>
+  | <:expr@loc< let () = ~logic in $e'$ >> ->
+    <:expr@loc< let open $uid:mid$.Ops in
+                $(map_logic_aux mid)#expr e'$ >>
   | e ->
     e
 
