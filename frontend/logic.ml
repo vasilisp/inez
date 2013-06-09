@@ -11,14 +11,20 @@ struct
   type 'i atom = 'i T.t
 
   type ('i, 'q) t =
-  | M_Bool  :  'i T.t Formula.t -> ('i, bool) t
-  | M_Int   :  Core.Std.Int63.t -> ('i, int) t
-  | M_Sum   :  ('i, int) t * ('i, int) t ->  ('i, int) t
-  | M_Prod  :  Core.Std.Int63.t * ('i, int) t -> ('i, int) t
+  | M_Bool  :  'i T.t Formula.t ->
+    ('i, bool) t
+  | M_Int   :  Core.Std.Int63.t ->
+    ('i, int) t
+  | M_Sum   :  ('i, int) t * ('i, int) t ->
+    ('i, int) t
+  | M_Prod  :  Core.Std.Int63.t * ('i, int) t ->
+    ('i, int) t
   | M_Ite   :  'i T.t Formula.t * ('i, int) t * ('i, int) t ->
     ('i, int) t
-  | M_Var   :  ('i, 's) Id.t -> ('i, 's) t
-  | M_App   :  ('i, 'r -> 's) t * ('i, 'r) t -> ('i, 's) t
+  | M_Var   :  ('i, 's) Id.t ->
+    ('i, 's) t
+  | M_App   :  ('i, 'r -> 's) t * ('i, 'r) t ->
+    ('i, 's) t
 
   let zero = M_Int Int63.zero
 

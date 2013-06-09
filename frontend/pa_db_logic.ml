@@ -1,66 +1,86 @@
-open Camlp4
-open Core.Std
+open Camlp4.PreCast
 
 exception Type_Exn of string
 
-module Id : Sig.Id =
-struct
-  let name = "pa_db_logic"
-  let version = "0.1"
-end
+(* We treat n-tuples as trees. I am not sure we can rely on the fact
+   that they will always look like lists. *)
 
-module Make (Syntax : Sig.Camlp4Syntax) = struct
+let irrefutable = function
+  | <:patt< $lid:_$ >> | <:patt< _ >> ->
+    true
+  | _ ->
+    false
 
-  open Sig
+let cast_pattern = function
+  | <:patt@loc< ($p$ : Int) >> when irrefutable p ->
+    Some <:patt@loc< `Int $p$ >>
+  | <:patt@loc< ($p$ : Bool) >> when irrefutable p ->
+    Some <:patt@loc< `Bool $p$ >>
+  | p when irrefutable p ->
+    let loc = Ast.loc_of_patt p in
+    Some <:patt@loc< `Int $p$ >>
+  | _ ->
+    None
 
-  module Name = struct let name = "Db_logic" end
-  include Pa_logic_impl.Make(Name)(Syntax)
+let rec list_of_pattern = function
+  | Ast.PaCom (_, p1, p2) ->
+    (match list_of_pattern p1 with
+    | Some l1 ->
+      (match list_of_pattern p2 with
+      | Some l2 ->
+        Some (List.append l1 l2)
+      | None ->
+        None)
+    | None ->
+      None)
+  | p ->
+    match cast_pattern p with
+    | Some p ->
+      Some [p]
+    | None ->
+      None
 
-  let select_pattern _loc id tid =
-    match id, tid with
-    | Some id, "int" ->
-      <:patt< Terminology.H_Int $lid:id$ >>
-    | None, "int" ->
-      <:patt< Terminology.H_Int _ >>
-    | Some id, "bool" ->
-      <:patt< Terminology.H_Bool $lid:id$ >>
-    | None, "bool" ->
-      <:patt< Terminology.H_Bool _ >>
-    | _, _ ->
-      Loc.raise _loc (Type_Exn ("unknown type: " ^ tid)) ;;
+let list_of_pattern = function
+  | <:patt< $lid:_$ >> | <:patt< _ >> as p ->
+    Some [p]
+  | Ast.PaTup (_, u) ->
+    list_of_pattern u
+  | _ ->
+    None
 
-  (* FIXME : maybe there is a shorthand for this *)
-  let patt_of_list _loc =
-    List.fold_right ~init: <:patt< [] >>
-      ~f:(fun p acc -> <:patt< p :: acc >>)
+let pattern_of_list _loc =
+  ListLabels.fold_right ~init:<:patt< [] >>
+    ~f:(fun p acc -> <:patt< $p$ :: $acc$ >>)
 
-  let dbpatt = Gram.Entry.mk "dbpatt"
+let transform_select = function
+  | <:expr@loc< fun ($p$ : Row) -> $e'$ >> as e ->
+    (match list_of_pattern p with
+    | Some l ->
+      let p = pattern_of_list loc l
+      and id = Camlp4_maps.gensym () in
+      <:expr@loc<
+        fun $lid:id$ ->
+          match Db_logic.M.to_list $lid:id$ with
+          | $p$ -> $e'$
+          | _ -> Formula.(F_Not F_True) >>
+          | None ->
+            e)
+  | e ->
+    e
 
-    EXTEND Gram
+let map_select = Ast.map_expr transform_select
 
-    dbpatt:
-    [ [ id = LIDENT -> select_pattern _loc (Some id) "int" ]
-    | [ "("; "_"; ":"; tid = LIDENT;
-        ")" ->
-        select_pattern _loc None tid ]
-    | [ "("; id = LIDENT; ":"; tid = LIDENT;
-        ")" ->
-        select_pattern _loc (Some id) tid ] ];
+let _ =
+  let m = (Camlp4_maps.map_uf "Db_logic")#str_item in
+  AstFilters.register_str_item_filter m;
+  AstFilters.register_topphrase_filter m
 
-    expr:
-      LEVEL "top"
-      [ [ "select"; db = expr;
-          "where"; l = LIST1 dbpatt; "->"; e = expr ->
-          let id = Pa_logic_impl.gensym () in
-          <:expr<
-            Db_logic.D.D_Sel
-            ($db$, fun $lid:id$ ->
-              match Db_logic.R.to_list $lid:id$ with
-              | $patt_of_list _loc l$ -> $e$
-              | _ -> Formula.F_Not Formula.F_True) >> ] ];
+let _ =
+  let m = (Camlp4_maps.map_logic "Db_logic")#str_item in
+  AstFilters.register_str_item_filter m;
+  AstFilters.register_topphrase_filter m
 
-    END
-
-end
-
-module M = Register.OCamlSyntaxExtension(Id)(Make)
+let _ =
+  let m = map_select#str_item in
+  AstFilters.register_str_item_filter m;
+  AstFilters.register_topphrase_filter m

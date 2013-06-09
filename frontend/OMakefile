@@ -174,7 +174,7 @@ public.OCamlTop(name, files, cfiles) =
 # OCAMLFIND_COMMANDS='ocamlmktop=mkcamlp4' \
 # ocamlfind ocamlmktop \
 #     -thread -linkpkg -package compiler-libs.toplevel,core \
-#     -I +camlp4 camlp4o.cma pa_logic_impl.cmo pa_logic.cmo \
+#     -I +camlp4 camlp4o.cma camlp4_maps.cmo pa_logic.cmo \
 #     -o inez.pp -custom
 
 Camlp4o_lib(id, herelib, herelib)
@@ -190,7 +190,7 @@ Camlp4o_lib(terminology, type_conv comparelib sexplib, type_conv	\
 Camlp4o_lib(db_solver, herelib type_conv comparelib sexplib, \
                        herelib type_conv compare sexp_conv)
 
-Camlp4o(pa_logic_impl)
+Camlp4o(camlp4_maps)
 
 Camlp4o(pa_db_logic)
 
@@ -200,11 +200,11 @@ MyOCamlProgram(inez, terminology unreachable scip_idl scip util	\
                scip_idl_stubs)
 
 OCamlTop(inez, terminology unreachable scip_idl scip util formula	\
-         type id logic pa_logic_impl pa_logic pre solver,		\
-         native_utils scip_idl_stubs)
+         type id logic camlp4_maps pa_logic pre solver, native_utils	\
+         scip_idl_stubs)
 
 OCamlTop(inezdb, terminology unreachable scip_idl scip util formula	\
-         type id logic db_logic pa_logic_impl pa_db_logic pre solver	\
+         type id logic db_logic camlp4_maps pa_db_logic pre solver	\
          db_solver, native_utils scip_idl_stubs)
 
 .PHONY: clean

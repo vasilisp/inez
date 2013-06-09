@@ -20,8 +20,14 @@ let db = make_db
 
 constrain
   (exists
-     (sel db
-        (fun (R.R_Pair (_, R.R_Int x)) ->
+     (select db
+        (function (_, x : Row) ->
+          (Ops.(x = toi 1821))))) ;;
+
+constrain
+  (exists
+     (select db
+        (function ( _ : Row ) ->
           (Ops.(x = toi 1821))))) ;;
 
 constrain (Ops.(v = toi 18)) ;;

@@ -1,13 +1,12 @@
-open Camlp4
-open Core.Std
+open Camlp4.PreCast
+open Camlp4_maps
 
-module Id : Sig.Id =
-struct
-  let name = "pa_logic"
-  let version = "0.1"
-end
+let _ =
+  let m = (map_uf "Logic")#str_item in
+  AstFilters.register_str_item_filter m;
+  AstFilters.register_topphrase_filter m
 
-module Name = struct let name = "Logic" end
-
-module M =
-  Register.OCamlSyntaxExtension(Id)(Pa_logic_impl.Make(Name))
+let _ =
+  let m = (map_logic "Logic")#str_item in
+  AstFilters.register_str_item_filter m;
+  AstFilters.register_topphrase_filter m

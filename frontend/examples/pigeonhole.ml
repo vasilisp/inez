@@ -7,9 +7,8 @@ let rec make_n ?acc:(acc = []) n ~f =
     make_n ~acc:(f n :: acc) (n - 1) ~f;;
 
 let sum ~f =
-  List.fold_left
-    ~init:(logic in 0)
-    ~f:(fun acc x -> logic in acc + f x)
+  let open Logic in
+  List.fold_left ~init:0 ~f:(fun acc x -> acc + f x)
 
 let make_map l_p l_h =
   let hp_map =
@@ -18,8 +17,8 @@ let make_map l_p l_h =
   List.iter l_p ~f:(fun p ->
     List.iter l_h ~f:(fun h ->
       let v = fresh_int_var () in
-      constrain (logic in v >= 0);
-      constrain (logic in v <= 1);
+      constrain (let open Logic in v >= 0);
+      constrain (let open Logic in v <= 1);
       Hashtbl.replace hp_map (p, h) v));
   fun p h -> Hashtbl.find_exn hp_map (p, h);;
 
@@ -45,13 +44,13 @@ let m = make_map pigeons holes;;
 (* each pigeon goes to one hole *)
 
 constrain
-  (logic in (forall pigeons
-               ~f:(fun p -> sum holes ~f:(m p) = 1)));;
+  (let open Logic in
+   forall pigeons ~f:(fun p -> sum holes ~f:(m p) = 1));;
 
 (* each hole contains one pigeon *)
 
 constrain
-  (logic in (forall holes
-               ~f:(fun h -> sum pigeons ~f:(Fn.flip m h) = 1)));;
+  (let open Logic in
+   forall holes ~f:(fun h -> sum pigeons ~f:(Fn.flip m h) = 1));;
 
 solve ();;

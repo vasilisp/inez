@@ -2,6 +2,10 @@
 #require "core";;
 #print_depth 4;;
 
+#camlp4o;;
+#load "camlp4_maps.cmo";;
+#load "pa_logic.cmo";;
+
 open Core.Std;;
 
 module Id = Id.Make (struct end);;
