@@ -1,15 +1,9 @@
-open Db_logic
+open Db_logic ;;
 
 let ideref x =
   Option.(ideref x >>= Int63.to_int) ;;
 
-let make_entry (a, b) =
-  R.R_Pair (R.R_Int a, R.R_Int b) ;;
-
-let make_db l =
-  D.D_Input
-    (S.S_Pair (S.S_Int, S.S_Int),
-     List.map l ~f:make_entry) ;;
+type iib = (Int, Int, Bool) Schema ;;
 
 let db11 = fresh_int_var () ;;
 
@@ -20,14 +14,16 @@ let db21 = fresh_int_var () ;;
 let db22 = fresh_int_var () ;;
 
 let db1 =
-  make_db
-    ((db11, db12) ::
-        List.init 100000 ~f:(fun i -> ~logic (toi i, 2 * toi i))) ;;
+  make_db_iib
+    (make_row_iib db11 db12 (~logic true) ::
+       (let f i = ~logic (make_row_iib (toi i) (2 * toi i) true) in
+        List.init 100000 ~f)) ;;
 
 let db2 =
-  make_db
-    ((db21, db22) ::
-        List.init 100000 ~f:(fun i -> ~logic (toi i, 2 * toi i))) ;;
+  make_db_iib
+    (make_row_iib db21 db22 (~logic true) ::
+       (let f i = ~logic (make_row_iib (toi i) (2 * toi i) false) in
+        List.init 100000 ~f)) ;;
 
 let db_cross = cross db1 db2 ;;
 
@@ -35,12 +31,17 @@ let db_cross_cross = cross db_cross db_cross ;;
 
 constrain
   (exists
-     (sel db_cross_cross
-        (fun (x , _, _, _, x', _, y, _ : Row) ->
+     (sel db_cross
+        (fun (x , _, _,
+              x', y, _ : Row) ->
           ~logic (x + y = 18000 && x >= 45000 && not (x = x'))))) ;;
 
 solve () ;;
 
 ideref db11 ;;
 
+ideref db12 ;;
+
 ideref db21 ;;
+
+ideref db22 ;;

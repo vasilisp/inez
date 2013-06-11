@@ -162,7 +162,7 @@ public.OCamlTop(name, files, cfiles) =
 
     $(PROG): $(CMAFILES) $(CMOFILES) $(CLIBS) $(COFILES)
         $(OCAMLFIND) $(OCAMLMKTOP) $(LAZY_OCAMLFINDFLAGS) dynlink.cma	\
-        -I +camlp4 camlp4o.cma $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS)	\
+        -I +camlp4 camlp4of.cma $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS)	\
         $(OCAMLCFLAGS) $(PREFIXED_OCAMLINCLUDES) -o $@			\
         $(CMA_OTHER_FILES) $(CMAFILES) $(OCamlLinkSort $(CMOFILES))	\
         $(COFILES) $(CLIBS) $(OCAML_LINK_FLAGS)				\

@@ -37,7 +37,7 @@ let uf_ast_apps _loc mid init =
           <:expr< $uid:mid$.M.M_Bool $id:id$ >> in
       <:expr< $uid:mid$.M.M_App ($acc$, $t$) >>)
 
-let uf_ast_mlfun _loc init =
+let ml_lambda_abstract _loc init =
   let f id acc = <:expr< fun $id:id$ -> $acc$ >> in
   ListLabels.fold_right ~init ~f
 
@@ -54,7 +54,7 @@ let uf_ast _loc mid (l, y) =
     List.map f l
   and id = gensym ~prefix:"__uf_" () in
   let inside =
-    uf_ast_mlfun _loc
+    ml_lambda_abstract _loc
       (uf_maybe_convert _loc mid y
          (uf_ast_apps _loc mid <:expr< $lid:id$ >> l_ids l))
       l_ids

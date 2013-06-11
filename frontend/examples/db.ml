@@ -3,11 +3,10 @@ open Db_logic
 let ideref_human x =
   Option.(ideref x >>= Int63.to_int) ;;
 
-let make_entry (a, b) =
-  R.R_Pair (R.R_Int a, R.R_Int b) ;;
+type entry = (Int, Int) Schema ;;
 
 let make_db l =
-  D.D_Input (S.S_Pair (S.S_Int, S.S_Int), List.map l ~f:make_entry) ;;
+  make_db_entry (List.map l ~f:(Tuple2.uncurry make_row_entry)) ;;
 
 let v = fresh_int_var () ;;
 
