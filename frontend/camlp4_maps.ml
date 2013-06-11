@@ -2,6 +2,8 @@ open Camlp4.PreCast
 
 exception Reserved of string
 
+type y = Y_Int | Y_Bool
+
 let gensym =
   let cnt = ref 0 in
   fun ?(prefix = "_x") () ->
@@ -12,26 +14,26 @@ let uf_ast_fun _loc mid (l, rtype) =
   let fold l init =
     let f y acc =
       match y with
-      | Type.E_Int ->
+      | Y_Int ->
         <:expr< Type.Y_Int_Arrow $acc$ >>
-      | Type.E_Bool ->
+      | Y_Bool ->
         <:expr< Type.Y_Bool_Arrow $acc$ >> in
     ListLabels.fold_right l ~f ~init
+  and init =
+    match rtype with
+    | Y_Int -> <:expr< Type.Y_Int >>
+    | Y_Bool -> <:expr< Type.Y_Bool >>
   and ret e = <:expr< $uid:mid$.M.M_Var (gen_id $e$) >> in
-  match rtype with
-  | Type.E_Int ->
-    ret (fold l <:expr< Type.Y_Int >>)
-  | Type.E_Bool ->
-    ret (fold l <:expr< Type.Y_Bool >>)
+  ret (fold l init)
 
 let uf_ast_apps _loc mid init =
   ListLabels.fold_right2 ~init
     ~f:(fun id t acc ->
       let t =
         match t with
-        | Type.E_Int ->
+        | Y_Int ->
           <:expr< $id:id$ >>
-        | Type.E_Bool ->
+        | Y_Bool ->
           <:expr< $uid:mid$.M.M_Bool $id:id$ >> in
       <:expr< $uid:mid$.M.M_App ($acc$, $t$) >>)
 
@@ -41,9 +43,9 @@ let uf_ast_mlfun _loc init =
 
 let uf_maybe_convert _loc mid y e =
   match y with
-  | Type.E_Bool ->
+  | Y_Bool ->
     <:expr< Formula.F_Atom ($uid:mid$.A.A_Bool ($e$)) >>
-  | Type.E_Int ->
+  | Y_Int ->
     e
 
 let uf_ast _loc mid (l, y) =
@@ -63,15 +65,15 @@ let rec type_of_uf ?acc:(acc = []) =
   function
   | <:expr< fun ($lid:_$ : Int) -> $e$ >>
   | <:expr< fun (_ : Int) -> $e$ >> ->
-    type_of_uf ~acc:(Type.E_Int :: acc) e
+    type_of_uf ~acc:(Y_Int :: acc) e
   | <:expr< fun ($lid:_$ : Bool) -> $e$ >>
   | <:expr< fun (_ : Bool) -> $e$ >> ->
-    type_of_uf ~acc:(Type.E_Bool :: acc) e
+    type_of_uf ~acc:(Y_Bool :: acc) e
   | <:expr< ~free >>
   | <:expr< (~free : Int) >> ->
-    Some (List.rev acc, Type.E_Int)
+    Some (List.rev acc, Y_Int)
   | <:expr< (~free : Bool) >> ->
-    Some (List.rev acc, Type.E_Bool)
+    Some (List.rev acc, Y_Bool)
   | _ ->
     None
 
@@ -98,6 +100,16 @@ let transform_logic_aux mid e =
     <:expr< Formula.F_True >>
   | <:expr< false >> ->
     <:expr< Formula.(F_Not F_True) >>
+  | <:expr< $uid:mid$.M.M_Int $x$ * $uid:mid'$.M.M_Int $y$ >>
+      when mid = mid' ->
+    <:expr< $uid:mid$.M.M_Int (Int63.( * ) $x$ $y$) >>
+  | <:expr<
+      $uid:mid$.M.M_Int (Core.Std.Int63.of_string $str:s$) * $x$ >> ->
+    <:expr<
+      $uid:mid$.M.M_Prod (Core.Std.Int63.of_string $str:s$, $x$) >>
+  | <:expr< $uid:mid$.M.M_Int $i1$ * $uid:mid'$.M.M_Int $i2$ >>
+      when mid = mid' ->
+    <:expr< $uid:mid$.M.M_Int (Core.Std.Int63.(i1 * i2)) >>
   | <:expr< $int:s$ >> ->
     <:expr< $uid:mid$.M.M_Int (Core.Std.Int63.of_string $str:s$) >>
   | <:expr< $int64:s$ >> ->
@@ -108,12 +120,10 @@ let transform_logic_aux mid e =
 let map_logic_aux mid =
   Ast.map_expr (transform_logic_aux mid)
 
-let transform_logic mid e =
-  match e with
-  | <:expr@loc< let _ = ~logic in $e'$ >>
-  | <:expr@loc< let () = ~logic in $e'$ >> ->
+let transform_logic mid = function
+  | <:expr@loc< ~logic $e$ >> ->
     <:expr@loc< let open $uid:mid$.Ops in
-                $(map_logic_aux mid)#expr e'$ >>
+                $(map_logic_aux mid)#expr e$ >>
   | e ->
     e
 

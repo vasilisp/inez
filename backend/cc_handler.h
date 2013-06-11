@@ -281,6 +281,7 @@ extern "C" {
 	extern void cc_handler_finalize(cc_handler*);
 	extern void cc_handler_include(cc_handler*);
 	extern SCIP_VAR* cc_handler_zero_var(cc_handler*);
+	extern uintptr_t uintptr_t_of_var(SCIP_VAR*);
 #else // K&R style prototypes
 	extern cc_handler* new_cc_handler();
 	extern void delete_cc_handler();
@@ -288,6 +289,7 @@ extern "C" {
 	extern void cc_handler_finalize();
 	extern void cc_handler_include();
 	extern SCIP_VAR* cc_handler_zero_var();
+	extern uintptr_t uintptr_t_of_var();
 #endif
 
 #ifdef __cplusplus

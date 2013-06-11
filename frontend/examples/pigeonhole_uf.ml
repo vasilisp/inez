@@ -3,7 +3,6 @@
 let n_pigeons = 7 ;;
 let n_holes = n_pigeons - 1 ;;
 
-open Camlp4.PreCast.AstFilters;;
 assert (n_pigeons >= 0) ;;
 assert (n_holes >= 0) ;;
 
@@ -24,7 +23,7 @@ let pigeons = make_n n_pigeons ~f:(fun p_id -> {p_id}) ;;
 (* UF: pigeons to holes *)
 
 let m =
-  let um = fun (x : Int) -> ~free in
+  let um (x : Int) = ~free in
   fun {p_id} -> um (toi p_id) ;;
 
 (* constraints *)
@@ -33,13 +32,13 @@ let m =
 
 let g =
   Formula.forall pigeons
-    ~f:(fun p -> let _ = ~logic in m p >= 1 && m p <= toi n_holes) ;;
+    ~f:(fun p -> ~logic (m p >= 1 && m p <= toi n_holes)) ;;
 
 (* no pair of pigeons co-inhabit a hole *)
 
 let h =
   Formula.forall_pairs pigeons
-    ~f:(fun p1 p2 -> let _ = ~logic in not (m p1 = m p2)) ;;
+    ~f:(fun p1 p2 -> ~logic (not (m p1 = m p2))) ;;
 
 (* call solver *)
 

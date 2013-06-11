@@ -13,27 +13,23 @@ let v = fresh_int_var () ;;
 
 let u = fresh_int_var () ;;
 
-let db = make_db
-  [toi 12, toi 12;
-   toi 23, v;
-   toi 32, u] ;;
+let db =
+  make_db
+    (~logic
+        [12, 12;
+         23, v;
+         32, u]) ;;
 
 constrain
   (exists
-     (select db
-        (function (_, x : Row) ->
-          (Ops.(x = toi 1821))))) ;;
+     (sel db
+        (function (_, x : Row) -> ~logic (x = 1821)))) ;;
 
-constrain
-  (exists
-     (select db
-        (function ( _ : Row ) ->
-          (Ops.(x = toi 1821))))) ;;
-
-constrain (Ops.(v = toi 18)) ;;
+constrain (~logic (v = 18)) ;;
 
 solve () ;;
 
 ideref_human v ;;
 
 ideref_human u ;;
+

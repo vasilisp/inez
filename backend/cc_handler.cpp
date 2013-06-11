@@ -1381,3 +1381,8 @@ SCIP_VAR* cc_handler_zero_var(cc_handler* c)
 {
   return NULL;
 }
+
+uintptr_t uintptr_t_of_var(SCIP_VAR* v)
+{
+  return uintptr_t(v);
+}

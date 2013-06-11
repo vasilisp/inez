@@ -3,22 +3,6 @@ open Db_logic
 open Terminology
 open Core.Int_replace_polymorphic_compare
 
-let dequeue_exists d ~f =
-  let back = Dequeue.back_index d in
-  let back = Option.value_exn back ~here:_here_ in
-  let rec g i =
-    if i <= back then
-      if f (Dequeue.get_exn d i) then
-        true
-      else
-        g (i + 1)
-    else
-      false in
-  g (Option.value_exn (Dequeue.front_index d) ~here:_here_)
-
-let dequeue_for_all d ~f =
-  not (dequeue_exists d ~f:(Fn.non f))
-
 let array_foldi_responses a ~f =
   let n = Array.length a in
   let rec g i acc =
@@ -34,21 +18,18 @@ let array_foldi_responses a ~f =
         g (i + 1) acc in
   g 0 N_Ok
 
-let dequeue_foldi_responses d ~f =
-  let n = Dequeue.back_index d in
-  let n = Option.value_exn n ~here:_here_ in
-  let rec g i acc =
-    if i > n then
-      acc
-    else
-      match f i (Dequeue.get_exn d i) with
+let dequeue_fold_responses d ~f =
+  Dequeue.fold d ~init:N_Ok
+    ~f:(fun acc x ->
+      match acc with
       | N_Unsat ->
         N_Unsat
-      | N_Tightened ->
-        g (i + 1) N_Tightened
-      | N_Ok ->
-        g (i + 1) acc in
-  g (Option.value_exn (Dequeue.front_index d) ~here:_here_) N_Ok
+      | _ ->
+        match f x with
+        | N_Ok ->
+          acc
+        | r ->
+          r)
 
 let list_foldi_responses l ~f =
   let rec g i l acc =
@@ -165,14 +146,14 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       sexp_of_t = sexp_of_db
     }
 
-    type ipair = Imt.ivar * Imt.ivar
+    type idiff = Imt.ivar * Imt.ivar
     with compare, sexp_of
 
-    let hashable_ipair = {
+    let hashable_idiff = {
       Hashtbl.Hashable.
       hash = Hashtbl.hash;
-      compare = compare_ipair;
-      sexp_of_t = sexp_of_ipair
+      compare = compare_idiff;
+      sexp_of_t = sexp_of_idiff
     }
 
     type index = row Int63.Map.t * row list
@@ -184,7 +165,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     type ctx = {
       r_idb_h   :  (db, index) Hashtbl.t;
       r_bvar_d  :  Imt.bvar Dequeue.t;
-      r_diff_h  :  (ipair, Imt.ivar) Hashtbl.t;
+      r_diff_h  :  (idiff, Imt.ivar) Hashtbl.t;
       r_occ_h   :  (Imt.bvar, occ list) Hashtbl.t
     }
 
@@ -194,7 +175,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       r_bvar_d =
         Dequeue.create () ~initial_length:31;
       r_diff_h =
-        Hashtbl.create () ~size:1024 ~hashable:hashable_ipair;
+        Hashtbl.create () ~size:1024 ~hashable:hashable_idiff;
       r_occ_h =
         Hashtbl.create () ~size:1024 ~hashable:hashable_bvar;
     }
@@ -215,7 +196,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
 
     let bvar_in_dequeue d v =
       let f x = Imt.compare_bvar x v = 0 in
-      dequeue_exists d ~f
+      Dequeue.exists d ~f
 
     let rec ivar_of_diff ({r_diff_h} as r) v1 v2 ~fd =
       if Imt.compare_ivar v1 v2 > 0 then
@@ -223,7 +204,9 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       else if Imt.compare_ivar v1 v2 = 0 then
         None
       else
-        let default () = fd v1 v2 in
+        let default () =
+          assert (Imt.compare_ivar v1 v2 < 0);
+          fd v1 v2 in
         Some (Hashtbl.find_or_add r_diff_h (v1, v2) ~default)
 
     let register_diffs r row1 row2 ~fd =
@@ -231,7 +214,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         ~f:(fun (v1, _) (v2, _) ->
           match v1, v2 with
           | Some v1, Some v2 when not (Imt.compare_ivar v1 v2 = 0) ->
-            ignore (ivar_of_diff r v1 v2 ~fd)
+            ignore (Option.value_exn (ivar_of_diff r v1 v2 ~fd)
+                      ~here:_here_)
           | _, _ ->
             ())
 
@@ -423,6 +407,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       let assert_ovar_equal {r_diff_h} r' (v1, o1) (v2, o2) =
         let fb b = if b then N_Ok else N_Unsat
         and f v1 v2 x =
+          assert (Imt.compare_ivar v1 v2 < 0);
           let v = Hashtbl.find r_diff_h (v1, v2) in
           let v = Option.value_exn v ~here:_here_ in
           fix_variable r' v x
@@ -432,9 +417,9 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
           if Imt.compare_ivar v1 v2 = 0 then
             fb (Int63.equal o1 o2)
           else if Imt.compare_ivar v1 v2 > 0 then
-            f v2 v1 d
+            f v2 v1 (Int63.neg d)
           else
-            f v1 v2 Int63.(neg d)
+            f v1 v2 d
         | Some v1, None ->
           fix_variable r' v1 d
         | None, Some v2 ->
@@ -471,8 +456,13 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
           ~default:N_Ok
         
       let propagate ({r_bvar_d} as r) r' =
-        dequeue_foldi_responses r_bvar_d
-          ~f:(fun _ -> propagate_for_bvar r r')
+        try
+          dequeue_fold_responses r_bvar_d
+            ~f:(propagate_for_bvar r r')
+        with e ->
+          (Printf.eprintf "propagate exception:\n%s\n%!"
+             (Exn.to_string e);
+           exit 1)
 
       (* check given solution *)
             
@@ -502,7 +492,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
 
       let check ({r_bvar_d} as r) r' sol =
         let f = check_for_bvar r r' sol in
-        dequeue_for_all r_bvar_d ~f
+        Dequeue.for_all r_bvar_d ~f
 
       (* branching *)
 
@@ -514,7 +504,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
           false
 
       let branch {r_bvar_d; _} ~f =
-        dequeue_exists r_bvar_d ~f
+        Dequeue.exists r_bvar_d ~f
 
       let branch_on_column r r' (lb, ub) ov =
         let lb = Option.value_exn lb ~here:_here_

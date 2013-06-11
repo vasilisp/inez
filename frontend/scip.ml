@@ -5,7 +5,7 @@ open Core.Int_replace_polymorphic_compare
 
 exception Scip_Exn of (Here.t * retcode)
 
-external address_of_value: 'a -> int = "address_of_value"
+(* external address_of_value: 'a -> int = "address_of_value" *)
 
 (* implementation first, then wrapping things up in modules and
    functors *)
@@ -26,12 +26,12 @@ let dummy_var = cc_handler_zero_var ()
 type var = Scip_idl.var
 
 let compare_var x y =
-  Int.compare (address_of_value x) (address_of_value y)
+  Int.compare (uintptr_t_of_var x) (uintptr_t_of_var y)
 
-let hash_var = address_of_value
+let hash_var = uintptr_t_of_var
 
 let sexp_of_var v =
-  Int.sexp_of_t (address_of_value v)
+  Int.sexp_of_t (uintptr_t_of_var v)
 
 let ivar_of_bvar x = x
 

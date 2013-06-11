@@ -253,7 +253,7 @@ void cc_handler_include([in] cch c);
 
 var cc_handler_zero_var();
 
-
+unsigned long uintptr_t_of_var([in] var v);
 
 // implemented in native_utils
 cons scip_null_cons();

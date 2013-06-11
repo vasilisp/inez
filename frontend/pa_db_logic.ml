@@ -2,8 +2,8 @@ open Camlp4.PreCast
 
 exception Type_Exn of string
 
-(* We treat n-tuples as trees. I am not sure we can rely on the fact
-   that they will always look like lists. *)
+(* Treating n-tuples as trees. Not sure whether they will always look
+   like lists. *)
 
 let irrefutable = function
   | <:patt< $lid:_$ >> | <:patt< _ >> ->
@@ -13,12 +13,12 @@ let irrefutable = function
 
 let cast_pattern = function
   | <:patt@loc< ($p$ : Int) >> when irrefutable p ->
-    Some <:patt@loc< `Int $p$ >>
+    Some <:patt@loc< Terminology.H_Int $p$ >>
   | <:patt@loc< ($p$ : Bool) >> when irrefutable p ->
-    Some <:patt@loc< `Bool $p$ >>
+    Some <:patt@loc< Terminology.H_Bool $p$ >>
   | p when irrefutable p ->
     let loc = Ast.loc_of_patt p in
-    Some <:patt@loc< `Int $p$ >>
+    Some <:patt@loc< Terminology.H_Int $p$ >>
   | _ ->
     None
 
@@ -60,7 +60,7 @@ let transform_select = function
       and id = Camlp4_maps.gensym () in
       <:expr@loc<
         fun $lid:id$ ->
-          match Db_logic.M.to_list $lid:id$ with
+          match Db_logic.R.to_list $lid:id$ with
           | $p$ -> $e'$
           | _ -> Formula.(F_Not F_True) >>
           | None ->

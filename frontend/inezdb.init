@@ -1,6 +1,7 @@
 #use "topfind";;
 #require "core";;
 #print_depth 4;;
+#print_length 4;;
 
 open Core.Std;;
 

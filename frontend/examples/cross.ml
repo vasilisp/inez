@@ -1,6 +1,6 @@
 open Db_logic
 
-let ideref_human x =
+let ideref x =
   Option.(ideref x >>= Int63.to_int) ;;
 
 let make_entry (a, b) =
@@ -11,30 +11,36 @@ let make_db l =
     (S.S_Pair (S.S_Int, S.S_Int),
      List.map l ~f:make_entry) ;;
 
-let u = fresh_int_var () ;;
+let db11 = fresh_int_var () ;;
 
-let v = fresh_int_var () ;;
+let db12 = fresh_int_var () ;;
 
-let db1 = make_db
-  [toi 12, toi 12;
-   toi 23, u] ;;
+let db21 = fresh_int_var () ;;
 
-let db2 = make_db
-  [toi 30, toi 23;
-   toi 40, toi 0] ;;
+let db22 = fresh_int_var () ;;
+
+let db1 =
+  make_db
+    ((db11, db12) ::
+        List.init 100000 ~f:(fun i -> ~logic (toi i, 2 * toi i))) ;;
+
+let db2 =
+  make_db
+    ((db21, db22) ::
+        List.init 100000 ~f:(fun i -> ~logic (toi i, 2 * toi i))) ;;
 
 let db_cross = cross db1 db2 ;;
+
+constrain (~logic (db11 = 0)) ;;
 
 constrain
   (exists
      (sel db_cross
-        (fun (R.R_Pair (R.R_Pair (_, R.R_Int x), R.R_Pair (R.R_Int y, _))) ->
-          logic in x = y + 1))) ;;
-
-(* constrain (Ops.(u = toi 32)) ;; *)
+        (fun (x, _, y, _ : Row) ->
+          ~logic (x + y = 18000 && x >= 45000 && y >= 0)))) ;;
 
 solve () ;;
 
-ideref_human v ;;
+ideref db11 ;;
 
-ideref_human u ;;
+ideref db21 ;;
