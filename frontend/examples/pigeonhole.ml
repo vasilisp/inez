@@ -1,11 +1,5 @@
 (* utilities *)
 
-let rec make_n ?acc:(acc = []) n ~f =
-  if n <= 0 then
-    List.rev acc
-  else
-    make_n ~acc:(f n :: acc) (n - 1) ~f ;;
-
 let sum ~f =
   ~logic (List.fold_left ~init:0 ~f:(fun acc x -> acc + f x))
 
@@ -33,8 +27,8 @@ type pigeon  =  { p_id: int } ;;
 
 (* entity instances *)
 
-let holes    =  make_n (n - 1) ~f:(fun h_id -> {h_id}) ;;
-let pigeons  =  make_n n       ~f:(fun p_id -> {p_id}) ;;
+let holes    =  List.init (n - 1) ~f:(fun h_id -> {h_id}) ;;
+let pigeons  =  List.init n       ~f:(fun p_id -> {p_id}) ;;
 
 (* map from pigeons to holes *)
 

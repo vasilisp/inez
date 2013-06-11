@@ -31,13 +31,13 @@ let db2 =
 
 let db_cross = cross db1 db2 ;;
 
-constrain (~logic (db11 = 0)) ;;
+let db_cross_cross = cross db_cross db_cross ;;
 
 constrain
   (exists
-     (sel db_cross
-        (fun (x, _, y, _ : Row) ->
-          ~logic (x + y = 18000 && x >= 45000 && y >= 0)))) ;;
+     (sel db_cross_cross
+        (fun (x , _, _, _, x', _, y, _ : Row) ->
+          ~logic (x + y = 18000 && x >= 45000 && not (x = x'))))) ;;
 
 solve () ;;
 

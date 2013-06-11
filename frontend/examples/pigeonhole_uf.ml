@@ -6,19 +6,11 @@ let n_holes = n_pigeons - 1 ;;
 assert (n_pigeons >= 0) ;;
 assert (n_holes >= 0) ;;
 
-(* utilities *)
-
-let rec make_n ?acc:(acc = []) n ~f =
-  if n <= 0 then
-    List.rev acc
-  else
-    make_n ~acc:(f n :: acc) (n - 1) ~f ;;
-
 (* problem entities and instances *)
 
 type pigeon = { p_id: int } ;;
 
-let pigeons = make_n n_pigeons ~f:(fun p_id -> {p_id}) ;;
+let pigeons = List.init n_pigeons ~f:(fun p_id -> {p_id}) ;;
 
 (* UF: pigeons to holes *)
 
