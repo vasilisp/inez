@@ -15,14 +15,14 @@ let db22 = fresh_int_var () ;;
 
 let db1 =
   make_db_iib
-    (make_row_iib db11 db12 (~logic true) ::
-       (let f i = ~logic (make_row_iib (toi i) (2 * toi i) true) in
+    (make_row_iib (db11, db12, ~logic true) ::
+       (let f i = ~logic (make_row_iib (toi i, 2 * toi i, true)) in
         List.init 100000 ~f)) ;;
 
 let db2 =
   make_db_iib
-    (make_row_iib db21 db22 (~logic true) ::
-       (let f i = ~logic (make_row_iib (toi i) (2 * toi i) false) in
+    (make_row_iib (db21, db22, ~logic true) ::
+       (let f i = ~logic (make_row_iib (toi i, 2 * toi i, false)) in
         List.init 100000 ~f)) ;;
 
 let db_cross = cross db1 db2 ;;

@@ -68,7 +68,7 @@ let transform_select = function
     (match list_of_pattern p with
     | Some l ->
       (let p = pattern_of_list loc l
-       and id = Camlp4_maps.gensym () in
+      and id = Camlp4_maps.gensym () in
        <:expr@loc<
          fun $lid:id$ ->
            match Db_logic.R.to_list $lid:id$ with
@@ -153,8 +153,11 @@ let make_row_expr_of_ylist _loc l =
   match List.rev l, List.rev l' with
   | a :: d, a' :: d'  ->
     let init = make_column_expr _loc a a' in
-    let body = ListLabels.fold_left2 d d' ~init ~f in
-    Camlp4_maps.ml_lambda_abstract _loc body l'
+    let body = ListLabels.fold_left2 d d' ~init ~f
+    and p =
+      let l' = ListLabels.map l' ~f:(fun id -> <:patt< $id:id$ >>) in
+      Ast.PaTup (_loc, Ast.paCom_of_list l') in
+    <:expr< fun $p$ -> $body$ >>
   | _ ->
     raise (Unreachable "make_row_expr_of_ylist")
 ;;
@@ -185,7 +188,7 @@ let transform_schema_type = function
       Ast.StSem (_loc, s1, Ast.StSem (_loc, s2, s3))
     | None ->
       s)
-  | <:str_item@loc< let _ = () >> ->
+  | (<:str_item@loc< let _ = () >>) ->
     <:str_item@loc< let a = () >>
   | s ->
     s
