@@ -1,7 +1,9 @@
-module Id = Id.Make (struct end)
-module S = Solver.Make(Scip.Scip_basic)(Id)
+module Id' = Id.Make (struct end)
+module S = Solver.Make(Scip.Scip_basic)(Id')
 
 let ctx = S.make_ctx (Scip.Scip_basic.make_ctx ())
+
+type c = Id'.c
 
 let constrain g =
   S.assert_formula ctx g
@@ -10,12 +12,12 @@ let solve () =
   S.solve ctx
 
 let fresh_int_var () =
-  Logic.M.M_Var (Id.gen_id Type.Y_Int)
+  Logic.M.M_Var (Id'.gen_id Type.Y_Int)
 
 let fresh_bool_var () =
   Formula.F_Atom
     (Logic.A.A_Bool
-       (Logic.M.M_Var (Id.gen_id Type.Y_Bool)))
+       (Logic.M.M_Var (Id'.gen_id Type.Y_Bool)))
 
 let ideref = function
   | Logic.M.M_Var v ->
@@ -31,3 +33,5 @@ let bderef = function
 
 let toi x =
   Logic.M.M_Int (Core.Std.Int63.of_int x)
+
+let gen_id = Id'.gen_id

@@ -1,12 +1,14 @@
+open Core.Std
+
 (* utilities *)
 
 let sum ~f =
-  ~logic (List.fold_left ~init:0 ~f:(fun acc x -> acc + f x))
+  ~logic (List.fold_left ~init:0 ~f:(fun acc x -> acc + f x)) ;;
 
 let make_map l_p l_h =
   let hp_map =
     let size = List.length l_p * List.length l_h in
-    Hashtbl.Poly.create ~size () in
+    Core.Std.Hashtbl.Poly.create () ~size in
   List.iter l_p ~f:(fun p ->
     List.iter l_h ~f:(fun h ->
       let v = fresh_int_var () in

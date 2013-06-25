@@ -23,7 +23,7 @@ let uf_ast_fun _loc mid (l, rtype) =
     match rtype with
     | Y_Int -> <:expr< Type.Y_Int >>
     | Y_Bool -> <:expr< Type.Y_Bool >>
-  and ret e = <:expr< $uid:mid$.M.M_Var (gen_id $e$) >> in
+  and ret e = <:expr< $uid:mid$.M.M_Var (Script_init.gen_id $e$) >> in
   ret (fold l init)
 
 let uf_ast_apps _loc mid init =

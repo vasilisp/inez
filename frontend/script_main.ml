@@ -3,15 +3,6 @@ open Async.Std
 open Async
 open Ocaml_plugin.Std
 
-(*
-  module Plugin = Ocaml_dynloader.Make(struct
-  type t = (module Script_intf.S)
-  let t_repr = "Script_intf.S"
-  let univ_constr = Script_intf.univ_constr
-  let univ_constr_repr = "Script_intf.univ_constr"
-  end)
-*)
-
 let () =
   let file = Sys.argv.(1) in
   don't_wait_for (
@@ -29,15 +20,12 @@ let () =
         | Error exn ->
           Printf.eprintf "Cannot initialize loader: %s\n%!"
             (Error.to_string_hum exn));
-      (* let loader = Ocaml_compiler.loader ocaml_compiler in *)
       let clean_and_shutdown () =
         Ocaml_compiler.clean ocaml_compiler >>= fun result ->
         let () = Or_error.ok_exn result in
         return (shutdown 0) in
       let rec doit () =
         Ocaml_compiler.load_ocaml_src_files [file]
-          (* ?camlp4o_opt:None *)
-          ~cmx_flags:["-pp \"camlp4o pa_logic.cmxs\""]
         >>= function
         | Error e ->
           Printf.eprintf "Cannot build embed loader: %s"

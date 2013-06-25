@@ -1,22 +1,23 @@
 open build/C
 open build/OCaml
 
-BYTE_ENABLED = true
+BYTE_ENABLED = false
 NATIVE_ENABLED = true
 OCAMLFLAGS += -thread
 USE_OCAMLFIND = true
-OCAMLPACKS = core camlp4 camlidl camlp4.lib herelib
+OCAMLPACKS = core camlidl herelib async ocaml_plugin
 INCLUDES = $(CAMLIDL_INCLUDE_PATH)
 
 CFLAGS = -fPIC
 
 OCAMLDEP_MODULES_ENABLED = true
 
-OCAML_CLIBS = ../backend/libbct
+OCAML_CLIBS = ../backend/libbct libstdc++
 
 OCAML_BYTE_LINK_FLAGS = -custom
-OCAML_LINK_FLAGS = -linkpkg -ccopt -L$(SCIP_LIB_DIR) -cclib -lscipopt	\
-        -cclib -lstdc++ -cclib -lcamlidl
+OCAML_LINK_FLAGS = -linkpkg \
+        -ccopt -L$(SCIP_LIB_DIR) \
+        -cclib -lcamlidl -cclib -lscipopt
 
 private.EXT_COBJ = .o
 
@@ -29,8 +30,8 @@ private.EXT_COBJ = .o
 Camlp4o(module) =
     section
         OCAMLPACKS += camlp4
-        OCAMLDEPFLAGS += -pp camlp4of
-        OCAMLFLAGS += -pp camlp4of
+        OCAMLDEPFLAGS += -pp camlp4of.opt
+        OCAMLFLAGS += -pp camlp4of.opt
         $(module).cmi:
         $(module).cmo:
         $(module).o:
@@ -41,6 +42,16 @@ Camlp4o_lib(module, libs, pa_names) =
         OCAMLPACKS += camlp4
         OCAMLDEPFLAGS += -pp "camlp4of $(add-wrapper -I `ocamlfind query , `, $(libs)) $(add-wrapper pa_, .cma, $(pa_names))"
         OCAMLFLAGS += -pp "camlp4of $(add-wrapper -I `ocamlfind query , `, $(libs)) $(add-wrapper pa_, .cma, $(pa_names))"
+        $(module).cmi:
+        $(module).cmo:
+        $(module).o:
+        $(module).cmx:
+
+Camlp4o_nopacks(module) =
+    section
+        OCAMLPACKS = camlp4
+        OCAMLDEPFLAGS += -pp camlp4of.opt
+        OCAMLFLAGS += -pp camlp4of.opt
         $(module).cmi:
         $(module).cmo:
         $(module).o:
@@ -107,18 +118,9 @@ public.MyOCamlProgram(name, files, cfiles) =
                    $(if $(NATIVE_ENABLED), $(OPTPROG)), \
                    $(if $(BYTE_ENABLED), $(BYTEPROG)))
 
-public.OcamlShared(name, files, cfiles) =
+public.OCamlShared(name, files) =
 
     private.CMXFILES = $(addsuffix .cmx, $(files))
-    private.OFILES = $(addsuffix $(EXT_OBJ), $(files))
-
-    private.COFILES = $(addsuffix $(EXT_COBJ), $(cfiles))
-
-    private.CMXAFILES = $(addsuffix .cmxa, $(OCAML_LIBS))
-    private.ARFILES = $(addsuffix $(EXT_LIB), $(OCAML_LIBS))
-    private.CMXA_OTHER_FILES = $(addsuffix .cmxa, $(OCAML_OTHER_LIBS))
-
-    private.CLIBS = $(addsuffix $(EXT_LIB), $(OCAML_CLIBS))
 
     private.name = $(file $(name))
 
@@ -126,13 +128,11 @@ public.OcamlShared(name, files, cfiles) =
 
     OCAML_LINK_FLAGS += -shared
 
-    $(OUTPUT): $(CMXAFILES) $(ARFILES) $(CMXFILES) $(OFILES) $(CLIBS)	\
-            $(COFILES)
-        $(OCAMLFIND) $(OCAMLOPTLINK) $(LAZY_OCAMLFINDFLAGS)		\
-                $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS) $(OCAMLOPTFLAGS)	\
-                $(PREFIXED_OCAMLINCLUDES) -o $@ $(CMXA_OTHER_FILES)	\
-                $(CMXAFILES) $(COFILES) $(OCamlLinkSort $(CMXFILES))	\
-                $(CLIBS) $(OCAML_LINK_FLAGS)				\
+    $(OUTPUT): $(CMXFILES)
+        $(OCAMLFIND) $(OCAMLOPTLINK) $(LAZY_OCAMLFINDFLAGS)	\
+                $(OCAMLFLAGS) $(OCAMLOPTFLAGS)			\
+                $(PREFIXED_OCAMLINCLUDES) -o $@ -shared		\
+                $(OCamlLinkSort $(CMXFILES))			\
                 $(OCAML_NATIVE_LINK_FLAGS)
 
     return $(OUTPUT)
@@ -161,8 +161,8 @@ public.OCamlTop(name, files, cfiles) =
     # FIXME: hardcoded dynlink.cma and camlp4o.cma
 
     $(PROG): $(CMAFILES) $(CMOFILES) $(CLIBS) $(COFILES)
-        $(OCAMLFIND) $(OCAMLMKTOP) $(LAZY_OCAMLFINDFLAGS) dynlink.cma	\
-        -I +camlp4 camlp4of.cma $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS)	\
+        $(OCAMLFIND) $(OCAMLMKTOP) $(LAZY_OCAMLFINDFLAGS) -I +camlp4	\
+        camlp4of.cma $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS)		\
         $(OCAMLCFLAGS) $(PREFIXED_OCAMLINCLUDES) -o $@			\
         $(CMA_OTHER_FILES) $(CMAFILES) $(OCamlLinkSort $(CMOFILES))	\
         $(COFILES) $(CLIBS) $(OCAML_LINK_FLAGS)				\
@@ -170,34 +170,33 @@ public.OCamlTop(name, files, cfiles) =
 
     return $(PROG)
 
-# TODO: add target for preloaded camlp4; the recipe is
-# OCAMLFIND_COMMANDS='ocamlmktop=mkcamlp4' \
-# ocamlfind ocamlmktop \
-#     -thread -linkpkg -package compiler-libs.toplevel,core \
-#     -I +camlp4 camlp4o.cma camlp4_maps.cmo pa_logic.cmo \
-#     -o inez.pp -custom
+libstdc++.a:
+    ln-or-cp $(shell gcc -print-file-name=libstdc++.a) libstdc++.a
 
 Camlp4o_lib(id, herelib, herelib)
-Camlp4o_lib(type, herelib type_conv comparelib sexplib, herelib \
+
+Camlp4o_lib(type, herelib type_conv comparelib sexplib, herelib	\
                   type_conv compare sexp_conv)
-Camlp4o_lib(solver, herelib type_conv comparelib sexplib, herelib \
+
+Camlp4o_lib(solver, herelib type_conv comparelib sexplib, herelib	\
                     type_conv compare sexp_conv)
+
 Camlp4o_lib(pre, herelib type_conv comparelib sexplib, herelib	\
             type_conv compare sexp_conv)
+
 Camlp4o_lib(scip, herelib, herelib)
+
 Camlp4o_lib(terminology, type_conv comparelib sexplib, type_conv	\
                          compare sexp_conv)
+
 Camlp4o_lib(db_solver, herelib type_conv comparelib sexplib, \
                        herelib type_conv compare sexp_conv)
 
-Camlp4o(camlp4_maps)
+Camlp4o_nopacks(camlp4_maps)
 
-Camlp4o(pa_db_logic)
+Camlp4o_nopacks(pa_db_logic)
 
-MyOCamlProgram(inez, terminology unreachable scip_idl scip util	\
-               formula type id logic pre solver smtlib_lexer	\
-               smtlib_parser smtlib_solver main, native_utils	\
-               scip_idl_stubs)
+Camlp4o_nopacks(pa_logic)
 
 OCamlTop(inez, terminology unreachable scip_idl scip util formula	\
          type id logic camlp4_maps pa_logic pre solver, native_utils	\
@@ -207,9 +206,40 @@ OCamlTop(inezdb, terminology unreachable scip_idl scip util formula	\
          type id logic db_logic camlp4_maps pa_db_logic pre solver	\
          db_solver, native_utils scip_idl_stubs)
 
+OCamlShared(pa_logic, camlp4_maps pa_logic)
+
+MyOCamlProgram(inezaux, terminology unreachable scip_idl scip util	\
+               formula type id logic pre solver script_init		\
+               script_main, native_utils scip_idl_stubs)
+
+camlp4oi.opt: camlp4_maps.cmx pa_logic.cmx
+        ocamlfind ocamlopt unix.cmxa dynlink.cmxa -I +camlp4		\
+        camlp4lib.cmxa Camlp4Parsers/Camlp4OCamlRevisedParser.cmx	\
+        Camlp4Parsers/Camlp4OCamlParser.cmx				\
+        Camlp4Parsers/Camlp4OCamlRevisedParserParser.cmx		\
+        Camlp4Parsers/Camlp4OCamlParserParser.cmx			\
+        Camlp4Printers/Camlp4AutoPrinter.cmx camlp4_maps.cmx		\
+        pa_logic.cmx Camlp4Bin.cmx -o camlp4oi.opt
+
+inez.opt: inezaux.opt pa_logic.cmxs \
+	    terminology.cmi type.cmi formula.cmi logic.cmi \
+            script_init.cmi
+        ocaml-embed-compiler \
+            -cc $(shell which ocamlopt.opt) \
+            -exe inezaux.opt \
+            -pp $(shell which camlp4o.opt) \
+            -pa-cmxs pa_logic.cmxs \
+            -o inez.opt \
+            $(shell ocamlfind printconf stdlib)/pervasives.cmi \
+            $(shell ocamlfind query core)/core.cmi \
+            $(shell ocamlfind query ocaml_plugin)/ocaml_plugin.cmi \
+            terminology.cmi type.cmi formula.cmi logic.cmi \
+            script_init.cmi
+
 .PHONY: clean
 
 clean:
-    rm -f *.o *.cm[iox] smtlib_lexer.ml inez inez.opt inez.run	\
-            inezdb.top inez.top *.omc scip_idl.ml scip_idl.mli	\
-            scip_idl.h scip_idl_stubs.c
+    rm -f *.o *.cm[iox] *.cmxs smtlib_lexer.ml inez inez.opt		\
+            inezaux.opt inez.run inezdb.top inez.top			\
+            camlp4oi.opt *.omc scip_idl.ml scip_idl.mli scip_idl.h	\
+            scip_idl_stubs.c libstdc++.a
