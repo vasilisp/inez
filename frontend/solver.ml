@@ -492,6 +492,7 @@ struct
 
   let solve ({r_ctx} as r) =
     bg_assert_all_cached r;
+    write_bg_ctx r "/home/vpap/constraints.lp";
     if r.r_unsat then
       R_Unsat
     else

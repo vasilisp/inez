@@ -1,9 +1,6 @@
-open Script_solver
-(* utilities *)
+open Script_solver ;;
 
-open Core.Std
-
-(* module Hashtbl = Caml.Hashtbl *)
+open Core.Std ;;
 
 let sum ~f =
   ~logic (List.fold_left ~init:0 ~f:(fun acc x -> acc + f x)) ;;

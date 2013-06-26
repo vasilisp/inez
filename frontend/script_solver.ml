@@ -5,9 +5,8 @@ let ctx = S.make_ctx (Scip.Scip_basic.make_ctx ())
 
 type c = Id'.c
 
-let constrain g =
-  S.assert_formula ctx g;
-  `Ok
+let constrain =
+  S.assert_formula ctx
 
 let solve () =
   S.solve ctx

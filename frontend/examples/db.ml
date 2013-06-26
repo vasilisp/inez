@@ -1,9 +1,6 @@
 open Script_db_solver ;;
 open Core.Std ;;
 
-let ideref_human x =
-  Option.(ideref x >>= Int63.to_int) ;;
-
 type entry = (Int, Int) Schema ;;
 
 let make_db l =
@@ -23,8 +20,7 @@ let db =
 constrain
   (~logic
       (exists
-         (sel db
-            (function (_, x : Row) -> x = 1821)))) ;;
+         (sel db (function (_, x : Row) -> x = 1821)))) ;;
 
 constrain (~logic (v = 18)) ;;
 
@@ -36,5 +32,5 @@ let _ =
     ()
   | _ ->
     Printf.printf "v = %d\nu = %d\n"
-      (Option.value_exn (ideref_human v))
-      (Option.value_exn (ideref_human u))
+      (Int63.to_string_human (Option.value_exn (ideref v)))
+      (Int63.to_string_human (Option.value_exn (ideref u)))

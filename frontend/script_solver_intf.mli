@@ -5,7 +5,7 @@ module type S = sig
   type (_, _) term_plug
   type _ atom_plug
 
-  val constrain : c atom_plug Formula.t -> [`Fail | `Ok]
+  val constrain : c atom_plug Formula.t -> unit
 
   val solve : unit -> Terminology.result
 
@@ -20,5 +20,7 @@ module type S = sig
   val toi : int -> (c, int) term_plug
 
   val gen_id : 's Type.t -> (c, 's) Id.t
+
+  val string_of_result : Terminology.result -> string
 
 end

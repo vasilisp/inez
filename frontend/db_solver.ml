@@ -479,10 +479,22 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       let exists_index (m, l) ~f ~min ~max =
         List.exists l ~f ||
           let f ~key ~data acc = acc || f data in
-          Map.fold_range_inclusive m ~min ~max ~init:true ~f
+          Map.fold_range_inclusive m ~min ~max ~init:false ~f
 
       let check_for_occ r r' sol (row, index, i) =
         let row = Array.map row ~f:(deref_ovar_sol r' sol) in
+        (* let sexp = Array.sexp_of_t Int63.sexp_of_t row in *)
+        (* Sexplib.Sexp.output_hum stdout sexp; *)
+        (* print_string " in \n"; *)
+        (* let l = *)
+        (*   fold_candidates r r' occ *)
+        (*     ~init:[] *)
+        (*     ~f:(fun row ~bounds ~acc -> *)
+        (*       Array.map row ~f:(deref_ovar_sol r' sol) :: acc) in *)
+        (* let sexp' = *)
+        (*   List.sexp_of_t (Array.sexp_of_t Int63.sexp_of_t) l in *)
+        (* Sexplib.Sexp.output_hum stdout sexp'; *)
+        (* print_newline (); *)
         let f = matches_row r' sol row in
         exists_index index ~min:row.(i) ~max:row.(i) ~f
 
@@ -574,6 +586,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         branch r ~f:(branch2_for_bvar r r')
 
       let branch r r' =
+        Printf.printf "branching\n%!";
         ok_for_true (branch0 r r' || branch1 r r' || branch2 r r')
       
       (* stack management *)
@@ -839,6 +852,9 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
               r_theory_ctx
               v (force_row x e) (Lazy.force l) ~fd));
     S'.solve r_ctx
+
+  let write_bg_ctx {r_ctx} =
+    S'.write_bg_ctx r_ctx
 
   let deref_int {r_ctx} i =
     S'.deref_int r_ctx i

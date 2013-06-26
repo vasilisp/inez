@@ -48,4 +48,4 @@ let _ =
   | R_Opt | R_Unbounded | R_Sat ->
     Printf.printf "sat\n%!"
   | R_Unknown ->
-    Printf.printf "unknown\n%!"
+    Printf.printf "unknown\n%!" ;;

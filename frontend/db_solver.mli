@@ -22,4 +22,6 @@ sig
   val deref_bool :
     ctx -> (I.c, bool) Id.t -> bool option
 
+  val write_bg_ctx : ctx -> string -> unit
+
 end

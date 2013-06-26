@@ -3,9 +3,6 @@ open Script_db_solver
 
 assert (Array.length Sys.argv >= 3) ;;
 
-let ideref_human x =
-  Option.(ideref x >>= Int63.to_int) ;;
-
 let ideref_print id v =
   match ideref v with
   | Some i ->
@@ -37,23 +34,21 @@ let db2 =
        (let f i = ~logic (make_row_iib (toi i, 2 * toi i, false)) in
         List.init n ~f))
 
-let db_cross = (~logic cross) db1 db2 ;;
+let db_cross = ~logic (cross db1 db2) ;;
 
-let db_cross_cross = (~logic cross) db_cross db_cross ;;
+let db_cross_cross = ~logic (cross db_cross db_cross) ;;
 
 constrain
-  (~logic (exists
-             (sel db_cross_cross
-                (fun (x , _, _,
-                      x', y, _,
-                      _, z, _,
-                      _, z', _ : Row) ->
-                  x + y = 18000 &&
-                    x >= 45000 &&
-                    not (x = x') &&
-                    z = z')))) ;;
+  (~logic
+      (let f (x, _, _, x', y , _,
+              _, z, _, _ , z', (w : Bool) : Row) =
+         x + y = 18000 &&
+         x >= 45000 &&
+         not (x = x') &&
+         z = z' && w in
+       exists (sel db_cross_cross f))) ;;
 
-solve () ;;
+print_endline (string_of_result (solve ())) ;;
 
 ideref_print "db11" db11 ;;
 

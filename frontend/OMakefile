@@ -1,11 +1,13 @@
 open build/C
 open build/OCaml
 
-BYTE_ENABLED = false
+BYTE_ENABLED = true
 NATIVE_ENABLED = true
 OCAMLFLAGS += -thread
+OCAMLOPTFLAGS += -p
+# OCAMLOPTFLAGS += -unsafe -inline 20
 USE_OCAMLFIND = true
-OCAMLPACKS = core camlidl herelib async ocaml_plugin
+OCAMLPACKS = core camlidl herelib
 INCLUDES = $(CAMLIDL_INCLUDE_PATH)
 
 CFLAGS = -O3
@@ -71,6 +73,14 @@ Reset_cflags(file) =
     section
         CFLAGS =
         $(file).o:
+
+Extra_pack(module, pkg) =
+    section
+        OCAMLPACKS += $(pkg)
+        $(module).cmi:
+        $(module).cmo:
+        $(module).o:
+        $(module).cmx:
 
 # I copied the function below from OCaml.om, and extended it to link
 # against .o files generated from .c sources. I also reordered
@@ -171,8 +181,8 @@ public.OCamlTop(name, files, cfiles) =
     # FIXME: hardcoded dynlink.cma and camlp4o.cma
 
     $(PROG): $(CMAFILES) $(CMOFILES) $(CLIBS) $(COFILES)
-        $(OCAMLFIND) $(OCAMLMKTOP) $(LAZY_OCAMLFINDFLAGS) -I +camlp4	\
-        camlp4of.cma $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS)		\
+        $(OCAMLFIND) $(OCAMLMKTOP) $(LAZY_OCAMLFINDFLAGS) dynlink.cma	\
+        -I +camlp4 camlp4of.cma $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS)	\
         $(OCAMLCFLAGS) $(PREFIXED_OCAMLINCLUDES) -o $@			\
         $(CMA_OTHER_FILES) $(CMAFILES) $(OCamlLinkSort $(CMOFILES))	\
         $(COFILES) $(OCAML_LINK_FLAGS) $(OCAML_BYTE_LINK_FLAGS)		\
@@ -212,23 +222,29 @@ Camlp4o_nopacks(pa_db_logic)
 
 Camlp4o_nopacks(pa_logic)
 
+Extra_pack(script_main, ocaml_plugin async)
+
 OCamlTop(inez, terminology unreachable scip_idl scip util formula	\
-         type id logic camlp4_maps pa_logic pre solver, native_utils	\
-         scip_idl_stubs)
+         type id logic camlp4_maps pa_logic pre solver script_solver,	\
+         native_utils scip_idl_stubs)
 
 OCamlTop(inezdb, terminology unreachable scip_idl scip util formula	\
          type id logic db_logic camlp4_maps pa_db_logic pre solver	\
-         db_solver, native_utils scip_idl_stubs)
+         db_solver script_db_solver, native_utils scip_idl_stubs)
 
-MyOCamlProgram(inez, terminology unreachable scip_idl scip util	\
-               formula type id logic pre solver script_solver		\
-               script_main, native_utils scip_idl_stubs			\
-               ocaml_embedded)
+section
+    OCAMLPACKS += ocaml_plugin async
+    MyOCamlProgram(inez, terminology unreachable scip_idl scip util	\
+                   formula type id logic pre solver script_solver	\
+                   script_main, native_utils scip_idl_stubs		\
+                   ocaml_embedded)
 
-MyOCamlProgram(inezdb, terminology unreachable scip_idl scip util	\
-               formula type id logic db_logic pre solver db_solver	\
-               script_db_solver script_main, native_utils		\
-               scip_idl_stubs db_ocaml_embedded)
+section
+    OCAMLPACKS += ocaml_plugin async
+    MyOCamlProgram(inezdb, terminology unreachable scip_idl scip util	\
+                   formula type id logic db_logic pre solver		\
+                   db_solver script_db_solver script_main,		\
+                   native_utils scip_idl_stubs db_ocaml_embedded)
 
 camlp4oi.opt: camlp4_maps.cmx pa_logic.cmx
         ocamlfind ocamlopt unix.cmxa dynlink.cmxa -I +camlp4		\
@@ -247,7 +263,7 @@ ocaml_embedded.c: pa_logic.cmxs $(CMI_FILES_EMBED)
             -o $@ \
             $(shell ocamlfind printconf stdlib)/pervasives.cmi \
             $(shell ocamlfind query core_kernel)/core_kernel.cmi \
-            $(shell ocamlfind query core)/core.cmi \
+            $(shell ocamlfind query core_kernel)/core.cmi \
             $(shell ocamlfind query ocaml_plugin)/ocaml_plugin.cmi \
             $(CMI_FILES_EMBED)
 

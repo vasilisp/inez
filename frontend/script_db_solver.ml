@@ -1,13 +1,16 @@
 module Id' = Id.Make (struct end)
 
 module S = Db_solver.Make(Scip.Scip_with_dp)(Id')
-
 let ctx = S.make_ctx ()
 
 type c = Id'.c
 
 let constrain g =
-  S.assert_formula ctx g
+  match S.assert_formula ctx g with
+  | `Ok ->
+    ()
+  | `Fail ->
+    raise (Invalid_argument "constrain: non-existential formula")
 
 let solve () =
   S.solve ctx

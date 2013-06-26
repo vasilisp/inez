@@ -1,51 +1,7 @@
-#use "topfind";;
-#require "core";;
-#print_depth 4;;
-#print_length 4;;
+#use "topfind" ;;
+#require "core" ;;
+#print_depth 4 ;;
+#print_length 4 ;;
 
-open Core.Std;;
-
-module Id = Id.Make (struct end);;
-module S = Db_solver.Make(Scip.Scip_with_dp)(Id)
-
-let ctx = S.make_ctx ();;
-
-let constrain g =
-  S.assert_formula ctx g;;
-
-let solve () =
-  S.solve ctx;;
-
-let gen_id = Id.gen_id
-
-let fresh_int_var () =
-  Db_logic.M.M_Var (Id.gen_id Type.Y_Int);;
-
-let fresh_bool_var () =
-  Formula.F_Atom
-    (Db_logic.A.A_Bool
-       (Db_logic.M.M_Var (Id.gen_id Type.Y_Bool)));;
-
-let ideref = function
-  | Db_logic.M.M_Var v ->
-    S.deref_int ctx v
-  | _ ->
-    None;;
-
-let bderef = function
-  | Formula.F_Atom
-      (Db_logic.A.A_Bool (Db_logic.M.M_Var v)) ->
-    S.deref_bool ctx v
-  | _ ->
-    None;;
-
-let toi x = Db_logic.M.M_Int (Int63.of_int x);;
-
-let sel l f =
-  Db_logic.D.D_Sel (l, f);;
-
-let exists l =
-  Formula.F_Atom (Db_logic.A.A_Exists l);;
-
-let cross l1 l2 = 
-  Db_logic.D.D_Cross (l1, l2);;
+open Core.Std ;;
+open Script_db_solver ;;
