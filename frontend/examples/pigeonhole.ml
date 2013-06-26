@@ -1,6 +1,9 @@
+open Script_solver
+(* utilities *)
+
 open Core.Std
 
-(* utilities *)
+(* module Hashtbl = Caml.Hashtbl *)
 
 let sum ~f =
   ~logic (List.fold_left ~init:0 ~f:(fun acc x -> acc + f x)) ;;
@@ -8,13 +11,14 @@ let sum ~f =
 let make_map l_p l_h =
   let hp_map =
     let size = List.length l_p * List.length l_h in
-    Core.Std.Hashtbl.Poly.create () ~size in
+    Hashtbl.Poly.create ~size () in
   List.iter l_p ~f:(fun p ->
     List.iter l_h ~f:(fun h ->
       let v = fresh_int_var () in
       constrain (~logic (v >= 0));
       constrain (~logic (v <= 1));
-      Hashtbl.replace hp_map (p, h) v));
+      let key = p, h and data = v in
+      Hashtbl.replace hp_map ~key ~data));
   fun p h -> Hashtbl.find_exn hp_map (p, h) ;;
 
 (* problem definition *)
@@ -44,7 +48,10 @@ constrain
 (* each hole contains one pigeon *)
 
 constrain
-  (~logic (forall holes
-             ~f:(fun h -> sum pigeons ~f:(Fn.flip m h) = 1))) ;;
+  (~logic
+      (forall holes
+         ~f:(fun h -> sum pigeons ~f:(Fn.flip m h) = 1))) ;;
+
+print_string "hello, world!\n" ;;
 
 solve () ;;

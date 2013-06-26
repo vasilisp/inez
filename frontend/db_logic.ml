@@ -143,4 +143,13 @@ module Ops = struct
 
   let (>) a b = b < a
 
+  let sel = D.sel
+
+  let cross = D.cross
+
+  let exists l =
+    Formula.F_Atom (A.A_Exists l)
+
+  let toi x = M.M_Int (Int63.of_int x)
+
 end

@@ -6,7 +6,8 @@ let ctx = S.make_ctx (Scip.Scip_basic.make_ctx ())
 type c = Id'.c
 
 let constrain g =
-  S.assert_formula ctx g
+  S.assert_formula ctx g;
+  `Ok
 
 let solve () =
   S.solve ctx
@@ -35,3 +36,17 @@ let toi x =
   Logic.M.M_Int (Core.Std.Int63.of_int x)
 
 let gen_id = Id'.gen_id
+
+let string_of_result =
+  let open Terminology in
+  function
+  | R_Opt ->
+    "opt"
+  | R_Sat ->
+    "sat"
+  | R_Unbounded ->
+    "unbounded"
+  | R_Unsat ->
+    "unsat"
+  | R_Unknown ->
+    "unknown"

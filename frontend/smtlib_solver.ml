@@ -101,7 +101,7 @@ struct
     match r_status, e with
     | Some K_Sat, R_Unsat ->
       R.P_Bug
-    | Some K_Unsat, (R_Opt  | R_Unbounded | R_Sat) ->
+    | Some K_Unsat, (R_Opt | R_Unbounded | R_Sat) ->
       R.P_Bug
     | _ ->
       R.P_Ok (Some e)
