@@ -199,7 +199,7 @@ let map_schema_type =
 ;;
 
 let _ =
-  let m = (Camlp4_maps.map_uf "Db_logic")#str_item in
+  let m = (Camlp4_maps.map_uf "Db_logic" "Db_script")#str_item in
   AstFilters.register_str_item_filter m;
   AstFilters.register_topphrase_filter m
 ;;

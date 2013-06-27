@@ -11,7 +11,7 @@ sig
     bool -> I.c Db_logic.A.t Formula.t -> bool
 
   val assert_formula :
-    ctx -> I.c Db_logic.A.t Formula.t -> [ `Fail | `Ok ]
+    ctx -> I.c Db_logic.A.t Formula.t -> [> `Ok | `Out_of_fragment ]
 
   val solve :
     ctx -> Terminology.result
@@ -23,5 +23,10 @@ sig
     ctx -> (I.c, bool) Id.t -> bool option
 
   val write_bg_ctx : ctx -> string -> unit
+
+  val add_objective :
+    ctx -> (I.c, int) Db_logic.M.t ->
+    [> `Duplicate | `Ok | `Out_of_fragment]
+
 
 end

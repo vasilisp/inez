@@ -1,5 +1,5 @@
-open Script_solver
-open Core.Std
+open Script ;;
+open Core.Std ;;
 
 (* parameters *)
 

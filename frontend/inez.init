@@ -1,10 +1,7 @@
-#use "topfind";;
-#require "core";;
-#print_depth 4;;
+#use "topfind" ;;
+#require "core" ;;
+#print_depth 4 ;;
+#print_length 4 ;;
 
-#camlp4o;;
-#load "camlp4_maps.cmo";;
-#load "pa_logic.cmo";;
-
-open Core.Std;;
-open Script_solver;;
+open Core.Std ;;
+open Script ;;

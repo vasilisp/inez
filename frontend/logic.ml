@@ -82,9 +82,36 @@ struct
     | _ ->
       a + (Int63.minus_one * b)
 
+  let ( ~- ) a =
+    zero - a
+
   let sum l ~f =
     List.fold_left l ~init:zero
       ~f:(fun acc x -> acc + f x)
+
+  let rec fold :
+  type s . ('i, s) t ->
+    init:'a ->
+    f:('a -> 'i T.t Formula.t -> 'a) -> 'a =
+    fun m ~init ~f ->
+      match m with
+      | M_Int _ ->
+        init
+      | M_Var _ ->
+        init
+      | M_Bool b ->
+        f init b
+      | M_Sum (a, b) ->
+        fold b ~init:(fold a ~init ~f) ~f
+      | M_Prod (_, a) ->
+        fold a ~init ~f
+      | M_Ite (q, a, b) ->
+        let init = f init q in
+        let init = fold a ~init ~f in
+        fold b ~init ~f
+      | M_App (a, b) ->
+        let init = fold a ~init ~f in
+        fold b ~init ~f
 
 end
 

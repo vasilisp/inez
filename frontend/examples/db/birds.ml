@@ -1,5 +1,5 @@
 open Core.Std ;;
-open Script_db_solver ;;
+open Db_script ;;
 
 let ideref_print id v =
   match ideref v with
@@ -50,7 +50,6 @@ let env =
 
 let y = fresh_int_var () ;;
 
-
 let cp =
   let env =
     ~logic
@@ -67,6 +66,8 @@ constrain
          (sel cp
             (fun (_, _, _, _, y, n : Row) ->
               y = 43 && n >= 500)))) ;;
+
+minimize (~logic (- y)) ;;
 
 print_endline (string_of_result (solve ())) ;;
 

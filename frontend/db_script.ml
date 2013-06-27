@@ -9,8 +9,17 @@ let constrain g =
   match S.assert_formula ctx g with
   | `Ok ->
     ()
-  | `Fail ->
+  | `Out_of_fragment ->
     raise (Invalid_argument "constrain: non-existential formula")
+
+let minimize m =
+  match S.add_objective ctx m with
+  | `Ok ->
+    ()
+  | `Duplicate ->
+    raise (Invalid_argument "problem has objective already")
+  | `Out_of_fragment ->
+    raise (Invalid_argument "constrain: non-existential sub-formulas")
 
 let solve () =
   S.solve ctx

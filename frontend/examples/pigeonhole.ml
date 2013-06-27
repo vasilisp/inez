@@ -1,4 +1,4 @@
-open Script_solver ;;
+open Script ;;
 
 open Core.Std ;;
 

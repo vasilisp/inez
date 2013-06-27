@@ -7,6 +7,8 @@ module type S = sig
 
   val constrain : c atom_plug Formula.t -> unit
 
+  val minimize : (c, int) term_plug -> unit
+
   val solve : unit -> Terminology.result
 
   val fresh_int_var : unit -> (c, int) term_plug

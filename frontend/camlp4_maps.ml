@@ -10,7 +10,7 @@ let gensym =
     incr cnt;
     Printf.sprintf "%s__%03i_" prefix !cnt
 
-let uf_ast_fun _loc mid (l, rtype) =
+let uf_ast_fun _loc mid mid' (l, rtype) =
   let fold l init =
     let f y acc =
       match y with
@@ -23,7 +23,7 @@ let uf_ast_fun _loc mid (l, rtype) =
     match rtype with
     | Y_Int -> <:expr< Type.Y_Int >>
     | Y_Bool -> <:expr< Type.Y_Bool >>
-  and ret e = <:expr< $uid:mid$.M.M_Var (Script_solver.gen_id $e$) >> in
+  and ret e = <:expr< $uid:mid$.M.M_Var ($uid:mid'$.gen_id $e$) >> in
   ret (fold l init)
 
 let uf_ast_apps _loc mid init =
@@ -48,7 +48,7 @@ let uf_maybe_convert _loc mid y e =
   | Y_Int ->
     e
 
-let uf_ast _loc mid (l, y) =
+let uf_ast _loc mid mid' (l, y) =
   let l_ids =
     let f _ = Ast.IdLid (_loc, gensym ()) in
     List.map f l
@@ -58,7 +58,7 @@ let uf_ast _loc mid (l, y) =
       (uf_maybe_convert _loc mid y
          (uf_ast_apps _loc mid <:expr< $lid:id$ >> l_ids l))
       l_ids
-  and binding = uf_ast_fun _loc mid (l, y) in
+  and binding = uf_ast_fun _loc  mid mid' (l, y) in
   <:expr< let $lid:id$ = $binding$ in $inside$ >> ;;
 
 let rec type_of_uf ?acc:(acc = []) =
@@ -77,7 +77,7 @@ let rec type_of_uf ?acc:(acc = []) =
   | _ ->
     None
 
-let map_uf mid = object
+let map_uf mid mid' = object
 
   inherit Ast.map as super
   
@@ -88,7 +88,7 @@ let map_uf mid = object
   | <:expr@loc< fun (_ : Bool) -> $_$ >> as e ->
     (match type_of_uf e with
     | Some y ->
-      uf_ast loc mid y
+      uf_ast loc mid mid' y
     | None ->
       e)
   | e ->

@@ -26,6 +26,8 @@ module type Int = sig
   type (_, _) t
   type int_plug
 
+  val ( ~- ) : ('i, int) t -> ('i, int) t
+
   (* infix operators *)
 
   val ( + ) : ('i, int) t -> ('i, int) t -> ('i, int) t

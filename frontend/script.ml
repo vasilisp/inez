@@ -50,7 +50,7 @@ let string_of_result =
   | R_Unknown ->
     "unknown"
 
-let add_objective o =
+let minimize o =
   match S.add_objective ctx o with
   | `Ok ->
     ()

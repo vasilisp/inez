@@ -1,5 +1,5 @@
 open Core.Std ;;
-open Script_db_solver ;;
+open Db_script ;;
 
 let n =
   if Array.length Sys.argv >= 3 then

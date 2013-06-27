@@ -679,14 +679,21 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       R.R_Pair (get_symbolic_row_db a, get_symbolic_row_db b)
     | D.D_Sel (a, _) ->
       get_symbolic_row_db a
-  
-  let rec has_db_atom = function
+
+  let rec has_db_atom_term :
+  type s . (I.c, s) Db_logic.M.t -> bool =
+    let f acc x = acc || has_db_atom x and init = false in
+    Db_logic.M.fold ~init ~f
+
+  and has_db_atom = function
     | Formula.F_True ->
       false
     | Formula.F_Atom (A.A_Exists _) ->
       true
-    | Formula.F_Atom _ ->
-      false
+    | Formula.F_Atom (A.A_Le m | A.A_Eq m) ->
+      has_db_atom_term m
+    | Formula.F_Atom (A.A_Bool m) ->
+      has_db_atom_term m
     | Formula.F_Not g ->
       has_db_atom g
     | Formula.F_And (g, h) ->
@@ -716,8 +723,10 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       true
     | Formula.F_Atom (A.A_Exists d) ->
       b && existential_inside_db d
-    | Formula.F_Atom _ ->
-      true
+    | Formula.F_Atom (A.A_Le m | A.A_Eq m) ->
+      not (has_db_atom_term m)
+    | Formula.F_Atom (A.A_Bool m) ->
+      not (has_db_atom_term m)
     | Formula.F_Not g ->
       existential (not b) g
     | Formula.F_And (g, h) ->
@@ -834,7 +843,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     | Some g ->
       S'.assert_formula r_ctx g; `Ok
     | None ->
-      `Fail
+      `Out_of_fragment
 
   let name_diff r v1 v2 =
     let v = Imt'.new_ivar r (T_Int (None, None)) in
@@ -853,7 +862,12 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
               v (force_row x e) (Lazy.force l) ~fd));
     S'.solve r_ctx
 
-  (* let add_objective *)
+  let add_objective ({r_ctx} as x) o =
+    if has_db_atom_term o then
+      `Out_of_fragment
+    else
+      let o = C.map_non_atomic o ~f:(purify_atom x) ~fv in
+      S'.add_objective r_ctx o
 
   let write_bg_ctx {r_ctx} =
     S'.write_bg_ctx r_ctx

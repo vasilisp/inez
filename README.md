@@ -6,7 +6,7 @@ Inez is a constraint solver.
 
 Inez implements the *ILP Modulo Theories* scheme, as described in a
 [CAV paper][cav2013]. Simply put, we combine a Mathematical
-Programming solver with other decision procedures.
+Programming solver with background solvers.
 
 Inez is OCaml-centric. The preferred mode of interacting with the
 solver is via scripts written in a Camlp4-powered superset of OCaml.
@@ -21,8 +21,8 @@ not use it in production.
 We develop and test Inez on Debian x86_64. In principle, other modern
 Unixen should work, as long as you can satisfy all dependencies.
 
-Windows will not work any time soon. We depend quite heavily on
-[Jane Street Core][jsgithub], which is Unix-only.
+Inez will not work on Windows any time soon. We depend quite heavily
+on [Jane Street Core][jsgithub], which is Unix-only.
 
 ### SCIP
 
@@ -42,12 +42,12 @@ The `.so` is under `lib/`. Rename it to `libscipopt.so`.
 ### C and C++ Libraries and Tools
 
 Building Inez requires GCC (C++ frontend included). We also depend on
-Boost. Fetch a [fresh tarball][boost], untar it, and note the path.
+Boost. Fetch and untar a [fresh tarball][boost].
 
 ### OCaml Libraries and Tools
 
-Inez requires OCaml 4.00 or newer. Older OCaml will not work,
-because we use GADTs.
+Inez requires OCaml 4.00 or newer. Older OCaml will not work; the
+reason is GADTs.
 
 Additionally, you will need recent versions of the following packages:
 

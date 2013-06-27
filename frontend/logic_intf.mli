@@ -35,6 +35,13 @@ module type Term_with_ops = sig
 
   val type_of_t :
     ('i, 's) t -> f:'i Id.t_arrow_type -> 's Type.t
+  
+  (* traversal *)
+
+  val fold :
+    ('i, 's) t ->
+    init:'a ->
+    f:('a -> 'i atom Formula.t -> 'a) -> 'a
 
   (* infix operators *)
 
