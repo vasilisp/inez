@@ -4,7 +4,7 @@ open build/OCaml
 BYTE_ENABLED = true
 NATIVE_ENABLED = true
 OCAMLFLAGS += -thread
-OCAMLOPTFLAGS += -p
+# OCAMLOPTFLAGS += -p
 # OCAMLOPTFLAGS += -unsafe -inline 20
 USE_OCAMLFIND = true
 OCAMLPACKS = core camlidl herelib
@@ -228,7 +228,12 @@ OCamlTop(inez, terminology unreachable scip_idl scip util formula	\
          type id logic camlp4_maps pa_logic pre solver script_solver,	\
          native_utils scip_idl_stubs)
 
-OCamlTop(inezdb, terminology unreachable scip_idl scip util formula	\
+MyOCamlProgram(inez-smt, terminology unreachable scip_idl scip util	\
+               formula type id logic pre solver smtlib_lexer		\
+               smtlib_parser smtlib_solver smtlib_main, native_utils	\
+               scip_idl_stubs)
+
+OCamlTop(inez-db, terminology unreachable scip_idl scip util formula	\
          type id logic db_logic camlp4_maps pa_db_logic pre solver	\
          db_solver script_db_solver, native_utils scip_idl_stubs)
 
@@ -241,8 +246,8 @@ section
 
 section
     OCAMLPACKS += ocaml_plugin async
-    MyOCamlProgram(inezdb, terminology unreachable scip_idl scip util	\
-                   formula type id logic db_logic pre solver		\
+    MyOCamlProgram(inez-db, terminology unreachable scip_idl scip	\
+                   util formula type id logic db_logic pre solver	\
                    db_solver script_db_solver script_main,		\
                    native_utils scip_idl_stubs db_ocaml_embedded)
 

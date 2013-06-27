@@ -1,11 +1,11 @@
-open Core.Std
-open Script_db_solver
+open Core.Std ;;
+open Script_db_solver ;;
 
 let n =
   if Array.length Sys.argv >= 3 then
     int_of_string Sys.argv.(2)
   else
-    100
+    100 ;;
 
 let ideref_print id v =
   match ideref v with

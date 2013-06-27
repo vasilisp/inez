@@ -1,7 +1,11 @@
-open Core.Std
-open Script_db_solver
+open Core.Std ;;
+open Script_db_solver ;;
 
-assert (Array.length Sys.argv >= 3) ;;
+let n =
+  if Array.length Sys.argv >= 3 then
+    int_of_string Sys.argv.(2)
+  else
+    10000 ;;
 
 let ideref_print id v =
   match ideref v with
@@ -10,29 +14,27 @@ let ideref_print id v =
   | None ->
     ()
 
-type iib = (Int, Int, Bool) Schema
+type iib = (Int, Int, Bool) Schema ;;
 
-let db11 = fresh_int_var ()
+let db11 = fresh_int_var () ;;
 
-let db12 = fresh_int_var ()
+let db12 = fresh_int_var () ;;
 
-let db21 = fresh_int_var ()
+let db21 = fresh_int_var () ;;
 
-let db22 = fresh_int_var ()
-
-let n = Int.of_string (Sys.argv.(2));;
+let db22 = fresh_int_var () ;;
 
 let db1 =
   make_db_iib
     (make_row_iib (db11, db12, ~logic true) ::
        (let f i = ~logic (make_row_iib (toi i, 2 * toi i, true)) in
-        List.init n ~f))
+        List.init n ~f)) ;;
 
 let db2 =
   make_db_iib
     (make_row_iib (db21, db22, ~logic true) ::
        (let f i = ~logic (make_row_iib (toi i, 2 * toi i, false)) in
-        List.init n ~f))
+        List.init n ~f)) ;;
 
 let db_cross = ~logic (cross db1 db2) ;;
 

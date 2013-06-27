@@ -11,6 +11,9 @@ Programming solver with other decision procedures.
 Inez is OCaml-centric. The preferred mode of interacting with the
 solver is via scripts written in a Camlp4-powered superset of OCaml.
 
+Inez is a research prototype, and may contain serious bugs. You should
+not use it in production.
+
 ## Dependencies
 
 ### GNU/Linux
