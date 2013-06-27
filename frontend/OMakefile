@@ -263,7 +263,7 @@ ocaml_embedded.c: pa_logic.cmxs $(CMI_FILES_EMBED)
             -o $@ \
             $(shell ocamlfind printconf stdlib)/pervasives.cmi \
             $(shell ocamlfind query core_kernel)/core_kernel.cmi \
-            $(shell ocamlfind query core_kernel)/core.cmi \
+            $(shell ocamlfind query core)/core.cmi \
             $(shell ocamlfind query ocaml_plugin)/ocaml_plugin.cmi \
             $(CMI_FILES_EMBED)
 

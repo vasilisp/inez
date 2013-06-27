@@ -49,3 +49,10 @@ let string_of_result =
     "unsat"
   | R_Unknown ->
     "unknown"
+
+let add_objective o =
+  match S.add_objective ctx o with
+  | `Ok ->
+    ()
+  | `Duplicate ->
+    raise (Invalid_argument "problem has objective already")

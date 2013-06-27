@@ -32,6 +32,10 @@ module type Int = sig
   val ( * ) : int_plug -> ('i, int) t -> ('i, int) t
   val ( - ) : ('i, int) t -> ('i, int) t -> ('i, int) t
 
+  (* pseudo-quantifiers *)
+
+  val sum : 'a list -> f:('a -> ('c, int) t) -> ('c, int) t
+
 end
 
 module type Mixed = sig

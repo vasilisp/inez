@@ -40,12 +40,4 @@ let h =
 constrain g ;;
 constrain h ;;
 
-let _ = 
-  let open Terminology in
-  match solve () with
-  | R_Unsat ->
-    Printf.printf "unsat\n%!"
-  | R_Opt | R_Unbounded | R_Sat ->
-    Printf.printf "sat\n%!"
-  | R_Unknown ->
-    Printf.printf "unknown\n%!" ;;
+print_endline (string_of_result (solve ())) ;;

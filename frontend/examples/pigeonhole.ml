@@ -2,9 +2,6 @@ open Script_solver ;;
 
 open Core.Std ;;
 
-let sum ~f =
-  ~logic (List.fold_left ~init:0 ~f:(fun acc x -> acc + f x)) ;;
-
 let make_map l_p l_h =
   let hp_map =
     let size = List.length l_p * List.length l_h in
@@ -49,6 +46,4 @@ constrain
       (forall holes
          ~f:(fun h -> sum pigeons ~f:(Fn.flip m h) = 1))) ;;
 
-print_string "hello, world!\n" ;;
-
-solve () ;;
+print_endline (string_of_result (solve ())) ;;

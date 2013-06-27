@@ -130,7 +130,7 @@ let schema_expr_of_ylist _loc l =
       ~init:(schema_expr_of_y _loc a)
       ~f:(fun acc y ->
         let e = schema_expr_of_y _loc y in
-        <:expr< Db_logic.S.S_Pair($e$, $acc$) >>)
+        <:expr< Db_logic.S.S_Pair ($e$, $acc$) >>)
   | _ ->
     raise (Unreachable "schema_expr_of_ylist")
 ;;

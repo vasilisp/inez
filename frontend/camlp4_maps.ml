@@ -27,8 +27,8 @@ let uf_ast_fun _loc mid (l, rtype) =
   ret (fold l init)
 
 let uf_ast_apps _loc mid init =
-  ListLabels.fold_right2 ~init
-    ~f:(fun id t acc ->
+  ListLabels.fold_left2 ~init
+    ~f:(fun acc id t ->
       let t =
         match t with
         | Y_Int ->
@@ -77,7 +77,11 @@ let rec type_of_uf ?acc:(acc = []) =
   | _ ->
     None
 
-let transform_uf mid = function
+let map_uf mid = object
+
+  inherit Ast.map as super
+  
+  method expr = function
   | <:expr@loc< fun ($lid:_$ : Int) -> $_$ >>
   | <:expr@loc< fun ($lid:_$ : Bool) -> $_$ >>
   | <:expr@loc< fun (_ : Int) -> $_$ >>
@@ -88,10 +92,13 @@ let transform_uf mid = function
     | None ->
       e)
   | e ->
-    e
+    super#expr e
 
+end
+
+(*
 let map_uf mid =
-  Ast.map_expr (transform_uf mid)
+  Ast.map_expr (transform_uf mid) *)
 
 let transform_logic_aux mid e =
   let _loc = Ast.loc_of_expr e in

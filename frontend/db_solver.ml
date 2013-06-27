@@ -853,6 +853,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
               v (force_row x e) (Lazy.force l) ~fd));
     S'.solve r_ctx
 
+  (* let add_objective *)
+
   let write_bg_ctx {r_ctx} =
     S'.write_bg_ctx r_ctx
 

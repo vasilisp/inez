@@ -82,6 +82,10 @@ struct
     | _ ->
       a + (Int63.minus_one * b)
 
+  let sum l ~f =
+    List.fold_left l ~init:zero
+      ~f:(fun acc x -> acc + f x)
+
 end
 
 module rec M : (Term_with_ops with type 'i atom = 'i A.t) =

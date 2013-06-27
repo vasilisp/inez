@@ -141,6 +141,7 @@ struct
     r_var_of_sum_m     :  (bg_isum, S.ivar) Hashtbl.t;
     r_ovar_of_iite_m   :  (P.iite, ovar) Hashtbl.t;
     r_q                :  P.formula Dequeue.t;
+    mutable r_obj      :  P.term option;
     mutable r_fun_cnt  :  int;
     mutable r_unsat    :  bool
   }
@@ -170,6 +171,7 @@ struct
       Hashtbl.create ()  ~size:2048   ~hashable:P.hashable_iite;
     r_q       =
       Dequeue.create () ~initial_length:63;
+    r_obj = None;
     r_fun_cnt = 0;
     r_unsat   = false;
   }
@@ -226,6 +228,16 @@ struct
           List.fold_left ~init ~f l) in
     l, Int63.(o' + o)
 
+  and iexpr_of_flat_term r = function
+    | P.G_Sum s ->
+      iexpr_of_sum r s
+    | P.G_Base b ->
+      match ovar_of_flat_term_base r b with
+      | Some v, x ->
+        [Int63.one, v], x
+      | None, x ->
+        [], x
+
   and blast_le ?v ({r_ctx} as r) s =
     let l, o = iexpr_of_sum r s
     and v = match v with Some v -> v | _ -> S.new_bvar r_ctx in
@@ -256,16 +268,7 @@ struct
     v
 
   and blast_ite_branch ({r_ctx} as r) xv v e =
-    let l, o =
-      match e with
-      | P.G_Sum s ->
-        iexpr_of_sum r s
-      | P.G_Base b ->
-        (match ovar_of_flat_term_base r b with
-        | Some v, x ->
-          [Int63.one, v], x
-        | None, x ->
-          [], x) in
+    let l, o = iexpr_of_flat_term r e in
     let l = (Int63.minus_one, v) :: l in
     S.add_indicator r_ctx xv  l                (Int63.neg o);
     S.add_indicator r_ctx xv  (negate_isum l)  o
@@ -490,13 +493,28 @@ struct
     Dequeue.iter r_q ~f:(finally_assert_formula r);
     Dequeue.clear r_q
 
-  let solve ({r_ctx} as r) =
+  let solve ({r_ctx; r_obj} as r) =
     bg_assert_all_cached r;
-    write_bg_ctx r "/home/vpap/constraints.lp";
-    if r.r_unsat then
+    match r_obj, r.r_unsat with
+    | _, true ->
       R_Unsat
-    else
+    | Some o, false ->
+      let l, _ = iexpr_of_flat_term r o in
+      (match S.add_objective r_ctx l with
+      | `Duplicate ->
+        raise (Unreachable.Exn _here_)
+      | `Ok ->
+        S.solve r_ctx)
+    | None, false ->
       S.solve r_ctx
+
+  let add_objective ({r_obj; r_pre_ctx} as r) o =
+    match r_obj with
+    | None ->
+      let m = P.flatten_int_term r_pre_ctx o in
+      r.r_obj <- Some m; `Ok
+    | Some _ ->
+      `Duplicate
 
   let deref_int {r_ctx; r_ivar_m} id =
     Option.(Hashtbl.find r_ivar_m id >>= S.ideref r_ctx)

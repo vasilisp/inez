@@ -11,6 +11,8 @@ module type S = sig
 
   val solve : ctx -> Terminology.result
 
+  val add_objective : ctx -> (c, int) Logic.M.t -> [`Duplicate | `Ok]
+
   val deref_int :
     ctx -> (c, int) Id.t -> Core.Std.Int63.t option
 
