@@ -471,13 +471,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
           ~default:N_Ok
         
       let propagate ({r_bvar_d} as r) r' =
-        try
-          dequeue_fold_responses r_bvar_d
-            ~f:(propagate_for_bvar r r')
-        with e ->
-          (Printf.eprintf "propagate exception:\n%s\n%!"
-             (Exn.to_string e);
-           exit 1)
+        dequeue_fold_responses r_bvar_d
+          ~f:(propagate_for_bvar r r')
 
       (* check given solution *)
             
@@ -605,7 +600,6 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         branch r ~f:(branch2_for_bvar r r')
 
       let branch r r' =
-        Printf.printf "branching\n%!";
         ok_for_true (branch0 r r' || branch1 r r' || branch2 r r')
       
       (* stack management *)

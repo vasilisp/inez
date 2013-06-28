@@ -63,6 +63,8 @@ let uf_ast _loc mid mid' (l, y) =
 
 let rec type_of_uf ?acc:(acc = []) =
   function
+  | <:expr< fun $lid:_$ -> $e$ >>
+  | <:expr< fun _ -> $e$ >>
   | <:expr< fun ($lid:_$ : Int) -> $e$ >>
   | <:expr< fun (_ : Int) -> $e$ >> ->
     type_of_uf ~acc:(Y_Int :: acc) e
@@ -82,8 +84,10 @@ let map_uf mid mid' = object
   inherit Ast.map as super
   
   method expr = function
+  | <:expr@loc< fun $lid:_$ -> $_$ >>
   | <:expr@loc< fun ($lid:_$ : Int) -> $_$ >>
   | <:expr@loc< fun ($lid:_$ : Bool) -> $_$ >>
+  | <:expr@loc< fun _ -> $_$ >>
   | <:expr@loc< fun (_ : Int) -> $_$ >>
   | <:expr@loc< fun (_ : Bool) -> $_$ >> as e ->
     (match type_of_uf e with
@@ -95,10 +99,6 @@ let map_uf mid mid' = object
     super#expr e
 
 end
-
-(*
-let map_uf mid =
-  Ast.map_expr (transform_uf mid) *)
 
 let transform_logic_aux mid e =
   let _loc = Ast.loc_of_expr e in
