@@ -156,7 +156,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       sexp_of_t = sexp_of_idiff
     }
 
-    type index = row Int63.Map.t * row list
+    type index = row list Int63.Map.t * row list
     with compare, sexp_of
 
     type occ = row * index * int
@@ -186,13 +186,14 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         ~f:(fun (accm, accl) data ->
           match Array.get data i with
           | None, key ->
-            Map.add accm ~key ~data, accl
+            Map.add_multi accm ~key ~data, accl
           | _ ->
             accm, data :: accl)
 
     let index_of_db {r_idb_h} d i =
       Hashtbl.find_or_add r_idb_h d
-        ~default:(fun () -> index_of_db_dimension d i)
+        ~default:(fun () ->
+          index_of_db_dimension d i)
 
     let bvar_in_dequeue d v =
       let f x = Imt.compare_bvar x v = 0 in
@@ -242,6 +243,9 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         row ->
         bounds:(Int63.t option * Int63.t option) array ->
         acc:'a -> 'a
+
+      type 'a folded_no_bounds =
+        row -> acc:'a -> 'a
 
       type 'a mapped =
         row -> bounds:(Int63.t option * Int63.t option) array -> 'a
@@ -310,8 +314,19 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
                | _ ->
                  true))
 
+      let fold_all ?map_only:(map_only = false)
+          r r' (row, (m, l), i) ~init ~(f : 'a folded_no_bounds) =
+        let f acc data = f data ~acc in
+        let f ~key ~data init = List.fold_left data ~init ~f
+        and init =
+          if map_only then
+            init
+          else
+            List.fold_left l ~f ~init in
+        Map.fold m ~init ~f
+
       let fold_candidates ?map_only:(map_only = false)
-          r r' (row, (m, l), i) ~init ~(f : 'a folded) =
+          r r' (row, ((m, l) : index), i) ~init ~(f : 'a folded) =
         let a = bounds_of_row r' row in
         let f acc data =
           let bounds = bounds_of_row r' data  in
@@ -319,7 +334,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
             f data ~bounds ~acc
           else
             acc in
-        let f ~key ~data acc = f acc data
+        let f ~key ~data init = List.fold_left data ~init ~f
         and init =
           if map_only then
             init
@@ -338,7 +353,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
           let bounds = bounds_of_row r' data  in
           maybe_equal_rows r r' data bounds row a &&
             f data ~bounds in
-        let f ~key ~data acc = acc || f data
+        let f ~key ~data acc = acc || List.exists data ~f
         and init = map_only || List.exists l ~f
         and lb = lb_of_ovar r' row.(i)
         and ub = ub_of_ovar r' row.(i) in
@@ -478,23 +493,27 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
 
       let exists_index (m, l) ~f ~min ~max =
         List.exists l ~f ||
-          let f ~key ~data acc = acc || f data in
+          let f ~key ~data acc = acc || List.exists data ~f in
           Map.fold_range_inclusive m ~min ~max ~init:false ~f
 
-      let check_for_occ r r' sol (row, index, i) =
+      let show_check_for_occ r r' sol row occ =
+        Sexplib.Sexp.output_hum stdout
+          (Array.sexp_of_t Int63.sexp_of_t row);
+        print_string " in \n";
+        Sexplib.Sexp.output_hum stdout
+          (List.sexp_of_t (Array.sexp_of_t Int63.sexp_of_t)
+             (fold_all r r' occ
+                ~init:[]
+                ~f:(fun row ~acc ->
+                  Array.map row ~f:(deref_ovar_sol r' sol) :: acc)));
+        print_newline ()
+
+      let dbg_show_check_for_occ = false
+
+      let check_for_occ r r' sol (row, index, i as occ) =
         let row = Array.map row ~f:(deref_ovar_sol r' sol) in
-        (* let sexp = Array.sexp_of_t Int63.sexp_of_t row in *)
-        (* Sexplib.Sexp.output_hum stdout sexp; *)
-        (* print_string " in \n"; *)
-        (* let l = *)
-        (*   fold_candidates r r' occ *)
-        (*     ~init:[] *)
-        (*     ~f:(fun row ~bounds ~acc -> *)
-        (*       Array.map row ~f:(deref_ovar_sol r' sol) :: acc) in *)
-        (* let sexp' = *)
-        (*   List.sexp_of_t (Array.sexp_of_t Int63.sexp_of_t) l in *)
-        (* Sexplib.Sexp.output_hum stdout sexp'; *)
-        (* print_newline (); *)
+        if dbg_show_check_for_occ then
+          show_check_for_occ r r' sol row occ;
         let f = matches_row r' sol row in
         exists_index index ~min:row.(i) ~max:row.(i) ~f
 
