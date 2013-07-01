@@ -188,8 +188,6 @@ let transform_schema_type = function
       Ast.StSem (_loc, s1, Ast.StSem (_loc, s2, s3))
     | None ->
       s)
-  | (<:str_item@loc< let _ = () >>) ->
-    <:str_item@loc< let a = () >>
   | s ->
     s
 ;;

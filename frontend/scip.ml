@@ -5,8 +5,6 @@ open Core.Int_replace_polymorphic_compare
 
 exception Scip_Exn of (Here.t * retcode)
 
-(* external address_of_value: 'a -> int = "address_of_value" *)
-
 (* implementation first, then wrapping things up in modules and
    functors *)
 

@@ -371,6 +371,7 @@ void cc_handler::push_frame(pnode node)
 {
   frames.push_back(node);
   ctx.push_frame();
+  if (ocaml_dp) ocaml_dp->push_level();
   assert(ctx.get_consistent());
   assert(!node_infeasible);
   node_infeasible = false;
@@ -386,6 +387,7 @@ void cc_handler::pop_frame()
   node_infeasible = false;
   frames.pop_back();
   ctx.pop_frame();
+  if (ocaml_dp) ocaml_dp->backtrack();
   node_seen_m.erase(cn);
 
 }

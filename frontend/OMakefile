@@ -4,7 +4,7 @@ open build/OCaml
 BYTE_ENABLED = true
 NATIVE_ENABLED = true
 OCAMLFLAGS += -thread
-# OCAMLOPTFLAGS += -p
+OCAMLOPTFLAGS += -p
 # OCAMLOPTFLAGS += -unsafe -inline 20
 USE_OCAMLFIND = true
 OCAMLPACKS = core camlidl herelib
