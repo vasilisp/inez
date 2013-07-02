@@ -1,6 +1,8 @@
-# Inez - A Constraint Solver
+Inez - A Constraint Solver
+==========================
 
-## Introduction
+Introduction
+------------
 
 Inez is a constraint solver.
 
@@ -14,7 +16,8 @@ solver is via scripts written in a Camlp4-powered superset of OCaml.
 Inez is a research prototype, and may contain serious bugs. You should
 not use it in production.
 
-## Dependencies
+Dependencies
+------------
 
 ### GNU/Linux
 
@@ -26,10 +29,10 @@ on [Jane Street Core][jsgithub], which is Unix-only.
 
 ### SCIP
 
-Inez depends on SCIP >= 3.0.0 . We need the
-[SCIP optimization suite][scip] in shared library form (`.so`).  The
-following recipe should suffice (applied to the SCIP optimization
-suite toplevel directory):
+Inez depends on SCIP >= 3.0.0 . We need the [SCIP optimization
+suite][scip] in shared library form (`.so`).  The following recipe
+should suffice (applied to the SCIP optimization suite toplevel
+directory):
 
     make scipoptlib \
         SHARED=true \
@@ -64,7 +67,8 @@ Additionally, you will need recent versions of the following packages:
 
 The best way to obtain the above is via [OPAM][opam].
 
-## Installation
+Installation
+------------
 
 Once all dependencies are satisfied, you have to:
 
@@ -84,12 +88,13 @@ All of the executables above are dynamically linked against
 `libscipopt.so`. Copy the latter to a standard location (*e.g.,*
 `/usr/share/lib`), or modify `LD_LIBRARY_PATH` accordingly.
 
+Running Inez
+------------
+
+Some examples can be found under `frontend/examples`.
+
 [jsgithub]: http://janestreet.github.io/
 [scip]: http://scip.zib.de/download.shtml
 [boost]: http://www.boost.org/users/download/
 [opam]: http://opam.ocamlpro.com/
 [cav2013]: http://www.ccs.neu.edu/home/vpap/pub/cav-2013.pdf
-
-## Running Inez
-
-Some examples can be found under `frontend/examples`.
