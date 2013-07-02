@@ -67,7 +67,7 @@ let ugen_employees =
   make_ugen ((n_employees + n_managers) * 2) ;;
 
 let ugen_projects =
-  make_ugen ((n_managers * max_projects_per_manager) / 2) ;;
+  make_ugen ((n_managers * max_projects_per_manager) * 2) ;;
 
 let employee_ids =
   let {u_gen} = ugen_employees in

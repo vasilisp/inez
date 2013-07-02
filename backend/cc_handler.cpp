@@ -23,7 +23,7 @@ struct dp {
   virtual void push_level();
   virtual void backtrack();
   virtual SCIP_RESULT propagate();
-  virtual bool check();
+  virtual bool check(SCIP_SOL*);
   virtual bool branch();
 };
 
@@ -699,7 +699,7 @@ SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
   }
 
   if (ocaml_dp)
-    return (ocaml_dp->check() ? SCIP_FEASIBLE : SCIP_INFEASIBLE);
+    return (ocaml_dp->check(sol) ? SCIP_FEASIBLE : SCIP_INFEASIBLE);
 
   return SCIP_FEASIBLE;
 
@@ -766,7 +766,10 @@ SCIP_RETCODE cc_handler::scip_enfolp
 #ifdef DEBUG
       cout << "[CB] ... failed to propagate\n";
 #endif
-      if (!branch_on_diff() && !ocaml_dp && !ocaml_dp->branch()) {
+      if (branch_on_diff() || (ocaml_dp && ocaml_dp->branch())) {
+        *r = SCIP_BRANCHED;
+        break;
+      } else {
         dvar_rev_map::iterator it = dvar_rev_m.begin();
         while (it != dvar_rev_m.end()) {
           cout << "[AS] " << var_id(it->first) << " = "
@@ -776,9 +779,8 @@ SCIP_RETCODE cc_handler::scip_enfolp
           it++;
         }
         unreachable();
+        break;
       }
-      *r = SCIP_BRANCHED;
-      break;
     case SCIP_REDUCEDDOM:
     case SCIP_CUTOFF:
       *r = prop_result;

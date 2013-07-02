@@ -299,7 +299,7 @@ let bderef ({r_sol} as r) v =
 
 let branch {r_ctx} v x =
   let r, _, _, _ = sCIPbranchVarVal r_ctx v x in
-  ok_or_fail_of_retcode r  
+  ok_or_fail_of_retcode r
 
 let variables_number {r_var_d} = Dequeue.length r_var_d
 
