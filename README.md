@@ -29,10 +29,12 @@ on [Jane Street Core][jsgithub], which is Unix-only.
 
 ### SCIP
 
-Inez depends on SCIP >= 3.0.0 . We need the [SCIP optimization
-suite][scip] in shared library form (`.so`).  The following recipe
-should suffice (applied to the SCIP optimization suite toplevel
-directory):
+Inez depends on the [SCIP optimization suite][scip], which is
+available without charge for academic and non-commercial purposes. For
+other purposes, you will need a license agreement.
+
+Once you obtain the "optimization suite" distribution, the following
+recipe suffices (applied to the toplevel directory):
 
     make scipoptlib \
         SHARED=true \
@@ -85,8 +87,8 @@ The interesting targets are:
   and syntax.
   
 All of the executables above are dynamically linked against
-`libscipopt.so`. Copy the latter to a standard location (*e.g.,*
-`/usr/share/lib`), or modify `LD_LIBRARY_PATH` accordingly.
+`libscipopt.so`. Copy the latter to a standard location ( *e.g.,*
+`/usr/local/lib` ), or modify `LD_LIBRARY_PATH` accordingly.
 
 Running Inez
 ------------
@@ -94,7 +96,7 @@ Running Inez
 Some examples can be found under `frontend/examples`.
 
 [jsgithub]: http://janestreet.github.io/
-[scip]: http://scip.zib.de/download.shtml
+[scip]: http://scip.zib.de/
 [boost]: http://www.boost.org/users/download/
 [opam]: http://opam.ocamlpro.com/
 [cav2013]: http://www.ccs.neu.edu/home/vpap/pub/cav-2013.pdf
