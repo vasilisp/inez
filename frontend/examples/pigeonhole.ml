@@ -44,6 +44,6 @@ constrain
 constrain
   (~logic
       (forall holes
-         ~f:(fun h -> sum pigeons ~f:(Fn.flip m h) = 1))) ;;
+         ~f:(fun h -> sum pigeons ~f:(Fn.flip m h) <= 1))) ;;
 
 print_endline (string_of_result (solve ())) ;;
