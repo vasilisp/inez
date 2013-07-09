@@ -1,4 +1,6 @@
 BOOST_DIR = $(HOME)/sfw/boost_1_52_0/
 SCIP_LIB_DIR = $(HOME)/sfw/lib/
-SCIP_SRC_DIR = $(HOME)/dist/src/scipoptsuite-3.0.1/scip-3.0.0/src/
+SCIP_SRC_DIR = $(HOME)/dist/src/scipoptsuite-3.0.1/scip-3.0.1/src/
 CAMLIDL_INCLUDE_PATH = $(HOME)/.opam/4.00.1/lib/camlidl/
+# needed for Mac OS X; can be empty for GNU/Linux
+OCAML_INCLUDE_PATH =

@@ -4,22 +4,21 @@ open build/OCaml
 BYTE_ENABLED = true
 NATIVE_ENABLED = true
 OCAMLFLAGS += -thread
-OCAMLOPTFLAGS += -p
 # OCAMLOPTFLAGS += -unsafe -inline 20
 USE_OCAMLFIND = true
 OCAMLPACKS = core camlidl herelib
-INCLUDES = $(CAMLIDL_INCLUDE_PATH)
+INCLUDES = $(CAMLIDL_INCLUDE_PATH) $(OCAML_INCLUDE_PATH)
 
 CFLAGS = -O3
 
 OCAMLDEP_MODULES_ENABLED = true
 
-OCAML_CLIBS = ../backend/libbct libstdc++
+OCAML_CLIBS = ../backend/libbct
 
 OCAML_BYTE_LINK_FLAGS = -custom
 OCAML_LINK_FLAGS = -linkpkg \
         -ccopt -L$(SCIP_LIB_DIR) \
-        -cclib -lcamlidl -cclib -lscipopt
+        -cclib -lcamlidl -cclib -lscipopt -cclib -lstdc++
 
 private.EXT_COBJ = .o
 
@@ -29,8 +28,8 @@ private.CMI_FILES_EMBED = terminology.cmi type.cmi formula.cmi	\
 private.CMI_FILES_EMBED_DB = terminology.cmi type.cmi formula.cmi	\
     logic.cmi db_logic_intf.cmi db_logic.cmi db_script.cmi
 
-%_idl.ml %_idl.mli %_idl.h %_idl_stubs.c: %_idl.idl
-    camlidl -header %_idl.idl
+scip_idl.ml scip_idl.mli scip_idl.h scip_idl_stubs.c: scip_idl.idl
+    camlidl -header scip_idl.idl
 
 # recipe from
 #   http://www.camlcity.org/knowledge/kb_001_omake_recipes.html
