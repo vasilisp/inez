@@ -44,7 +44,7 @@ recipe suffices (applied to the toplevel directory):
 
 The `.so` is under `lib/`. Create a symbolic link to it as follows:
 
-  ln -s libscipopt-3.0.1.linux.x86_64.gnu.opt.so libscipopt.so
+    ln -s libscipopt-3.0.1.linux.x86_64.gnu.opt.so libscipopt.so
 
 ### C and C++ Libraries and Tools
 
