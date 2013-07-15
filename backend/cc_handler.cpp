@@ -163,8 +163,10 @@ void scip_callback_sol::operator()(symbol a, symbol b, llint x)
 
 cc_handler::cc_handler(SCIP* scip, dp* d)
   : scip::ObjConshdlr(scip, "cc", "congruence closure",
-                      1, -100000, -100000, 0, 1, 0, -1,
-                      TRUE, TRUE, TRUE, FALSE, 1),
+                      1, -100000, -100000,
+                      0, 1, 0, -1,
+                      TRUE, TRUE, TRUE, FALSE,
+                      1),
     scip::ObjEventhdlr(scip, "cce", "congruence closure events"),
     uf_call_cnt(0),
     bound_changed(false),
@@ -1389,4 +1391,9 @@ SCIP_VAR* cc_handler_zero_var(cc_handler* c)
 uintptr_t uintptr_t_of_var(SCIP_VAR* v)
 {
   return uintptr_t(v);
+}
+
+uintptr_t uintptr_t_of_node(SCIP_NODE* n)
+{
+  return uintptr_t(n);
 }

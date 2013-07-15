@@ -175,6 +175,8 @@ double SCIPvarGetLbLocal([in] var v);
 
 double SCIPvarGetUbLocal([in] var v);
 
+var SCIPvarGetProbvar([in] var v);
+
 boolean SCIPisEQ([in] scip s, [in] double v1, [in] double v2);
 
 retcode SCIPinferVarLbCons
@@ -217,10 +219,17 @@ double SCIPgetSolVal([in] scip s, [in] sol sl, [in] var v);
 
 retcode SCIPbranchVarVal([in] scip s,
                          [in] var v,
-                         [in] float x,
+                         [in] double x,
                          [out] node* downchild,
                          [out] node* eqchild,
                          [out] node* upchild);
+
+retcode SCIPbranchVarHole([in] scip s,
+                          [in] var v,
+                          [in] double x,
+                          [in] double y,
+                          [out] node* downchild,
+                          [out] node* upchild);
 
 // COM interface for theory solvers in OCaml
 
@@ -254,6 +263,8 @@ void cc_handler_include([in] cch c);
 var cc_handler_zero_var();
 
 unsigned long uintptr_t_of_var([in] var v);
+
+unsigned long uintptr_t_of_node([in] node n);
 
 // implemented in native_utils
 cons scip_null_cons();
