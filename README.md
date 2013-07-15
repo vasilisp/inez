@@ -19,13 +19,13 @@ not use it in production.
 Dependencies
 ------------
 
-### GNU/Linux
+### Unix
 
-We develop and test Inez on Debian x86_64. In principle, other modern
-Unixen should work, as long as you can satisfy all dependencies.
+Inez is known to work on x86_64 GNU/Linux and Mac OS X. Other modern
+Unixen should work, as long as all dependencies are satisfied.
 
-Inez will not work on Windows any time soon. We depend quite heavily
-on [Jane Street Core][jsgithub], which is Unix-only.
+Inez does not work on Windows. We depend quite heavily on
+[Jane Street Core][jsgithub], which is Unix-only.
 
 ### SCIP
 
@@ -42,7 +42,9 @@ recipe suffices (applied to the toplevel directory):
         ZLIB=false \
         ZIMPL=false
 
-The `.so` is under `lib/`. Rename it to `libscipopt.so`.
+The `.so` is under `lib/`. Create a symbolic link to it as follows:
+
+    ln -s libscipopt-3.0.1.linux.x86_64.gnu.opt.so libscipopt.so
 
 ### C and C++ Libraries and Tools
 
@@ -76,27 +78,18 @@ Once all dependencies are satisfied, you have to:
 
 - Copy `OMakefile.config.sample` to `OMakefile.config`.
 - Adapt `OMakefile.config` for your setup.
-- Type `omake target*` to build the executables you need.
+- Type `omake frontend/inez.opt` to build Inez.
 
-The interesting targets are:
+`inez.opt` is dynamically linked against `libscipopt.so`.  Modify
+`LD_LIBRARY_PATH` so that the dynamic linker can find this shared
+library. On OS X, you should set `DYLD_FALLBACK_LIBRARY_PATH` in place
+of `LD_LIBRARY_PATH`.
 
-- `frontend/inez-smt.opt`: SMT-LIB v2.0 frontend.
-- `frontend/inez.opt`: The main Inez executable. It runs scripts in
-  our OCaml superset.
-- `frontend/inez.top`: OCaml toplevel preloaded with Inez libraries
-  and syntax.
-  
-All of the executables above are dynamically linked against
-`libscipopt.so`. Copy the latter to a standard location ( *e.g.,*
-`/usr/local/lib` ), or modify `LD_LIBRARY_PATH` accordingly.
-
-Running Inez
-------------
-
-Some examples can be found under `frontend/examples`.
+`inez.opt` accepts a single argument for the input program. Some
+examples can be found under `frontend/examples`.
 
 [jsgithub]: http://janestreet.github.io/
-[scip]: http://scip.zib.de/
+[scip]: http://scip.zib.de/download.shtml
 [boost]: http://www.boost.org/users/download/
 [opam]: http://opam.ocamlpro.com/
 [cav2013]: http://www.ccs.neu.edu/home/vpap/pub/cav-2013.pdf
