@@ -10,7 +10,7 @@ let constrain g =
   | `Ok ->
     ()
   | `Out_of_fragment ->
-    raise (Invalid_argument "constrain: non-existential formula")
+    raise (Invalid_argument "constrain: formula out of fragment")
 
 let minimize m =
   match S.add_objective ctx m with
@@ -19,7 +19,7 @@ let minimize m =
   | `Duplicate ->
     raise (Invalid_argument "problem has objective already")
   | `Out_of_fragment ->
-    raise (Invalid_argument "constrain: non-existential sub-formulas")
+    raise (Invalid_argument "minimize: term out of fragment")
 
 let solve () =
   S.solve ctx

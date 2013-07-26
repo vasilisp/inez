@@ -235,14 +235,14 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
           match Array.get data i with
           | None, key when all_concrete data ->
             Map.add_multi accm1 ~key ~data, accm2, accl
-          (* | None, key ->
-             accm1, Map.add_multi accm2 ~key ~data, accl *)
+          | None, key ->
+            accm1, Map.add_multi accm2 ~key ~data, accl
           | _ ->
             accm1, accm2, data :: accl)
 
     let index_of_db {r_idb_h} d i =
-      Hashtbl.find_or_add r_idb_h d
-        ~default:(fun () -> index_of_db_dimension d i)
+      let default () = index_of_db_dimension d i in
+      Hashtbl.find_or_add r_idb_h d ~default
 
     let bvar_in_dequeue d v =
       let f x = Imt.compare_bvar x v = 0 in
@@ -465,13 +465,22 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       type bp = Int63.t option * Int63.t option
       with sexp_of
 
-      let approx_candidates_folded r' row ~bounds ~acc:(a, z) =
+      let approx_candidates_folded
+          ?cnst_only:(cnst_only = false)
+          r' row ~bounds ~acc:(a, z) =
         Array.iteri bounds
           ~f:(fun i (lb, ub) ->
             let lb', ub' = a.(i) in
-            let lb_min = Option.map2 lb lb' ~f:Int63.min
-            and ub_max = Option.map2 ub ub' ~f:Int63.max in
-            a.(i) <- lb_min, ub_max);
+            if cnst_only then
+              match lb, ub with
+              | Some lb, Some ub when Int63.compare lb ub = 0 ->
+                a.(i) <- (Option.(lb' >>| Int63.min lb),
+                          Option.(ub' >>| Int63.max ub))
+              | _, _ ->
+                ()
+            else
+              a.(i) <- (Option.map2 lb lb' ~f:Int63.min,
+                        Option.map2 ub ub' ~f:Int63.max));
         let equal (_, a) (_, a') =
           let eq1 = Option.equal Int63.equal in
           let equal = Tuple2.equal ~eq1 ~eq2:eq1 in
@@ -484,13 +493,10 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         let n = Array.length row in
         let p = Some Int63.max_value, Some Int63.min_value in
         let init = Array.init ~f:(fun _ -> p) n, Zom.Z0 
-        and f = approx_candidates_folded r' in
+        and f = approx_candidates_folded ~cnst_only r' in
         let init = fold_constant_candidates r r' row m1 i ~init ~f in
         let init = fold_candidates_map r r' row m2 i ~init ~f in
-        if cnst_only then
-          init
-        else
-          fold_candidates_list r r' row l i ~init ~f
+        fold_candidates_list r r' row l i ~init ~f
 
       let fix_variable r v x =
         response_of_attempts
@@ -614,13 +620,27 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         Dequeue.exists r_bvar_d ~f
 
       let branch_on_column r r' (lb, ub) ov =
+        let lb =
+          let lb' = lb_of_ovar r' ov in
+          if Lb.(lb <= lb') then lb' else lb
+        and ub =
+          let ub' = ub_of_ovar r' ov in
+          if Ub.(ub' <= ub) then ub' else ub in
         let lb = Option.value_exn lb ~here:_here_
         and ub = Option.value_exn ub ~here:_here_ in
-        not (Int63.equal lb ub) &&
+        not (Int63.(equal lb max_value)) &&
+          not (Int63.(equal ub min_value)) &&
+          not (Int63.equal lb ub) &&
           match ov with
           | Some v, o ->
             let middle = Int63.((lb + ub) / (one + one) - o) in
             let middle = Int63.to_float middle +. 0.5 in
+            (*
+            Printf.printf "branching : %d ... %d ... %d [%d]\n%!"
+              (Int63.to_int_exn lb)
+              (Float.to_int middle)
+              (Int63.to_int_exn ub)
+              (Int63.to_int_exn o); *)
             bool_of_ok_or_fail (S.ibranch r' v middle)
           | None, _ ->
             false
@@ -633,18 +653,18 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         | _, (Zom.Z0 | Zom.Z1 _) ->
           false
         | a, Zom.Zn ->
-          (* if any then *)
-          (*   let f b v = not (branch_on_column r r' b v) in *)
-          (*   not (Array.for_all2_exn a row ~f) *)
-          (* else *)
-          branch_on_column r r' a.(i) row.(i)
+          if any then
+            let f b v = not (branch_on_column r r' b v) in
+            not (Array.for_all2_exn a row ~f)
+          else
+            branch_on_column r r' a.(i) row.(i)
 
       let branch0 r r' =
-        let f = branch0_for_occ ~any:false r r' in
-        (* and f1 = branch0_for_occ ~any:true r r' in *)
-        let f = branch_for_bvar r r' ~f in
-        (* and f1 = branch_for_bvar r r' ~f:f1 in *)
-        branch r ~f
+        let f0 = branch0_for_occ ~any:false r r'
+        and f1 = branch0_for_occ ~any:true r r' in
+        let f0 = branch_for_bvar r r' ~f:f0
+        and f1 = branch_for_bvar r r' ~f:f1 in
+        branch r ~f:f0 || branch r ~f:f1
 
       let branch_on_diff {r_diff_h} r' (v1, o1) (v2, o2) =
         let doit v1 v2 x =
@@ -683,7 +703,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       let branch ({r_stats} as r) r' =
         try
           r_stats.s_branch <- r_stats.s_branch + 1;
-          ok_for_true (branch0 r r' || branch1 r r' || branch2 r r')
+          ok_for_true (branch1 r r' || branch0 r r' || branch2 r r')
         with
         | e ->
           (Printf.printf "exception: %s\n%!p" (Exn.to_string e);
@@ -782,27 +802,6 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     | D.D_Sel (a, _) ->
       get_symbolic_row_db a
 
-  let rec has_db_atom_term :
-  type s . (I.c, s) Db_logic.M.t -> bool =
-    let f acc x = acc || has_db_atom x and init = false in
-    Db_logic.M.fold ~init ~f
-
-  and has_db_atom = function
-    | Formula.F_True ->
-      false
-    | Formula.F_Atom (A.A_Exists _) ->
-      true
-    | Formula.F_Atom (A.A_Le m | A.A_Eq m) ->
-      has_db_atom_term m
-    | Formula.F_Atom (A.A_Bool m) ->
-      has_db_atom_term m
-    | Formula.F_Not g ->
-      has_db_atom g
-    | Formula.F_And (g, h) ->
-      has_db_atom g || has_db_atom h
-    | Formula.F_Ite (q, g, h) ->
-      has_db_atom q || has_db_atom g || has_db_atom h
-
   let force_row {r_ctx} =
     List.map
       ~f:(function
@@ -820,32 +819,90 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         | S_Neg None ->
           None, Int63.zero))
 
-  let rec existential b = function
+  type polarity = [ `Positive | `Negative | `Both ]
+
+  let negate_polarity = function
+    | `Positive -> `Negative
+    | `Negative -> `Positive
+    | `Both -> `Both
+
+  let rec in_fragment_row :
+  type s . (I.c, s) R.t -> bool =
+    let under_forall = false in
+    function
+    | R.R_Int m ->
+      in_fragment_term ~under_forall m
+    | R.R_Bool b ->
+      in_fragment_term ~under_forall b
+    | R.R_Pair (a, b) ->
+      in_fragment_row a && in_fragment_row b
+
+  and in_fragment_db :
+  type s . under_forall:bool -> polarity:polarity ->
+    (I.c, s) D.t -> bool =
+    fun ~under_forall ~polarity -> function
+    | D.D_Input (_, l) ->
+      List.for_all l ~f:in_fragment_row
+    | D.D_Cross (a, b) when under_forall ->
+      false
+    | D.D_Cross (a, b) ->
+      in_fragment_db ~under_forall ~polarity a &&
+        in_fragment_db ~under_forall ~polarity b
+    | D.D_Sel (a, f) ->
+      in_fragment_db ~under_forall ~polarity a &&
+        let g = f (get_dummy_row_db a) in
+        in_fragment ~under_forall ~polarity g
+
+  and in_fragment_term :
+  type s . under_forall:bool -> (I.c, s) M.t -> bool =
+    fun ~under_forall -> function
+    | M.M_Int _ ->
+      true
+    | M.M_Var _ ->
+      true
+    | M.M_Bool g ->
+      in_fragment ~under_forall ~polarity:`Both g
+    | M.M_Sum (a, b) ->
+      in_fragment_term ~under_forall a &&
+        in_fragment_term ~under_forall b
+    | M.M_Prod (_, a) ->
+      in_fragment_term ~under_forall a
+    | M.M_Ite (q, a, b) ->
+      in_fragment ~under_forall ~polarity:`Both q &&
+        in_fragment_term ~under_forall a &&
+        in_fragment_term ~under_forall b
+    | M.M_App (a, b) ->
+      in_fragment_term ~under_forall a &&
+        in_fragment_term ~under_forall b
+
+  and in_fragment ~under_forall ~polarity =
+    function
     | Formula.F_True ->
       true
-    | Formula.F_Atom (A.A_Exists d) ->
-      b && existential_inside_db d
-    | Formula.F_Atom (A.A_Le m | A.A_Eq m) ->
-      not (has_db_atom_term m)
-    | Formula.F_Atom (A.A_Bool m) ->
-      not (has_db_atom_term m)
     | Formula.F_Not g ->
-      existential (not b) g
+      let polarity = negate_polarity polarity in
+      in_fragment ~under_forall ~polarity g
     | Formula.F_And (g, h) ->
-      existential b g && existential b h
+      in_fragment ~under_forall ~polarity g &&
+        in_fragment ~under_forall ~polarity h
     | Formula.F_Ite (q, g, h) ->
-      not (has_db_atom q) && existential b g && existential b h
-
-  and existential_inside_db :
-  type s . (I.c, s) D.t -> bool =
-    function
-    | D.D_Input _ ->
-      true
-    | D.D_Cross (a, b) ->
-      existential_inside_db a && existential_inside_db b
-    | D.D_Sel (a, f) ->
-      existential_inside_db a &&
-        existential true (f (get_dummy_row_db a))
+      in_fragment ~under_forall ~polarity:`Both q &&
+        in_fragment ~under_forall ~polarity g &&
+        in_fragment ~under_forall ~polarity h
+    | Formula.F_Atom (A.A_Exists d) ->
+      (match polarity, under_forall with
+      | `Positive, _ ->
+        in_fragment_db ~under_forall:false ~polarity d
+      | _, false ->
+        in_fragment_db ~under_forall:true ~polarity d
+      | _, true ->
+        false)
+    | Formula.F_Atom (A.A_Bool (M.M_Bool g)) ->
+      in_fragment ~under_forall ~polarity g
+    | Formula.F_Atom (A.A_Bool b) ->
+      in_fragment_term ~under_forall b
+    | Formula.F_Atom (A.A_Le m | A.A_Eq m) ->
+      in_fragment_term ~under_forall m
 
   let register_membership_bulk {r_in_m} b l =
     Hashtbl.change r_in_m b
@@ -854,6 +911,19 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       | None -> Some l)
 
   let fv = {Id.f_id = Fn.id}
+
+  let rec path_and_data_of_db :
+  type s . ?acc:(((I.c, s) R.t -> I.c A.t Formula.t) list) ->
+    (I.c, s) D.t ->
+    ((I.c, s) R.t -> I.c A.t Formula.t) list * (I.c, s) R.t list =
+    fun ?acc:(acc = []) -> function
+    | D.D_Input (_, d) ->
+      acc, d
+    | D.D_Cross (_, _) ->
+      raise (Unreachable.Exn _here_)
+    | D.D_Sel (d, f) ->
+      let acc = f :: acc in
+      path_and_data_of_db d ~acc 
 
   let rec list_of_row_aux :
   type s. ibentry list -> ctx -> (I.c, s) R.t ->
@@ -880,11 +950,10 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
   and table_lazy_of_db :
   type s . ctx -> (I.c, s) R.t list -> table_lazy =
     fun ({r_table_lazy_h} as x) l ->
-      Hashtbl.find_or_add r_table_lazy_h (DBox l)
-        ~default:(fun () ->
-          (* maybe we can get rid of the intermediate list *)
-          let ll = List.map l ~f:(list_of_row x) in
-          lazy (List.map ll ~f:(force_row x)))
+      let default () =
+        let ll = List.map l ~f:(list_of_row x) in
+        lazy (List.map ll ~f:(force_row x)) in
+      Hashtbl.find_or_add r_table_lazy_h (DBox l) ~default
 
   and purify_membership :
   type s . ?acc:(in_constraint_lazy list) -> ctx ->
@@ -901,42 +970,49 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         let acc, g2 = purify_membership ~acc x d2 r2 in
         acc, Formula.(g1 && g2)
       | D.D_Sel (d, f), _ ->
-        let g1 = purify_formula x (f r) in
+        let g1 = purify_formula x (f r) ~polarity:`Positive in
         let acc, g2 = purify_membership ~acc x d r in
         acc, Formula.(g1 && g2)
 
   and purify_atom :
-  ctx -> I.c A.t -> I.c Logic.A.t Formula.t =
-  fun ({r_ctx} as x) -> function
-    | A.A_Exists d ->
-      let l, g =
-        let r = get_symbolic_row_db d in
-        purify_membership x d r
-      and b = I.gen_id Type.Y_Bool in
-      register_membership_bulk x b l;
-      Formula.(&&) g
-        (Formula.F_Atom
-           (Logic.A.A_Bool
-              (Logic.M.M_Var b)))
-    | A.A_Bool b ->
-      Formula.F_Atom
-        (Logic.A.A_Bool
-           (C.map_non_atomic b ~f:(purify_atom x) ~fv))
-    | A.A_Le s ->
-      Formula.F_Atom
-        (Logic.A.A_Le
-           (C.map_non_atomic s ~f:(purify_atom x) ~fv))
-    | A.A_Eq s ->
-      Formula.F_Atom
-        (Logic.A.A_Eq
-           (C.map_non_atomic s ~f:(purify_atom x) ~fv))
+  ctx -> I.c A.t -> polarity:polarity -> I.c Logic.A.t Formula.t =
+    fun ({r_ctx} as x) a ~polarity ->
+      match a, polarity with
+      | A.A_Exists d, (`Positive : polarity) ->
+        let l, g =
+          let r = get_symbolic_row_db d in
+          purify_membership x d r
+        and b = I.gen_id Type.Y_Bool in
+        register_membership_bulk x b l;
+        Formula.(&&) g
+          (Formula.F_Atom
+             (Logic.A.A_Bool
+                (Logic.M.M_Var b)))
+      | A.A_Exists d, _ ->
+        let l, d = path_and_data_of_db d in
+        let f r =
+          let f g = purify_formula x (g r) ~polarity in 
+          Formula.forall l ~f in
+        Formula.exists d ~f
+      | A.A_Bool b, _ ->
+        Formula.F_Atom
+          (Logic.A.A_Bool
+             (C.map_non_atomic b ~f:(purify_atom x) ~fv))
+      | A.A_Le s, _ ->
+        Formula.F_Atom
+          (Logic.A.A_Le
+             (C.map_non_atomic s ~f:(purify_atom x) ~fv))
+      | A.A_Eq s, _ ->
+        Formula.F_Atom
+          (Logic.A.A_Eq
+             (C.map_non_atomic s ~f:(purify_atom x) ~fv))
 
-  and purify_formula x =
-    Formula.map_non_atomic ~f:(purify_atom x)
+  and purify_formula x ~polarity =
+    Formula.map_non_atomic ~f:(purify_atom x) ~polarity
 
   let purify_formula_top x g =
-    if existential true g then
-      Some (purify_formula x g)
+    if in_fragment ~under_forall:false ~polarity:`Positive g then
+      Some (purify_formula x g  ~polarity:`Positive)
     else
       None
 
@@ -966,7 +1042,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     Theory_solver.print_stats r_theory_ctx; r
 
   let add_objective ({r_ctx} as x) o =
-    if has_db_atom_term o then
+    if in_fragment_term ~under_forall:false o then
       `Out_of_fragment
     else
       let o = C.map_non_atomic o ~f:(purify_atom x) ~fv in

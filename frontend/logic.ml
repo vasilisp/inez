@@ -126,15 +126,22 @@ module Make_term_conv (M1 : Term) (M2 : Term_with_ops) = struct
 
   open M2
 
+  (* TODO : pass around polarity, for formulas of the form
+     Formula.F_Atom (M1.M_Bool g) . In other cases, `Both is precise,
+     i.e., it does not over-approximate. *)
+
   let rec map :
   type s . ('c1, s) M1.t ->
-    f:('c1 M1.atom -> 'c2 M2.atom) ->
+    f:('c1 M1.atom ->
+       polarity:[ `Both | `Negative | `Positive ] ->
+       'c2 M2.atom) ->
     fv:(('c1, 'c2) Id.id_mapper) ->
     ('c2, s) t =
+    let polarity = `Both in
     fun s ~f ~fv ->
       match s with
       | M1.M_Bool g ->
-        M_Bool (Formula.map g ~f)
+        M_Bool (Formula.map g ~polarity ~f)
       | M1.M_Int i ->
         M_Int i
       | M1.M_Sum (a, b) ->
@@ -142,7 +149,9 @@ module Make_term_conv (M1 : Term) (M2 : Term_with_ops) = struct
       | M1.M_Prod (c, a) ->
         c * map a ~f ~fv
       | M1.M_Ite (q, a, b) ->
-        M_Ite (Formula.map q ~f, map a ~f ~fv, map b ~f ~fv)
+        M_Ite (Formula.map q ~polarity ~f,
+               map a ~f ~fv,
+               map b ~f ~fv)
       | M1.M_Var i ->
         M_Var (Id.(fv.f_id) i)
       | M1.M_App (a, b) ->
@@ -150,13 +159,16 @@ module Make_term_conv (M1 : Term) (M2 : Term_with_ops) = struct
 
   let rec map_non_atomic :
   type s . ('c1, s) M1.t ->
-    f:('c1 M1.atom -> 'c2 M2.atom Formula.t) ->
+    f:('c1 M1.atom ->
+       polarity:[ `Both | `Negative | `Positive ] ->
+       'c2 M2.atom Formula.t) ->
     fv:(('c1, 'c2) Id.id_mapper) ->
     ('c2, s) t =
+    let polarity = `Both in
     fun s ~f ~fv ->
       match s with
       | M1.M_Bool g ->
-        M_Bool (Formula.map_non_atomic g ~f)
+        M_Bool (Formula.map_non_atomic g ~polarity ~f)
       | M1.M_Int i ->
         M_Int i
       | M1.M_Sum (a, b) ->
@@ -164,7 +176,7 @@ module Make_term_conv (M1 : Term) (M2 : Term_with_ops) = struct
       | M1.M_Prod (c, a) ->
         c * map_non_atomic a ~f ~fv
       | M1.M_Ite (q, a, b) ->
-        M_Ite (Formula.map_non_atomic q ~f,
+        M_Ite (Formula.map_non_atomic q ~polarity ~f,
                map_non_atomic a ~f ~fv,
                map_non_atomic b ~f ~fv)
       | M1.M_Var i ->

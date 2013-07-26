@@ -7,9 +7,15 @@ sig
 
   include Ctx_intf.S_unit_creatable
 
-  val existential :
-    bool -> I.c Db_logic.A.t Formula.t -> bool
+  val in_fragment_term :
+    under_forall:bool -> (I.c, 's) Db_logic.M.t -> bool
 
+  val in_fragment :
+    under_forall:bool ->
+    polarity:[ `Positive | `Negative | `Both ] ->
+    I.c Db_logic.A.t Formula.t ->
+    bool
+    
   val assert_formula :
     ctx -> I.c Db_logic.A.t Formula.t -> [> `Ok | `Out_of_fragment ]
 

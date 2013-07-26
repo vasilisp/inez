@@ -71,20 +71,27 @@ let forall_pairs l ~f =
 let exists l ~f =
   not (forall l ~f:(Fn.compose (not) f))
 
-let rec map_non_atomic g ~f =
+let negate_polarity = function
+  | `Positive -> `Negative
+  | `Negative -> `Positive
+  | `Both -> `Both
+
+let rec map_non_atomic g ~f ~polarity =
   match g with
   | F_True ->
     F_True
   | F_Atom a ->
-    f a
+    f a ~polarity
   | F_Not g ->
-    not (map_non_atomic g ~f)
+    let polarity = negate_polarity polarity in
+    not (map_non_atomic g ~f ~polarity)
   | F_And (g, h) ->
-    map_non_atomic g ~f && map_non_atomic h ~f
+    map_non_atomic g ~f ~polarity && map_non_atomic h ~f ~polarity
   | F_Ite (q, g, h) ->
-    ite (map_non_atomic q ~f)
-      (map_non_atomic g ~f)
-      (map_non_atomic h ~f)
+    ite (map_non_atomic q ~f ~polarity:`Both)
+      (map_non_atomic g ~f ~polarity)
+      (map_non_atomic h ~f ~polarity)
 
-let rec map g ~f =
-  map_non_atomic g ~f:(fun x -> F_Atom (f x))
+let rec map g ~f ~polarity =
+  map_non_atomic g ~polarity
+    ~f:(fun x ~polarity -> F_Atom (f x ~polarity))

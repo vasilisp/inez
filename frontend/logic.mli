@@ -32,13 +32,17 @@ sig
 
   val map :
     ('c1, 's) M1.t ->
-    f:('c1 M1.atom -> 'c2 M2.atom) ->
+    f:('c1 M1.atom ->
+       polarity:[ `Both | `Negative | `Positive ] ->
+       'c2 M2.atom) ->
     fv:(('c1, 'c2) Id.id_mapper) ->
     ('c2, 's) M2.t
 
   val map_non_atomic :
     ('c1, 's) M1.t ->
-    f:('c1 M1.atom -> 'c2 M2.atom Formula.t) ->
+    f:('c1 M1.atom ->
+       polarity:[ `Both | `Negative | `Positive ] ->
+       'c2 M2.atom Formula.t) ->
     fv:(('c1, 'c2) Id.id_mapper) ->
     ('c2, 's) M2.t
 
