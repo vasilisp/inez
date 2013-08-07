@@ -1,17 +1,13 @@
 module Id' = Id.Make (struct end)
 
-module S = Db_solver.Make(Scip.Scip_with_dp)(Id')
+module S = Db_eager_solver.Make(Scip.Scip_basic)(Id')
 
-let ctx = S.make_ctx ()
+let ctx = S.make_ctx (Scip.Scip_basic.make_ctx ())
 
 type c = Id'.c
 
 let constrain g =
-  match S.assert_formula ctx g with
-  | `Ok ->
-    ()
-  | `Out_of_fragment ->
-    raise (Invalid_argument "constrain: formula out of fragment")
+  S.assert_formula ctx g
 
 let minimize m =
   match S.add_objective ctx m with

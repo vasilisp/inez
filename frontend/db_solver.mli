@@ -34,5 +34,4 @@ sig
     ctx -> (I.c, int) Db_logic.M.t ->
     [> `Duplicate | `Ok | `Out_of_fragment]
 
-
 end

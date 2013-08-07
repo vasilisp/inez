@@ -541,7 +541,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
               let rl = maybe_lower_bound_ovar r r' lb row.(i)
               and ru = maybe_upper_bound_ovar r r' ub row.(i) in
               response_of_attempts rl ru)
-              
+
       let propagate_for_bvar_aux r r' v =
         list_foldi_responses (occs_of_bvar r v)
           ~f:(fun _ -> propagate_for_occ r r')
@@ -703,7 +703,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       let branch ({r_stats} as r) r' =
         try
           r_stats.s_branch <- r_stats.s_branch + 1;
-          ok_for_true (branch1 r r' || branch0 r r' || branch2 r r')
+          ok_for_true (branch0 r r' || branch1 r r' || branch2 r r')
         with
         | e ->
           (Printf.printf "exception: %s\n%!p" (Exn.to_string e);
@@ -729,7 +729,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
   (* module I' = Id.Make(struct end) *)
   module I' = I
 
-  module C  =  Logic.Make_term_conv(M)(Logic.M)
+  module C =  Logic.Make_term_conv(M)(Logic.M)
 
   type ibentry =
     (S'.ovar Lazy.t, S'.xvar Lazy.t) ibeither
