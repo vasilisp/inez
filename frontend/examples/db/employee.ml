@@ -1,6 +1,8 @@
 open Core.Std ;;
 open Db_script ;;
 
+Random.init 972143215 ;;
+
 type employee = (
   Int,  (* ID *)
   Bool  (* true iff manager *)
@@ -142,7 +144,7 @@ let mk_unequal_variables m =
       f (~logic (a < ad && acc)) d
     | _ ->
       acc in
-  let l = List.init m ~f:(fun _ -> fresh_int_var ()) in
+  let l = let f _ = fresh_int_var () in List.init m ~f in
   l, ~logic (f true l) ;;
 
 let has_m_managees m mid =

@@ -100,12 +100,12 @@ module type S_dp_access = sig
   val bderef_local : ctx -> bvar -> bool option
 
   val get_lb_local : ctx -> ivar -> Int63.t option
-  
+    
   val get_ub_local : ctx -> ivar -> Int63.t option
 
   val set_lb_local :
     ctx -> ivar -> Int63.t -> [`Infeasible | `Ok | `Tightened]
-  
+    
   val set_ub_local :
     ctx -> ivar -> Int63.t -> [`Infeasible | `Ok | `Tightened]
 
@@ -115,6 +115,11 @@ module type S_dp_access = sig
 
   val ibranch :
     ctx -> ivar -> float -> [`Ok | `Fail]
+
+  val ibranch_nary :
+    ctx -> ivar ->
+    middle:float -> n:int -> width:float ->
+    [`Ok | `Fail]
 
   val bbranch :
     ctx -> bvar -> [`Ok | `Fail]

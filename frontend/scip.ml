@@ -395,6 +395,24 @@ module Dp_access = struct
 
   let ibranch = branch
 
+  let ibranch_nary {r_ctx} v ~middle ~n ~width =
+    (*
+    let lb = sCIPvarGetLbLocal v
+    and ub = sCIPvarGetUbLocal v in
+      Printf.printf
+      "branching %d ways for [%f, %f] around %f with width %f\n%!"
+      n lb ub middle width; *)
+    let r, n = sCIPbranchVarValNary r_ctx v middle n width 1. in
+    match r with
+    | SCIP_OKAY ->
+      if n > 0 then
+        `Ok
+      (* (Printf.printf "branched %d-ways\n%!" n; `Ok) *)
+      else
+        raise (Scip_Exn (_here_, SCIP_OKAY))
+    | _ ->
+      `Fail
+
   let bbranch r v = branch r v 0.5
 
   let name_diff r v1 v2 =

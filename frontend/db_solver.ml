@@ -31,6 +31,45 @@ let dequeue_fold_responses d ~f =
         | r ->
           r)
 
+let dequeue_swap_first d =
+  match Dequeue.front_index d, Dequeue.back_index d with
+  | Some i, Some n when n > i ->
+    let i' = if n > i + 1 then i + 1 + Random.int (n - i) else 1 in
+    let b = Dequeue.get d i
+    and b' = Dequeue.get d i' in
+    let b = Option.value_exn b ~here:_here_
+    and b' = Option.value_exn b' ~here:_here_ in
+    Dequeue.set_exn d i b';
+    Dequeue.set_exn d i' b
+  | _, _ ->
+    ()
+
+let dequeue_exists_with_swap d ~f =
+  let rec g i n =
+    if i <= n then
+      let b = Dequeue.get d i in
+      let b = Option.value_exn b ~here:_here_ in
+      if f b then
+        true
+      (*
+        let i' = Dequeue.front_index d in
+        let i' = Option.value_exn i' ~here:_here_ in
+        let b' = Dequeue.get d i' in
+        let b' = Option.value_exn b' ~here:_here_ in
+        Dequeue.set_exn d i b';
+        Dequeue.set_exn d i' b;
+        true
+      *)
+      else
+        g (i + 1) n
+    else
+      false in
+  match Dequeue.front_index d, Dequeue.back_index d with
+  | Some i, Some n ->
+    g i n
+  | _, _ ->
+    false
+
 let list_foldi_responses l ~f =
   let rec g i l acc =
     match l with
@@ -73,7 +112,7 @@ end
 
 module Zom = struct
 
-  type 'a t = Z0 | Z1 of 'a | Zn
+  type 'a t = Z0 | Z1 of 'a | Zn of int
 
   let update z x ~equal =
     match z with
@@ -81,8 +120,10 @@ module Zom = struct
       Z1 x
     | Z1 x' when equal x x' ->
       z
-    | _ ->
-      Zn
+    | Z1 _ ->
+      Zn 2
+    | Zn n ->
+      Zn (n + 1)
 
 end
 
@@ -162,7 +203,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     type index = row_map * row_map * row list
     with compare, sexp_of
 
-    type occ = row * index * int
+    type occ = row * index * int * int option ref
     with compare, sexp_of
 
     type bounds_array = (Int63.t option * Int63.t option) array
@@ -178,7 +219,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       sexp_of_t = sexp_of_mbounds_key
     }
 
-    type mbounds_value = bounds_array * (row * bounds_array) Zom.t
+    type mbounds_value =
+      bounds_array * (row * bounds_array) Zom.t * bool
 
     type stats = {
       mutable s_propagate     :  int;
@@ -191,12 +233,13 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     } with sexp_of
 
     type ctx = {
-      r_idb_h      :  (db, index) Hashtbl.t;
-      r_bvar_d     :  Imt.bvar Dequeue.t;
-      r_diff_h     :  (idiff, Imt.ivar) Hashtbl.t;
-      r_occ_h      :  (Imt.bvar, occ list) Hashtbl.t;
-      r_mbounds_h  :  (mbounds_key, mbounds_value) Hashtbl.t;
-      r_stats      :  stats;
+      r_idb_h          :  (db, index) Hashtbl.t;
+      r_bvar_d         :  Imt.bvar Dequeue.t;
+      r_diff_h         :  (idiff, Imt.ivar) Hashtbl.t;
+      r_occ_h          :  (Imt.bvar, occ Dequeue.t) Hashtbl.t;
+      r_mbounds_h      :  (mbounds_key, mbounds_value) Hashtbl.t;
+      r_stats          :  stats;
+      mutable r_level  :  int;
     }
 
     let make_ctx () = {
@@ -218,7 +261,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         s_backtrack = 0;
         s_mbounds_fail = 0;
         s_mbounds_all = 0;
-      }
+      };
+      r_level = 0;
     }
 
     let print_stats {r_stats} =
@@ -276,9 +320,13 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       List.iter l ~f:(register_diffs r e ~fd);
       let index = index_of_db r l 0 in
       if not (bvar_in_dequeue r_bvar_d b) then
-        Dequeue.enqueue_back r_bvar_d b;
-      let occ = e, index, 0 in
-      Hashtbl.add_multi r_occ_h b occ
+        Dequeue.enqueue_front r_bvar_d b;
+      let occ = e, index, 0, ref None in
+      let d =
+        let initial_length = 64 and never_shrink = true in
+        let default = Dequeue.create ~initial_length ~never_shrink in
+        Hashtbl.find_or_add r_occ_h b ~default in
+      Dequeue.enqueue_front d occ
 
     module F
 
@@ -342,6 +390,30 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       let bounds_within a a' =
         Array.for_all2_exn a a' ~f:bounds_within_for_dim
 
+      let equal_row r r' row1 row2 =
+        let f ov1 ov2 =
+          match ov1, ov2 with
+          | (Some v1, o1), (Some v2, o2) ->
+            let lb = lb_of_diff r r' v1 v2
+            and ub = ub_of_diff r r' v1 v2 in
+            (match lb, ub with
+            | Some lb, Some ub ->
+              Int63.(lb = ub && lb = o2 - o1)
+            | _, _ ->
+              false)
+          | (Some v1, o1), (None, o2) |
+              (None, o2), (Some v1, o1) ->
+            let lb = S.get_lb_local r' v1
+            and ub = S.get_ub_local r' v1 in
+            (match lb, ub with
+            | Some lb, Some ub ->
+              Int63.(lb = ub && lb = o2 - o1)
+            | _ ->
+              false)
+          | (None, o1), (None, o2) ->
+            Int63.(o1 = o2) in
+        Array.for_all2_exn row1 row2 ~f
+
       let maybe_equal_rows r r' row a row' a' =
         bounds_within a a' &&
           (Array.for_all2_exn row row'
@@ -398,7 +470,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
           Map.fold_range_inclusive m ~min ~max ~init ~f
         and key = a, m in
         let r = Hashtbl.find_or_add r_mbounds_h key ~default in
-        Tuple2.map1 r ~f:Array.copy
+        Tuple3.map1 r ~f:Array.copy
 
       let fold_candidates_map r r' row m i ~init ~(f : 'a folded) =
         let a = bounds_of_row r' row in
@@ -415,20 +487,22 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         Map.fold_range_inclusive m ~min ~max ~init ~f
 
       let exists_candidate
-          r r' (row, (m1, m2, l), i) ~(f : bool mapped) =
+          r r' (row, (m1, m2, l), i, _) ~(f : bool mapped) =
         let a = bounds_of_row r' row in
         let f data =
           let bounds = bounds_of_row r' data  in
           maybe_equal_rows r r' data bounds row a &&
             f data ~bounds in
         let f ~key ~data acc = acc || List.exists data ~f
-        and init = List.exists l ~f
-        and min = lb_of_ovar r' row.(i)
-        and max = ub_of_ovar r' row.(i) in
-        let min = Option.value min ~default:Int63.min_value
-        and max = Option.value max ~default:Int63.max_value in
-        let init = Map.fold_range_inclusive m1 ~min ~max ~init ~f in
-        Map.fold_range_inclusive m2 ~min ~max ~init ~f
+        and init = List.exists l ~f in
+        init ||
+          let min = lb_of_ovar r' row.(i)
+          and max = ub_of_ovar r' row.(i) in
+          let min = Option.value min ~default:Int63.min_value
+          and max = Option.value max ~default:Int63.max_value in
+          let init = false in
+          Map.fold_range_inclusive m1 ~min ~max ~init ~f ||
+            Map.fold_range_inclusive m2 ~min ~max ~init ~f
 
       let response_of_attempts a b =
         match a, b with
@@ -457,8 +531,69 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         | Some lb, None ->
           if Int63.(lb <= o) then `Ok else `Infeasible
 
-      let occs_of_bvar {r_occ_h} v =
-        Option.value (Hashtbl.find r_occ_h v) ~default:[]
+      let foldi_responses_occs {r_occ_h} v ~f =
+        match Hashtbl.find r_occ_h v with
+        | None ->
+          N_Ok
+        | Some d ->
+          let n = Dequeue.back_index d in
+          let n = Option.value_exn n ~here:_here_ in
+          let rec g i acc =
+            if i <= n then
+              match Dequeue.get d i with
+              | Some (_, _, _, {contents = None} as o) ->
+                (match f i o with
+                | N_Unsat ->
+                  N_Unsat
+                | N_Tightened ->
+                  g (i + 1) N_Tightened 
+                | N_Ok ->
+                  g (i + 1) acc)
+              | Some _ ->
+                g (i + 1) acc
+              | None ->
+                raise (Unreachable.Exn _here_)
+            else
+              acc in
+          let n = Dequeue.front_index d in
+          let n = Option.value_exn n ~here:_here_ in
+          g n N_Ok
+
+      let for_all_occs {r_occ_h} v ~f =
+        match Hashtbl.find r_occ_h v with
+        | None ->
+          true
+        | Some d ->
+          Dequeue.for_all d ~f
+
+      let swap_first_occs {r_occ_h} v =
+        match Hashtbl.find r_occ_h v with
+        | None ->
+          ()
+        | Some d ->
+          dequeue_swap_first d
+
+      let exists_occs {r_occ_h} v ~f =
+        match Hashtbl.find r_occ_h v with
+        | None ->
+          false
+        | Some d ->
+          dequeue_exists_with_swap d ~f
+
+      (*
+        let exists_occs_oo {r_occ_h} v ~f =
+        match Hashtbl.find r_occ_h v with
+        | None ->
+        false
+        | Some d ->
+        let a = Dequeue.to_array d in
+        Array.permute a;
+        Array.exists a ~f
+      *)
+
+      let satisfied_occ r r' (row, _, _, _ as occ) =
+        let f row' ~bounds = equal_row r r' row row' in
+        exists_candidate r r' occ ~f
 
       (* propagate *)
 
@@ -467,7 +602,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
 
       let approx_candidates_folded
           ?cnst_only:(cnst_only = false)
-          r' row ~bounds ~acc:(a, z) =
+          r r' witness_row row ~bounds ~acc:(a, z, s) =
         Array.iteri bounds
           ~f:(fun i (lb, ub) ->
             let lb', ub' = a.(i) in
@@ -484,16 +619,17 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         let equal (_, a) (_, a') =
           let eq1 = Option.equal Int63.equal in
           let equal = Tuple2.equal ~eq1 ~eq2:eq1 in
-          Array.equal a a' ~equal in
-        a, Zom.update z (row, bounds) ~equal
+          Array.equal a a' ~equal
+        and s = s || equal_row r r' witness_row row in
+        a, Zom.update z (row, bounds) ~equal, s
 
       let approx_candidates
           ?cnst_only:(cnst_only = false)
-          r r' (row, (m1, m2, l), i) =
+          r r' (row, (m1, m2, l), i, _) =
         let n = Array.length row in
         let p = Some Int63.max_value, Some Int63.min_value in
-        let init = Array.init ~f:(fun _ -> p) n, Zom.Z0 
-        and f = approx_candidates_folded ~cnst_only r' in
+        let init = Array.init ~f:(fun _ -> p) n, Zom.Z0, false
+        and f = approx_candidates_folded ~cnst_only r r' row in
         let init = fold_constant_candidates r r' row m1 i ~init ~f in
         let init = fold_candidates_map r r' row m2 i ~init ~f in
         fold_candidates_list r r' row l i ~init ~f
@@ -526,25 +662,29 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         | None, None ->
           fb (Int63.equal o1 o2)
 
-      let propagate_for_occ r r' (row, _, i as occ) =
-        match approx_candidates r r' occ with
-        | _, Zom.Z0 ->
-          (* no candidates *)
-          N_Unsat
-        | _, Zom.Z1 (row2, _) ->
-          (* propagate bounds *)
-          let f i = assert_ovar_equal r r' row.(i) in
-          array_foldi_responses row2 ~f
-        | a, Zom.Zn ->
-          array_foldi_responses a
-            ~f:(fun i (lb, ub) ->
-              let rl = maybe_lower_bound_ovar r r' lb row.(i)
-              and ru = maybe_upper_bound_ovar r r' ub row.(i) in
-              response_of_attempts rl ru)
+      let propagate_for_occ ({r_level} as r) r' = function
+        | _, _, _, {contents = Some _} ->
+          N_Ok
+        | row, _, i, s as occ ->
+          match approx_candidates r r' occ with
+          | _, Zom.Z0, _ ->
+            (* no candidates *)
+            N_Unsat
+          | _, Zom.Z1 (row2, _), b ->
+            (* propagate bounds *)
+            if b then s := Some r_level;
+            let f i = assert_ovar_equal r r' row.(i) in
+            array_foldi_responses row2 ~f
+          | a, Zom.Zn _, b ->
+            if b then s := Some r_level;
+            array_foldi_responses a
+              ~f:(fun i (lb, ub) ->
+                let rl = maybe_lower_bound_ovar r r' lb row.(i)
+                and ru = maybe_upper_bound_ovar r r' ub row.(i) in
+                response_of_attempts rl ru)
 
       let propagate_for_bvar_aux r r' v =
-        list_foldi_responses (occs_of_bvar r v)
-          ~f:(fun _ -> propagate_for_occ r r')
+        foldi_responses_occs r v ~f:(fun _ -> propagate_for_occ r r')
 
       let propagate_for_bvar r r' v =
         Option.value_map (S.bderef_local r' v)
@@ -556,8 +696,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
 
       let propagate ({r_stats; r_bvar_d} as r) r' =
         r_stats.s_propagate <- r_stats.s_propagate + 1;
-        dequeue_fold_responses r_bvar_d
-          ~f:(propagate_for_bvar r r')
+        let f = propagate_for_bvar r r' in
+        dequeue_fold_responses r_bvar_d ~f
 
       (* check given solution *)
             
@@ -577,30 +717,14 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
           Map.fold_range_inclusive m1 ~min ~max ~init:false ~f ||
             Map.fold_range_inclusive m2 ~min ~max ~init:false ~f 
 
-      let show_check_for_occ r r' sol row occ =
-        Sexplib.Sexp.output_hum stdout
-          (Array.sexp_of_t Int63.sexp_of_t row);
-        print_string " in \n";
-        Sexplib.Sexp.output_hum stdout
-          (List.sexp_of_t (Array.sexp_of_t Int63.sexp_of_t)
-             (fold_all r r' occ
-                ~init:[]
-                ~f:(fun row ~acc ->
-                  Array.map row ~f:(deref_ovar_sol r' sol) :: acc)));
-        print_newline ()
-
-      let dbg_show_check_for_occ = false
-
-      let check_for_occ r r' sol (row, index, i as occ) =
+      let check_for_occ r r' sol ((row, index, i, _) : occ) =
         let row = Array.map row ~f:(deref_ovar_sol r' sol) in
-        if dbg_show_check_for_occ then
-          show_check_for_occ r r' sol row occ;
         let f = matches_row r' sol row in
         exists_index index ~min:row.(i) ~max:row.(i) ~f
 
       let check_for_bvar ({r_occ_h} as r) r' sol v =
         not (S.bderef_sol r' sol v) ||
-          List.for_all (occs_of_bvar r v) ~f:(check_for_occ r r' sol)
+          for_all_occs r v ~f:(check_for_occ r r' sol)
 
       let check ({r_stats; r_bvar_d} as r) r' sol =
         r_stats.s_check <- r_stats.s_check + 1;
@@ -612,14 +736,16 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       let branch_for_bvar r r' v ~f =
         match S.bderef_local r' v with
         | Some true ->
-          List.exists (occs_of_bvar r v) ~f
+          (* if Random.int 200 = 1 then swap_first_occs r v; *)
+          exists_occs r v ~f
         | _ ->
           false
 
       let branch {r_bvar_d} ~f =
-        Dequeue.exists r_bvar_d ~f
+        (* if Random.int 200 = 1 then dequeue_swap_first r_bvar_d; *)
+        dequeue_exists_with_swap r_bvar_d ~f
 
-      let branch_on_column r r' (lb, ub) ov =
+      let branch_on_column r r' (lb, ub) ov n =
         let lb =
           let lb' = lb_of_ovar r' ov in
           if Lb.(lb <= lb') then lb' else lb
@@ -634,37 +760,49 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
           match ov with
           | Some v, o ->
             let middle = Int63.((lb + ub) / (one + one) - o) in
-            let middle = Int63.to_float middle +. 0.5 in
-            (*
-            Printf.printf "branching : %d ... %d ... %d [%d]\n%!"
-              (Int63.to_int_exn lb)
-              (Float.to_int middle)
-              (Int63.to_int_exn ub)
-              (Int63.to_int_exn o); *)
-            bool_of_ok_or_fail (S.ibranch r' v middle)
+            let middle = Int63.to_float middle
+            and range = Int63.to_float ub -. Int63.to_float lb in
+            bool_of_ok_or_fail
+              (S.ibranch r' v 
+                 (* (if n <= 50 || Float.(range <= of_int 50) then *)
+                 (if true then
+                     (ignore (range);
+                      middle +. 0.5)
+                  else
+                     middle))
           | None, _ ->
             false
 
       let branch0_for_occ ?any:(any = false)
-          r r' (row, index, i as occ) =
+          r r' (row, _, i, _ as occ) =
         match
           approx_candidates r r' occ ~cnst_only:true
         with
-        | _, (Zom.Z0 | Zom.Z1 _) ->
+        | _, (Zom.Z0 | Zom.Z1 _), _ ->
           false
-        | a, Zom.Zn ->
+        | a, Zom.Zn n, _ ->
           if any then
-            let f b v = not (branch_on_column r r' b v) in
+            let f b v = not (branch_on_column r r' b v n) in
             not (Array.for_all2_exn a row ~f)
           else
-            branch_on_column r r' a.(i) row.(i)
+            branch_on_column r r' a.(i) row.(i) n
+
+      let branch0_for_occ ?any:(any = false) r r' (_, _, _, s as occ) =
+        match s with
+        | {contents = Some _} ->
+          false
+        | _ ->
+          branch0_for_occ ~any r r' occ
 
       let branch0 r r' =
-        let f0 = branch0_for_occ ~any:false r r'
-        and f1 = branch0_for_occ ~any:true r r' in
-        let f0 = branch_for_bvar r r' ~f:f0
-        and f1 = branch_for_bvar r r' ~f:f1 in
-        branch r ~f:f0 || branch r ~f:f1
+        let f = branch0_for_occ ~any:false r r' in
+        let f = branch_for_bvar r r' ~f in
+        branch r ~f
+
+      let branch0_5 r r' =
+        let f = branch0_for_occ ~any:true r r' in
+        let f = branch_for_bvar r r' ~f in
+        branch r ~f
 
       let branch_on_diff {r_diff_h} r' (v1, o1) (v2, o2) =
         let doit v1 v2 x =
@@ -684,11 +822,18 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         | _, _ ->
           false
 
-      let branch1_for_occ r r' (row, index, i as occ) =
+      let branch1_for_occ r r' (row, index, i, _ as occ) =
         let f row2 ~bounds =
           let f ov1 ov2 = not (branch_on_diff r r' ov1 ov2) in
           not (Array.for_all2_exn row row2 ~f) in
         exists_candidate r r' occ ~f
+
+      let branch1_for_occ r r' (_, _, _, s as occ) =
+        match s with
+        | {contents = Some _} ->
+          false
+        | _ ->
+          branch1_for_occ r r' occ
 
       let branch1 r r' =
         branch r ~f:(branch_for_bvar r r' ~f:(branch1_for_occ r r'))
@@ -703,7 +848,9 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       let branch ({r_stats} as r) r' =
         try
           r_stats.s_branch <- r_stats.s_branch + 1;
-          ok_for_true (branch0 r r' || branch1 r r' || branch2 r r')
+          ok_for_true (branch0 r r' || branch0_5 r r' ||
+                         branch1 r r' ||
+                         branch2 r r')
         with
         | e ->
           (Printf.printf "exception: %s\n%!p" (Exn.to_string e);
@@ -711,10 +858,22 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       
       (* stack management *)
 
-      let push_level {r_stats} _ =
+      let push_level ({r_stats} as r) _ =
+        r.r_level <- r.r_level + 1;
         r_stats.s_push_level <- r_stats.s_push_level + 1
 
-      let backtrack {r_stats} _ =
+      let backtrack ({r_occ_h; r_stats} as r) _ =
+        assert (r.r_level >= 0);
+        r.r_level <- r.r_level - 1;
+        (let f ~key ~data =
+           let f = function
+             | (_, _, _, ({contents = Some c} as rf))
+                 when c > r.r_level ->
+               rf := None
+             | _ ->
+               () in
+           Dequeue.iter data ~f in
+         Hashtbl.iter r_occ_h ~f);
         r_stats.s_backtrack <- r_stats.s_backtrack + 1
 
     end
@@ -740,21 +899,31 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
 
   type d_boxed = DBox : (I.c, 's) R.t list -> d_boxed
 
+  type mode = [`Eager | `Lazy]
+  
   type ctx = {
     r_ctx           :  S'.ctx;
     r_bg_ctx        :  Imt'.ctx;
     r_theory_ctx    :  Theory_solver.ctx;
+    r_eager         :  bool;
     r_table_lazy_h  :  (d_boxed, table_lazy) Hashtbl.t;
     r_in_m          :  (bool_id, in_constraint_lazy list) Hashtbl.t;
   }
 
-  let make_ctx () =
+  let make_ctx mode =
     let r_theory_ctx = Theory_solver.make_ctx () in
+    let r_eager =
+      match mode with
+      | `Lazy ->
+        false
+      | `Eager ->
+        true in
     let r_bg_ctx = Imt'.make_ctx r_theory_ctx in {
       r_ctx =
         S'.make_ctx r_bg_ctx;
       r_bg_ctx;
       r_theory_ctx;
+      r_eager;
       (* TODO : monomorphic hashtable *)
       r_table_lazy_h =
         Hashtbl.Poly.create () ~size:32;
@@ -904,7 +1073,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     | Formula.F_Atom (A.A_Le m | A.A_Eq m) ->
       in_fragment_term ~under_forall m
 
-  let register_membership_bulk {r_in_m} b l =
+  let register_membership_bulk   {r_in_m} b l =
     Hashtbl.change r_in_m b
       (function
       | Some l1 -> Some (List.append l l1)
@@ -974,11 +1143,51 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         let acc, g2 = purify_membership ~acc x d r in
         acc, Formula.(g1 && g2)
 
+  and columnwise_equal :
+  type s. ctx -> (I.c, s) R.t -> (I.c, s) R.t ->
+    I.c Logic.A.t Formula.t =
+    fun x r1 r2 ->
+      let f = purify_atom x in
+      match r1, r2 with
+      | R.R_Int m1, R.R_Int m2 ->
+        let m1 = C.map_non_atomic m1 ~f ~fv
+        and m2 = C.map_non_atomic m2 ~f ~fv in
+        Logic.Ops.(m1 = m2)
+      | R.R_Bool b1, R.R_Bool b2 ->
+        let b1 = C.map_non_atomic b1 ~f ~fv
+        and b2 = C.map_non_atomic b2 ~f ~fv in
+        let b1 = Formula.F_Atom (Logic.A.A_Bool b1)
+        and b2 = Formula.F_Atom (Logic.A.A_Bool b2) in
+        Formula.((b1 => b2) && (b2 => b1))
+      | R.R_Pair (r11, r12), R.R_Pair (r21, r22) ->
+        Formula.(&&)
+          (columnwise_equal x r11 r21)
+          (columnwise_equal x r12 r22)
+
+  and purify_membership_eager :
+  type s. ctx -> (I.c, s) D.t -> (I.c, s) R.t ->
+    I.c Logic.A.t Formula.t =
+    fun x d r ->
+      match d, r with
+      | D.D_Input (_, l), r ->
+        Formula.exists l ~f:(columnwise_equal x r)
+      | D.D_Cross (d1, d2), R.R_Pair (r1, r2) ->
+        Formula.(&&)
+          (purify_membership_eager x d1 r1)
+          (purify_membership_eager x d2 r2)
+      | D.D_Sel (d, f), r ->
+        Formula.(&&)
+          (purify_formula x (f r) ~polarity:`Positive)
+          (purify_membership_eager x d r)
+
   and purify_atom :
-  ctx -> I.c A.t -> polarity:polarity -> I.c Logic.A.t Formula.t =
-    fun ({r_ctx} as x) a ~polarity ->
+  ctx -> I.c A.t -> polarity:polarity -> I.c Logic.A.t Formula.t = 
+    fun ({r_ctx; r_eager} as x) a ~polarity ->
       match a, polarity with
-      | A.A_Exists d, (`Positive : polarity) ->
+      | A.A_Exists d, `Positive when r_eager ->
+        let r = get_symbolic_row_db d in
+        purify_membership_eager x d r
+      | A.A_Exists d, `Positive ->
         let l, g =
           let r = get_symbolic_row_db d in
           purify_membership x d r
@@ -1028,16 +1237,19 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     Int63.(Imt'.add_eq r [minus_one, v1; one, v2; one, v] zero);
     v
 
-  let solve ({r_ctx; r_bg_ctx; r_theory_ctx; r_in_m} as x) =
-    Hashtbl.iter r_in_m
-      ~f:(fun ~key ~data ->
-        let v = S'.bvar_of_id r_ctx key
-        and fd = name_diff r_bg_ctx in
-        List.iter data
-          ~f:(fun (e, l) ->
-            Theory_solver.assert_membership
-              r_theory_ctx
-              v (force_row x e) (Lazy.force l) ~fd));
+  let solve ({r_ctx; r_bg_ctx; r_theory_ctx; r_in_m; r_eager} as x) =
+    if r_eager && not (Hashtbl.is_empty r_in_m) then
+      raise (Unreachable.Exn _here_)
+    else if not r_eager then
+      Hashtbl.iter r_in_m
+        ~f:(fun ~key ~data ->
+          let v = S'.bvar_of_id r_ctx key
+          and fd = name_diff r_bg_ctx in
+          List.iter data
+            ~f:(fun (e, l) ->
+              Theory_solver.assert_membership
+                r_theory_ctx
+                v (force_row x e) (Lazy.force l) ~fd));
     let r = S'.solve r_ctx in
     Theory_solver.print_stats r_theory_ctx; r
 

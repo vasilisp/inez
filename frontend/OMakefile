@@ -3,8 +3,7 @@ open build/OCaml
 
 BYTE_ENABLED = true
 NATIVE_ENABLED = true
-OCAMLFLAGS += -thread
-# OCAMLOPTFLAGS += -unsafe -inline 20
+OCAMLFLAGS += -thread -unsafe -inline 2000
 USE_OCAMLFIND = true
 OCAMLPACKS = core camlidl herelib
 INCLUDES = $(CAMLIDL_INCLUDE_PATH) $(OCAML_INCLUDE_PATH)

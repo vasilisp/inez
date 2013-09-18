@@ -5,7 +5,9 @@ module Make :
 
 sig
 
-  include Ctx_intf.S_unit_creatable
+  type mode = [`Eager | `Lazy]
+
+  include Ctx_intf.S_creatable with type carg := mode
 
   val in_fragment_term :
     under_forall:bool -> (I.c, 's) Db_logic.M.t -> bool

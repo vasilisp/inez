@@ -86,8 +86,7 @@ struct
     zero - a
 
   let sum l ~f =
-    List.fold_left l ~init:zero
-      ~f:(fun acc x -> acc + f x)
+    List.fold_left l ~init:zero ~f:(fun acc x -> acc + f x)
 
   let rec fold :
   type s . ('i, s) t ->

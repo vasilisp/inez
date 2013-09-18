@@ -1,5 +1,7 @@
 open Core.Std ;;
-open Db_eager_script ;;
+open Db_script ;;
+
+Random.init 342536 ;;
 
 type project = (
   Int, (* ID *)
@@ -11,18 +13,37 @@ type manager = (
   Int  (* Age *)
 ) Schema ;;
 
-let n = 2000 ;;
+let n_projects =
+  if Array.length Sys.argv >= 4 then
+    int_of_string Sys.argv.(2)
+  else
+    100 ;;
+
+let n_managers = 
+  if Array.length Sys.argv >= 4 then
+    int_of_string Sys.argv.(3)
+  else
+    20 ;;
+
+Printf.printf "%d %d\n%!" n_projects n_managers ;;
 
 (* project_ids = [v_0; v_1; ...; v_{n - 1}] *)
 
-let project_ids = List.init n ~f:(fun _ -> fresh_int_var ()) ;;
+let project_ids = List.init n_projects ~f:(fun _ -> fresh_int_var ()) ;;
 
 (* projects = [0, v_0; 1, v_1; ...; n - 1, v_{n - 1}] *)
 
 let projects =
   let f i v = make_row_project (toi i, v) in
   make_db_project (List.mapi project_ids ~f) ;;
-  
+
+let managers =
+  let f i =
+    let id = 1000 + i * 10 and age = 24 + Random.int 30 in
+    make_row_manager (toi id, toi age) in
+  make_db_manager (List.init n_managers ~f) ;;
+
+(*
 let managers =
   make_db_manager
     (List.map ~f:make_row_manager
@@ -38,6 +59,7 @@ let managers =
             1090, 29;
             1100, 38;
            ])) ;;
+*)
 
 (* every manager manages something *)
 
@@ -61,6 +83,7 @@ constrain
 
 print_endline (string_of_result (solve ())) ;;
 
+(*
 print_string "project_ids:\n" ;;
 
 List.iteri project_ids
@@ -70,3 +93,4 @@ List.iteri project_ids
       Printf.printf "v_%d = %s\n" i (Int63.to_string_hum x)
     | None ->
       ()) ;;
+*)

@@ -1,5 +1,5 @@
 open Core.Std ;;
-open Db_script ;;
+open Db_eager_script ;;
 
 let ideref_print id v =
   match ideref v with

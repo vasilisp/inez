@@ -27,20 +27,15 @@ module Make (I : Id.Accessors) = struct
   (* Some of the definitions below look pedantic, but the
      corresponding compare_* functions are useful. *)
 
-  and args =
-    ibflat list
+  and args = ibflat list
 
-  and app =
-    fun_id * args
+  and app = fun_id * args
 
-  and sumt =
-    Int63.t * term_base
+  and sumt = Int63.t * term_base
 
-  and sum =
-    sumt list
+  and sum = sumt list
 
-  and iite =
-    formula * term * term
+  and iite = formula * term * term
 
   and term_base =
   | B_Var      of  (I.c, int) Id.t
@@ -460,9 +455,23 @@ module Make (I : Id.Accessors) = struct
     | Formula.F_Atom (A.A_Bool t) ->
       flatten_bool_term r t
     | Formula.F_Atom (A.A_Le t) ->
-      U_Atom (flatten_int_term r t, O'_Le)
+      (match flatten_int_term r t with
+      | G_Sum ([], o) ->
+        if Int63.(o <= zero) then
+          true_formula
+        else
+          false_formula
+      | i ->
+        U_Atom (i, O'_Le))
     | Formula.F_Atom (A.A_Eq t) ->
-      U_Atom (flatten_int_term r t, O'_Eq)
+      (match flatten_int_term r t with
+      | G_Sum ([], o) ->
+        if Int63.(compare o zero) = 0 then
+          true_formula
+        else
+          false_formula
+      | i ->
+        U_Atom (i, O'_Eq))
     | Formula.F_Not g ->
       negate (flatten_formula r g)
     | Formula.F_Ite (q, g, h) ->

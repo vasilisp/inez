@@ -61,7 +61,7 @@ module Make (Imt : Imt_intf.S_access) (I : Id.S) = struct
     fun d ~polarity ->
       let f (_, g) = purify_formula g ~polarity in
       Formula.exists (overapproximate_db d) ~f
-        
+
   and purify_atom a ~polarity =
     match a with
     | A.A_Exists d ->

@@ -56,6 +56,21 @@ let forall l ~f =
       acc in
   forall_aux F_True l
 
+let forall2 l1 l2 ~f =
+  let rec forall_aux acc l1 l2 =
+    match l1, l2 with
+    | h1 :: t1, h2 :: t2 ->
+      (match  acc && f h1 h2 with
+      | F_Not F_True as g ->
+        Some g
+      | acc ->
+        forall_aux acc t1 t2)
+    | [], [] -> 
+      Some acc
+    | _, _ ->
+      None in
+  forall_aux F_True l1 l2
+
 let forall_pairs l ~f =
   let rec forall_pairs_aux acc = function
     | a :: d ->
@@ -70,6 +85,9 @@ let forall_pairs l ~f =
 
 let exists l ~f =
   not (forall l ~f:(Fn.compose (not) f))
+
+let exists2 l1 l2 ~f =
+  Option.map (forall2 l1 l2 ~f:(fun x1 x2 -> not (f x1 x2))) not
 
 let negate_polarity = function
   | `Positive -> `Negative

@@ -1,5 +1,5 @@
 open Core.Std ;;
-open Db_script ;;
+open Db_eager_script ;;
 
 let n =
   if Array.length Sys.argv >= 4 then

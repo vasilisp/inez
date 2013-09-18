@@ -15,9 +15,16 @@ module type Prop = sig
 
   (* pseudo-quantifiers *)
 
-  val forall : 'a list -> f:('a -> 'b t) -> 'b t
-  val forall_pairs : 'a list -> f:('a -> 'a -> 'b t) -> 'b t
-  val exists : 'a list -> f:('a -> 'b t) -> 'b t
+  val forall :
+    'a list -> f:('a -> 'b t) -> 'b t
+  val forall2 :
+    'a list -> 'b list -> f:('a -> 'b -> 'c t) -> 'c t option
+  val forall_pairs :
+    'a list -> f:('a -> 'a -> 'b t) -> 'b t
+  val exists :
+    'a list -> f:('a -> 'b t) -> 'b t
+  val exists2 :
+    'a list -> 'b list -> f:('a -> 'b -> 'c t) -> 'c t option
 
 end
 

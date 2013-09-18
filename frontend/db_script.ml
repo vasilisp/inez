@@ -2,7 +2,7 @@ module Id' = Id.Make (struct end)
 
 module S = Db_solver.Make(Scip.Scip_with_dp)(Id')
 
-let ctx = S.make_ctx ()
+let ctx = S.make_ctx `Lazy
 
 type c = Id'.c
 

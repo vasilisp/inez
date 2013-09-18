@@ -224,6 +224,14 @@ retcode SCIPbranchVarVal([in] scip s,
                          [out] node* eqchild,
                          [out] node* upchild);
 
+retcode SCIPbranchVarValNary([in] scip s,
+                             [in] var v,
+                             [in] double x,
+                             [in] int n,
+                             [in] double minwidth,
+                             [in] double widthfactor,
+                             [out] int* nchildren);
+
 retcode SCIPbranchVarHole([in] scip s,
                           [in] var v,
                           [in] double x,
