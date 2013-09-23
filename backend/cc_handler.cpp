@@ -238,7 +238,7 @@ void cc_handler::catch_variable(SCIP_VAR* v, bool catch_bound)
     sa(SCIPcatchVarEvent
        (scip, v_trans, SCIP_EVENTTYPE_UBRELAXED, eh,
         NULL, NULL));
-  }
+ }
   sa(SCIPcatchVarEvent
      (scip, v_trans, SCIP_EVENTTYPE_VARDELETED, eh,
       NULL, NULL));
@@ -1346,6 +1346,36 @@ void cc_handler::include()
   sa(SCIPincludeObjEventhdlr(scip, this, false));
 }
 
+void cc_handler::catch_var_events(SCIP_VAR* v)
+{
+
+  SCIP*& scip = scip::ObjEventhdlr::scip_;
+
+  SCIP_EVENTHDLR* eh = SCIPfindEventhdlr(scip, "cce");
+  SCIP_VAR* v_trans;
+
+  assert(eh);
+
+  sa(SCIPcaptureVar(scip, v));
+
+  // SCIPcatchVarEvent expects a transformed variable; create one
+  sa(SCIPtransformVar(scip, v, &v_trans));
+  sa(SCIPcaptureVar(scip, v_trans));
+
+  orig_var_m.emplace(v_trans, v);
+  
+  sa(SCIPcatchVarEvent
+     (scip, v_trans, SCIP_EVENTTYPE_LBRELAXED, eh,
+      NULL, NULL));
+  sa(SCIPcatchVarEvent
+     (scip, v_trans, SCIP_EVENTTYPE_UBRELAXED, eh,
+      NULL, NULL));
+  sa(SCIPcatchVarEvent
+     (scip, v_trans, SCIP_EVENTTYPE_VARDELETED, eh,
+      NULL, NULL));
+
+}
+
 /* C wrappers */
 
 cc_handler* new_cc_handler(SCIP* s, dp* d)
@@ -1382,6 +1412,12 @@ void cc_handler_include(cc_handler* c)
 {
   c->include();
 }
+
+void cc_handler_catch_var_events(cc_handler* c, SCIP_VAR* v)
+{
+  c->catch_var_events(v);
+}
+
 
 SCIP_VAR* cc_handler_zero_var(cc_handler* c)
 {

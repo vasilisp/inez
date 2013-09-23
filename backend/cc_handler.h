@@ -256,6 +256,8 @@ public:
   void call(const scip_ovar&, const string&,
             const vector<scip_ovar>&);
 
+  void catch_var_events(SCIP_VAR*);
+
   void finalize();
 
   void include();
@@ -281,6 +283,7 @@ extern "C" {
 	extern void cc_handler_finalize(cc_handler*);
 	extern void cc_handler_include(cc_handler*);
 	extern SCIP_VAR* cc_handler_zero_var(cc_handler*);
+	extern void cc_handler_catch_var_events(cc_handler*, SCIP_VAR*);
 	extern uintptr_t uintptr_t_of_var(SCIP_VAR*);
 	extern uintptr_t uintptr_t_of_node(SCIP_NODE*);
 #else // K&R style prototypes
@@ -290,6 +293,7 @@ extern "C" {
 	extern void cc_handler_finalize();
 	extern void cc_handler_include();
 	extern SCIP_VAR* cc_handler_zero_var();
+	extern void cc_handler_catch_var_events();
 	extern uintptr_t uintptr_t_of_var();
 	extern uintptr_t uintptr_t_of_node();
 #endif

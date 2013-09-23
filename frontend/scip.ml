@@ -298,8 +298,13 @@ let bderef ({r_sol} as r) v =
   Option.map r_sol ~f:(fun s -> bderef_sol r s v)
 
 let branch {r_ctx} v x =
-  let r, _, _, _ = sCIPbranchVarVal r_ctx v x in
-  ok_or_fail_of_retcode r
+  let lb = sCIPvarGetLbLocal v
+  and ub = sCIPvarGetUbLocal v in
+  if Float.(lb < ub && lb <= x && ub >= x) then
+    let r, _, _, _ = sCIPbranchVarVal r_ctx v x in
+    ok_or_fail_of_retcode r
+  else
+    `Fail
 
 let variables_number {r_var_d} = Dequeue.length r_var_d
 
@@ -396,18 +401,11 @@ module Dp_access = struct
   let ibranch = branch
 
   let ibranch_nary {r_ctx} v ~middle ~n ~width =
-    (*
-    let lb = sCIPvarGetLbLocal v
-    and ub = sCIPvarGetUbLocal v in
-      Printf.printf
-      "branching %d ways for [%f, %f] around %f with width %f\n%!"
-      n lb ub middle width; *)
     let r, n = sCIPbranchVarValNary r_ctx v middle n width 1. in
     match r with
     | SCIP_OKAY ->
       if n > 0 then
         `Ok
-      (* (Printf.printf "branched %d-ways\n%!" n; `Ok) *)
       else
         raise (Scip_Exn (_here_, SCIP_OKAY))
     | _ ->
@@ -500,6 +498,14 @@ module Scip_with_dp = struct
       rval
     
     let register _ _ _ = ()
+
+    let register_var {r_cch} v =
+      let r_cch = Option.value_exn ~here:_here_ r_cch in
+      cc_handler_catch_var_events r_cch v
+
+    let register_ivar = register_var
+
+    let register_bvar = register_var
 
   end
 

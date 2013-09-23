@@ -158,7 +158,7 @@ module type S_dp = sig
      and type bvar = bvar_plug) :
 
   sig
-    
+
     val push_level :
       ctx -> S.ctx -> unit
 
@@ -246,6 +246,12 @@ module type S_with_dp = sig
        and type ivar := ivar
        and type bvar := bvar
        and type f := f)
+
+    val register_ivar :
+      ctx -> ivar -> unit
+
+    val register_bvar :
+      ctx -> bvar -> unit
 
     val make_ctx : D.ctx -> ctx
     val register : ctx -> ivar -> ivar -> unit
