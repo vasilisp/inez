@@ -249,9 +249,8 @@ section
     OCAMLPACKS += ocaml_plugin async
     MyOCamlProgram(inez-db, terminology unreachable scip_idl scip	\
                    util formula type id logic db_logic pre solver	\
-                   db_solver db_script db_eager_solver			\
-                   db_eager_script script_main, native_utils		\
-                   scip_idl_stubs db_ocaml_embedded)
+                   db_solver db_script db_eager_script script_main,	\
+                   native_utils scip_idl_stubs db_ocaml_embedded)
 
 camlp4oi.opt: camlp4_maps.cmx pa_logic.cmx
         ocamlfind ocamlopt unix.cmxa dynlink.cmxa -I +camlp4		\

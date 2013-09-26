@@ -83,6 +83,8 @@ struct
   type ('i, 's) r = ('i, 's) R.t
 
   type ('i, _) t =
+  | D_Rel    :  'r S.t * (('i, 'r) R.t -> 'i a Formula.t) ->
+    ('i, 'r) t
   | D_Input  :  'r S.t * ('i, 'r) r list ->
     ('i, 'r) t
   | D_Cross  :  ('i, 'r) t * ('i, 's) t ->
@@ -97,6 +99,8 @@ struct
   let rec schema_of_t :
   type r . ('i, r) t -> r S.t =
     function
+    | D_Rel (s, _) ->
+      s
     | D_Input (s, _) ->
       s
     | D_Cross (a, b) ->

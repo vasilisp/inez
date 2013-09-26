@@ -955,6 +955,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
   let rec get_dummy_row_db :
   type s . (I'.c, s) D.t -> (I'.c, s) R.t =
     function
+    | D.D_Rel (s, _) ->
+      get_dummy_row s
     | D.D_Input (s, _) ->
       get_dummy_row s
     | D.D_Cross (a, b) ->
@@ -975,6 +977,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
   let rec get_symbolic_row_db :
   type s . (I.c, s) D.t -> (I.c, s) R.t =
     function
+    | D.D_Rel (s, _) ->
+      get_symbolic_row s
     | D.D_Input (s, _) ->
       get_symbolic_row s
     | D.D_Cross (a, b) ->
@@ -1021,6 +1025,9 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
   type s . under_forall:bool -> polarity:polarity ->
     (I.c, s) D.t -> bool =
     fun ~under_forall ~polarity -> function
+    | D.D_Rel (_, f) ->
+      (* FIXME: looks fine, but think about it again *)
+      not under_forall
     | D.D_Input (_, l) ->
       List.for_all l ~f:in_fragment_row
     | D.D_Cross (a, b) when under_forall ->
@@ -1095,10 +1102,13 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
   let rec path_and_data_of_db :
   type s . ?acc:(((I.c, s) R.t -> I.c A.t Formula.t) list) ->
     (I.c, s) D.t ->
-    ((I.c, s) R.t -> I.c A.t Formula.t) list * (I.c, s) R.t list =
+    (((I.c, s) R.t -> I.c A.t Formula.t) list) *
+      (I.c, s) R.t list option =
     fun ?acc:(acc = []) -> function
+    | D.D_Rel (_, f) ->
+      f :: acc, None
     | D.D_Input (_, d) ->
-      acc, d
+      acc, Some d
     | D.D_Cross (_, _) ->
       raise (Unreachable.Exn _here_)
     | D.D_Sel (d, f) ->
@@ -1141,6 +1151,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     in_constraint_lazy list * I.c Logic.A.t Formula.t =
     fun ?acc:(acc = []) x d r ->
       match d, r with
+      | D.D_Rel (_, f), r ->
+        acc, purify_formula x (f r) ~polarity:`Positive
       | D.D_Input (_, l), _ ->
         let ll = table_lazy_of_db x l
         and rl = list_of_row x r in
@@ -1180,6 +1192,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     I.c Logic.A.t Formula.t =
     fun x d r ->
       match d, r with
+      | D.D_Rel (_, f), r ->
+        purify_formula x (f r) ~polarity:`Positive
       | D.D_Input (_, l), r ->
         Formula.exists l ~f:(columnwise_equal x r)
       | D.D_Cross (d1, d2), R.R_Pair (r1, r2) ->
@@ -1212,7 +1226,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         let l, d = path_and_data_of_db d in
         let f r =
           let f g = purify_formula x (g r) ~polarity in 
-          Formula.forall l ~f in
+          Formula.forall l ~f
+        and d = Option.value_exn ~here:_here_ d in
         Formula.exists d ~f
       | A.A_Bool b, _ ->
         Formula.F_Atom

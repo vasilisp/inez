@@ -155,7 +155,9 @@ let make_row_expr_of_ylist _loc l =
     let init = make_column_expr _loc a a' in
     let body = ListLabels.fold_left2 d d' ~init ~f
     and p =
-      let l' = ListLabels.map l' ~f:(fun id -> <:patt< $id:id$ >>) in
+      let l' =
+        let f id = <:patt< $id:id$ >> in
+        ListLabels.map l' ~f in
       Ast.PaTup (_loc, Ast.paCom_of_list l') in
     <:expr< fun $p$ -> $body$ >>
   | _ ->
@@ -178,14 +180,28 @@ let make_db_str_item_of_ylist _loc id l =
                 $exp:make_db_expr_of_ylist _loc l$ >>
 ;;
 
+let make_rel_expr_of_ylist _loc l =
+  let s = schema_expr_of_ylist _loc l
+  and i = Camlp4_maps.gensym () in
+  <:expr< fun $lid:i$ -> Db_logic.D.D_Rel ($s$, $lid:i$) >>
+;;
+
+let make_rel_str_item_of_ylist _loc id l =
+  <:str_item< let $lid:"make_rel_" ^ id$ =
+                $exp:make_rel_expr_of_ylist _loc l$ >>
+;;
+
 let transform_schema_type = function
   | Ast.StTyp (_loc, (Ast.TyDcl (_, id, [], y, []))) as s ->
     (match ylist_of_ctyp y with
     | Some l ->
       let s1 = gadt_param_str_item_of_ylist _loc id l
       and s2 = make_row_str_item_of_ylist _loc id l
-      and s3 = make_db_str_item_of_ylist _loc id l in
-      Ast.StSem (_loc, s1, Ast.StSem (_loc, s2, s3))
+      and s3 = make_db_str_item_of_ylist _loc id l
+      and s4 = make_rel_str_item_of_ylist _loc id l in
+      Ast.StSem (_loc, s1,
+                 Ast.StSem (_loc, s2,
+                            Ast.StSem (_loc, s3, s4)))
     | None ->
       s)
   | s ->

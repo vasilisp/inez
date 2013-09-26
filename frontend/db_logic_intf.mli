@@ -49,6 +49,8 @@ module type Db = sig
   type (_, _) r
 
   type ('i, _) t =
+  | D_Rel    :  'r s * (('i, 'r) r -> 'i a Formula.t) ->
+    ('i, 'r) t
   | D_Input  :  'r s * ('i, 'r) r list ->
     ('i, 'r) t
   | D_Cross  :  ('i, 'r) t * ('i, 's) t ->
