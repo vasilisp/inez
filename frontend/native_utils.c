@@ -9,3 +9,8 @@ void* scip_null_cons()
 {
 	return NULL;
 }
+
+void* scip_null_sol()
+{
+	return NULL;
+}

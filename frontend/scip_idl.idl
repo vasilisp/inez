@@ -17,7 +17,8 @@ typedef [abstract] void* cons;
 typedef [abstract] void* sol;
 typedef [abstract] void* cch;
 typedef [abstract] void* node;
-typedef [abstract] void** voidstarstar;
+typedef [abstract] void* row;
+typedef [abstract] void* conshdlr;
 
 typedef unsigned int proptiming;
 
@@ -27,6 +28,7 @@ typedef enum
 {
   SCIP_DIDNOTFIND = 3,
   SCIP_CUTOFF = 7,
+  SCIP_SEPARATED = 8,
   SCIP_REDUCEDDOM = 10
 } result;
 
@@ -239,6 +241,29 @@ retcode SCIPbranchVarHole([in] scip s,
                           [out] node* downchild,
                           [out] node* upchild);
 
+conshdlr SCIPfindConshdlr([in] scip s, [in,string] char* id);
+
+retcode SCIPcreateEmptyRowCons([in] scip s,
+                               [out] row* r,
+                               [in] conshdlr h,
+                               [in,string] char* id,
+                               [in] double lhs,
+                               [in] double rhs,
+                               // FIXME: names
+                               [in] boolean ba,
+                               [in] boolean bb,
+                               [in] boolean bc);
+
+retcode SCIPcacheRowExtensions([in] scip s, [in] row r);
+
+retcode SCIPflushRowExtensions([in] scip s, [in] row r);
+
+retcode SCIPaddVarToRow([in] scip s, [in] row r,
+                        [in] var v, [in] double x);
+
+retcode SCIPaddCut([in] scip s, [in] row r,
+                   [in] sol l, [in] boolean force);
+
 // COM interface for theory solvers in OCaml
 
 [object] interface DP : IUnknown {
@@ -249,10 +274,17 @@ retcode SCIPbranchVarHole([in] scip s,
   boolean branch();
 }
 
+[object] interface Cut_Gen : IUnknown {
+  void push_level();
+  void backtrack();
+  boolean generate();
+  boolean check([in] sol s);
+}
+
 // performs congruence closure and dispatches stuff to Ocaml theory
 // solvers
 
-cch new_cc_handler([in] scip s, [in] DP* dp);
+cch new_cc_handler([in] scip s, [in] DP* d, [in] Cut_Gen* c);
 
 void delete_cc_handler([in] cch c);
 
@@ -279,3 +311,5 @@ unsigned long uintptr_t_of_node([in] node n);
 // implemented in native_utils
 
 cons scip_null_cons();
+
+sol scip_null_sol();

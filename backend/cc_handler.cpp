@@ -27,6 +27,16 @@ struct dp {
   virtual bool branch();
 };
 
+struct cut_gen {
+  virtual HRESULT QueryInterface(int iid, void** p) = 0;
+  virtual unsigned long AddRef() = 0;
+  virtual unsigned long Release() = 0;
+  virtual void push_level();
+  virtual void backtrack();
+  virtual void generate();
+  virtual bool check(SCIP_SOL*);
+};
+
 #define ASSERT_SCIP_POINTER(s) \
   assert((s) == scip::ObjEventhdlr::scip_);
 
@@ -161,7 +171,7 @@ void scip_callback_sol::operator()(symbol a, symbol b, llint x)
 
 /* cc_handler methods */
 
-cc_handler::cc_handler(SCIP* scip, dp* d)
+cc_handler::cc_handler(SCIP* scip, dp* d, cut_gen* c)
   : scip::ObjConshdlr(scip, "cc", "congruence closure",
                       1, -100000, -100000,
                       0, 1, 0, -1,
@@ -174,6 +184,7 @@ cc_handler::cc_handler(SCIP* scip, dp* d)
     node_infeasible(false),
     dvar_m(new dvar_map()),
     ocaml_dp(d),
+    ocaml_cut_gen(c),
     cback(new scip_callback(scip, dvar_m.get(), &node_infeasible,
                             &bound_changed)),
     ctx(cback.get()),
@@ -1378,9 +1389,9 @@ void cc_handler::catch_var_events(SCIP_VAR* v)
 
 /* C wrappers */
 
-cc_handler* new_cc_handler(SCIP* s, dp* d)
+cc_handler* new_cc_handler(SCIP* s, dp* d, cut_gen* c)
 {
-  return new cc_handler(s, d);
+  return new cc_handler(s, d, c);
 }
 
 void delete_cc_handler(cc_handler* c)
