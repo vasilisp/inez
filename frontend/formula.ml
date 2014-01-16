@@ -113,3 +113,20 @@ let rec map_non_atomic g ~f ~polarity =
 let rec map g ~f ~polarity =
   map_non_atomic g ~polarity
     ~f:(fun x ~polarity -> F_Atom (f x ~polarity))
+
+let rec iter_non_atomic g ~f ~polarity =
+  match g with
+  | F_True ->
+    ()
+  | F_Atom a ->
+    f a ~polarity
+  | F_Not g ->
+    let polarity = negate_polarity polarity in
+    iter_non_atomic g ~f ~polarity
+  | F_And (g, h) ->
+    iter_non_atomic g ~f ~polarity;
+    iter_non_atomic h ~f ~polarity
+  | F_Ite (q, g, h) ->
+    iter_non_atomic q ~f ~polarity:`Both;
+    iter_non_atomic g ~f ~polarity;
+    iter_non_atomic h ~f ~polarity

@@ -196,6 +196,8 @@ libstdc++.a:
 
 Camlp4o_lib(id, herelib, herelib)
 
+Camlp4o_lib(smtlib_printer, herelib, herelib)
+
 Camlp4o_lib(type, herelib type_conv comparelib sexplib, herelib	\
                   type_conv compare sexp_conv)
 
@@ -229,6 +231,10 @@ OCamlTop(inez, terminology unreachable scip_idl scip util formula	\
          type id logic camlp4_maps pa_logic pre solver script,		\
          native_utils scip_idl_stubs)
 
+OCamlTop(inez-lt, terminology unreachable scip_idl scip util formula	\
+         type id logic camlp4_maps pa_logic pre solver script		\
+         lt-solver, native_utils scip_idl_stubs)
+
 MyOCamlProgram(inez-smt, terminology unreachable scip_idl scip util	\
                formula type id logic pre solver smtlib_lexer		\
                smtlib_parser smtlib_solver smtlib_main, native_utils	\
@@ -236,7 +242,7 @@ MyOCamlProgram(inez-smt, terminology unreachable scip_idl scip util	\
 
 OCamlTop(inez-db, terminology unreachable scip_idl scip util formula	\
          type id logic db_logic camlp4_maps pa_db_logic pre solver	\
-         db_solver db_script, native_utils scip_idl_stubs)
+         bounds db_solver db_script, native_utils scip_idl_stubs)
 
 section
     OCAMLPACKS += ocaml_plugin async
@@ -247,10 +253,18 @@ section
 
 section
     OCAMLPACKS += ocaml_plugin async
+    MyOCamlProgram(inez-lt, terminology unreachable scip_idl scip	\
+                   util formula type id logic pre solver lt_solver	\
+                   script script_main, native_utils scip_idl_stubs	\
+                   ocaml_embedded)
+
+section
+    OCAMLPACKS += ocaml_plugin async
     MyOCamlProgram(inez-db, terminology unreachable scip_idl scip	\
                    util formula type id logic db_logic pre solver	\
-                   db_solver db_script db_eager_script script_main,	\
-                   native_utils scip_idl_stubs db_ocaml_embedded)
+                   bounds db_solver db_script db_eager_script		\
+                   script_main, native_utils scip_idl_stubs		\
+                   db_ocaml_embedded)
 
 camlp4oi.opt: camlp4_maps.cmx pa_logic.cmx
         ocamlfind ocamlopt unix.cmxa dynlink.cmxa -I +camlp4		\
