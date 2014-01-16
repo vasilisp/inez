@@ -35,6 +35,8 @@ typedef util::uintptr_variant<SCIP_NODE*, void*> pnode;
 
 struct dp;
 
+struct cut_gen;
+
 class scip_callback: public cc::callback<symbol> {
 
 private:
@@ -113,6 +115,7 @@ private:
   boost::scoped_ptr<scip_callback> cback;
   context ctx;
   dp* ocaml_dp;
+  cut_gen* ocaml_cut_gen;
 
   // typedef-ing maps, because we frequently have to refer to the
   // types of their iterators
@@ -217,7 +220,7 @@ private:
 
 public:
 
-  cc_handler(SCIP*, dp*);
+  cc_handler(SCIP*, dp*, cut_gen*);
 
   virtual ~cc_handler();
 
@@ -275,7 +278,9 @@ extern "C" {
 #endif
 
 #if defined(__STDC__) || defined(__cplusplus) // ANSI C prototypes
-	extern cc_handler* new_cc_handler(SCIP* s, struct dp*);
+	extern cc_handler* new_cc_handler(SCIP* s,
+					  struct dp*,
+					  struct cut_gen*);
 	extern void delete_cc_handler(cc_handler*);
 	extern void cc_handler_call(cc_handler*,
 				    SCIP_VAR*, llint, char*,
