@@ -1,7 +1,9 @@
 open Core.Std ;;
 open Db_script ;;
 
-Random.init 972143215 ;;
+let state = Random.State.make [215143; 6764; 936217; 435] ;;
+
+let random_int = Random.State.int state ;;
 
 type employee = (
   Int,  (* ID *)
@@ -56,7 +58,7 @@ type ugen = {
 let make_ugen n =
   let h = Int.Table.create () ~size:(n / 2) in
   let rec u_gen () =
-    let i = Random.int n in
+    let i = random_int n in
     match Hashtbl.find h i with
     | Some _ ->
       u_gen ()
@@ -78,7 +80,7 @@ let employee_ids =
 
 let random_employee_id () =
   let n = List.length employee_ids in
-  let n = Random.int n in
+  let n = random_int n in
   List.nth_exn employee_ids n
 
 let manager_ids =
@@ -107,7 +109,7 @@ let projects, project_ids =
   List.fold_left manager_ids ~init:([], [])
     ~f:(fun (lp, li) mid ->
       let mid = toi mid in
-      let n = Random.int (max_projects_per_manager + 1) in
+      let n = random_int (max_projects_per_manager + 1) in
       let project_ids = List.init n ~f
       and f pid = make_row_project (toi pid, mid) in
       let projects = List.map project_ids ~f in
@@ -120,7 +122,7 @@ let memberships =
     ~init:[]
     ~f:(fun acc pid ->
       let pid = toi pid in
-      let n = Random.int (max_members_per_project + 1) in
+      let n = random_int (max_members_per_project + 1) in
       List.init n
         ~f:(fun _ ->
           let eid = toi (random_employee_id ()) in

@@ -1,7 +1,7 @@
 #ifndef CC_HPP_
 #define CC_HPP_
 
-// #define DEBUG
+#define DEBUG
 
 #include "util.hpp"
 

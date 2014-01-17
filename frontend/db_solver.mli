@@ -5,7 +5,7 @@ module Make :
 
 sig
 
-  type mode = [`Eager | `Lazy]
+  type mode = [`Eager | `Lazy | `Smt_out]
 
   include Ctx_intf.S_creatable with type carg := mode
 

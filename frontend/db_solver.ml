@@ -2,6 +2,7 @@ open Core.Std
 open Db_logic
 open Terminology
 open Core.Int_replace_polymorphic_compare
+open Bounds
 
 let array_foldi_responses a ~f =
   let n = Array.length a in
@@ -65,31 +66,6 @@ let list_foldi_responses l ~f =
       acc in
   g 0 l N_Ok
 
-module Lb = struct
-  let (<=) lb lb' =
-    let lb =  Option.value lb  ~default:Int63.min_value
-    and lb' = Option.value lb' ~default:Int63.min_value in
-    Int63.(lb <= lb')
-end
-
-module Ub = struct
-  let (<=) ub ub' =
-    let ub  = Option.value ub  ~default:Int63.max_value
-    and ub' = Option.value ub' ~default:Int63.max_value in
-    Int63.(ub <= ub')
-end
-  
-module Lb_ub = struct
-  let (<=) lb ub =
-    let lb = Option.value lb ~default:Int63.min_value
-    and ub = Option.value ub ~default:Int63.max_value in
-    Int63.(lb <= ub)
-end
-
-module Ub_lb = struct
-  let (<=) a b = Lb_ub.(b <= a)
-end
-
 module Zom = struct
 
   type 'a t = Z0 | Z1 of 'a | Zn of int
@@ -134,6 +110,8 @@ let intercept_response s r =
   r
 
 module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
+
+  module Smt = Smtlib_printer.Make(I)
 
   type int_id = (I.c, int) Id.t
   
@@ -362,8 +340,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         Array.map ~f
 
       let bounds_within_for_dim (lb, ub) (lb', ub') =
-        (Lb.(lb' <= lb) && Lb_ub.(lb <= ub')) ||
-          (Lb_ub.(lb' <= ub) && Ub.(ub <= ub'))
+        (LL.(lb' <= lb) && LU.(lb <= ub')) ||
+          (LU.(lb' <= ub) && UU.(ub <= ub'))
 
       let bounds_within_for_dim b b' =
         bounds_within_for_dim b b' || bounds_within_for_dim b' b
@@ -757,10 +735,10 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       let branch_on_column r r' (lb, ub) ov n =
         let lb =
           let lb' = lb_of_ovar r' ov in
-          if Lb.(lb <= lb') then lb' else lb
+          if LL.(lb <= lb') then lb' else lb
         and ub =
           let ub' = ub_of_ovar r' ov in
-          if Ub.(ub' <= ub) then ub' else ub in
+          if UU.(ub' <= ub) then ub' else ub in
         let lb = Option.value_exn lb ~here:_here_
         and ub = Option.value_exn ub ~here:_here_ in
         not (Int63.(equal lb max_value)) &&
@@ -895,11 +873,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
 
   module S' = Solver.Make(Imt')(I)
 
-  (* 2nd namespace; to be used for dummy variables *)
-  (* module I' = Id.Make(struct end) *)
-  module I' = I
-
-  module C =  Logic.Make_term_conv(M)(Logic.M)
+ module C =  Logic.Make_term_conv(M)(Logic.M)
 
   type ibentry =
     (S'.ovar Lazy.t, S'.xvar Lazy.t) ibeither
@@ -910,50 +884,51 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
 
   type d_boxed = DBox : (I.c, 's) R.t list -> d_boxed
 
-  type mode = [`Eager | `Lazy]
+  type mode = [`Eager | `Smt_out | `Lazy]
   
   type ctx = {
     r_ctx           :  S'.ctx;
     r_bg_ctx        :  Imt'.ctx;
     r_theory_ctx    :  Theory_solver.ctx;
-    r_eager         :  bool;
+    r_mode          :  mode;
     r_table_lazy_h  :  (d_boxed, table_lazy) Hashtbl.t;
     r_in_m          :  (bool_id, in_constraint_lazy list) Hashtbl.t;
+    r_smtlib_ctx    :  Smt.ctx option;
   }
 
-  let make_ctx mode =
+  let make_ctx r_mode =
     let r_theory_ctx = Theory_solver.make_ctx () in
-    let r_eager =
-      match mode with
-      | `Lazy ->
-        false
-      | `Eager ->
-        true in
     let r_bg_ctx = Imt'.make_ctx r_theory_ctx in {
       r_ctx =
         S'.make_ctx r_bg_ctx;
       r_bg_ctx;
       r_theory_ctx;
-      r_eager;
+      r_mode;
       (* TODO : monomorphic hashtable *)
       r_table_lazy_h =
         Hashtbl.Poly.create () ~size:32;
       r_in_m = 
         Hashtbl.create () ~size:10240 ~hashable:hashable_bool_id;
+      r_smtlib_ctx =
+        match r_mode with
+        | `Smt_out ->
+          Some (Smt.make_ctx ())
+        | _ ->
+          None
     }
 
   let rec get_dummy_row :
-  type s . s S.t -> (I'.c, s) R.t =
+  type s . s S.t -> (I.c, s) R.t =
     function
     | S.S_Int ->
-      R.R_Int (M.M_Var (I'.gen_id Type.Y_Int))
+      R.R_Int (M.M_Var (I.gen_id Type.Y_Int))
     | S.S_Bool ->
-      R.R_Bool (M.M_Var (I'.gen_id Type.Y_Bool))
+      R.R_Bool (M.M_Var (I.gen_id Type.Y_Bool))
     | S.S_Pair (a, b) ->
       R.R_Pair (get_dummy_row a, get_dummy_row b)
 
   let rec get_dummy_row_db :
-  type s . (I'.c, s) D.t -> (I'.c, s) R.t =
+  type s . (I.c, s) D.t -> (I.c, s) R.t =
     function
     | D.D_Rel (s, _) ->
       get_dummy_row s
@@ -1207,12 +1182,12 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
 
   and purify_atom :
   ctx -> I.c A.t -> polarity:polarity -> I.c Logic.A.t Formula.t = 
-    fun ({r_ctx; r_eager} as x) a ~polarity ->
-      match a, polarity with
-      | A.A_Exists d, `Positive when r_eager ->
+    fun ({r_ctx; r_mode} as x) a ~polarity ->
+      match a, polarity, r_mode with
+      | A.A_Exists d, `Positive, (`Smt_out | `Eager) ->
         let r = get_symbolic_row_db d in
         purify_membership_eager x d r
-      | A.A_Exists d, `Positive ->
+      | A.A_Exists d, `Positive, _ ->
         let l, g =
           let r = get_symbolic_row_db d in
           purify_membership x d r
@@ -1222,22 +1197,22 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
           (Formula.F_Atom
              (Logic.A.A_Bool
                 (Logic.M.M_Var b)))
-      | A.A_Exists d, _ ->
+      | A.A_Exists d, _, _ ->
         let l, d = path_and_data_of_db d in
         let f r =
           let f g = purify_formula x (g r) ~polarity in 
           Formula.forall l ~f
         and d = Option.value_exn ~here:_here_ d in
         Formula.exists d ~f
-      | A.A_Bool b, _ ->
+      | A.A_Bool b, _, _ ->
         Formula.F_Atom
           (Logic.A.A_Bool
              (C.map_non_atomic b ~f:(purify_atom x) ~fv))
-      | A.A_Le s, _ ->
+      | A.A_Le s, _, _ ->
         Formula.F_Atom
           (Logic.A.A_Le
              (C.map_non_atomic s ~f:(purify_atom x) ~fv))
-      | A.A_Eq s, _ ->
+      | A.A_Eq s, _, _ ->
         Formula.F_Atom
           (Logic.A.A_Eq
              (C.map_non_atomic s ~f:(purify_atom x) ~fv))
@@ -1263,29 +1238,40 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     Int63.(Imt'.add_eq r [minus_one, v1; one, v2; one, v] zero);
     v
 
-  let solve ({r_ctx; r_bg_ctx; r_theory_ctx; r_in_m; r_eager} as x) =
-    if r_eager && not (Hashtbl.is_empty r_in_m) then
+  let solve ({r_ctx; r_bg_ctx; r_theory_ctx; r_in_m; r_mode;
+              r_smtlib_ctx} as x) =
+    match r_mode with
+    | `Lazy ->
+      let f ~key ~data =
+        let v = S'.bvar_of_id r_ctx key
+        and fd = name_diff r_bg_ctx
+        and frv = Imt'.register_ivar r_bg_ctx in
+        Imt'.register_bvar r_bg_ctx v;
+        let f (e, l) =
+          Theory_solver.assert_membership
+            r_theory_ctx
+            v (force_row x e) (Lazy.force l) ~fd ~frv in
+        List.iter data ~f in
+      Hashtbl.iter r_in_m ~f;
+      let r = S'.solve r_ctx in
+      Theory_solver.print_stats r_theory_ctx; r
+    | `Eager when Hashtbl.is_empty r_in_m ->
+      S'.solve r_ctx
+    | `Eager ->
       raise (Unreachable.Exn _here_)
-    else if not r_eager then
-      Hashtbl.iter r_in_m
-        ~f:(fun ~key ~data ->
-          let v = S'.bvar_of_id r_ctx key
-          and fd = name_diff r_bg_ctx
-          and frv = Imt'.register_ivar r_bg_ctx in
-          Imt'.register_bvar r_bg_ctx v;
-          List.iter data
-            ~f:(fun (e, l) ->
-              Theory_solver.assert_membership
-                r_theory_ctx
-                v (force_row x e) (Lazy.force l) ~fd ~frv));
-    let r = S'.solve r_ctx in
-    Theory_solver.print_stats r_theory_ctx; r
+    | `Smt_out ->
+      let r_smtlib_ctx = Option.value_exn ~here:_here_ r_smtlib_ctx in
+      Smt.solve r_smtlib_ctx;
+      R_Unknown
 
-  let add_objective ({r_ctx} as x) o =
-    if in_fragment_term ~under_forall:false o then
+  let add_objective ({r_ctx; r_mode} as x) o =
+    match r_mode with
+    | `Smt_out ->
+      `Out_of_fragment
+    | _ when in_fragment_term ~under_forall:false o ->
       let o = C.map_non_atomic o ~f:(purify_atom x) ~fv in
       S'.add_objective r_ctx o
-    else
+    | _ ->
       `Out_of_fragment
  
   let write_bg_ctx {r_ctx} =

@@ -1,7 +1,7 @@
 open Core.Std ;;
 open Db_script ;;
 
-Random.init 342536 ;;
+(* Random.init 342536 ;; *)
 
 type project = (
   Int, (* ID *)

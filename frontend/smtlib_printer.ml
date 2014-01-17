@@ -8,10 +8,23 @@ module Make (I : Id.Accessors) = struct
 
   type formula = I.c A.t Formula.t
 
+  let hashable_idbox = {
+    Hashtbl.Hashable.
+    hash = Hashtbl.hash;
+    compare = Id.Box.compare I.compare_c;
+    sexp_of_t = Id.Box.sexp_of_t I.sexp_of_c
+  }
+
   type ctx = {
     r_constraints       :  formula Dequeue.t;
     r_ids               :  (I.c Id.Box.t, int) Hashtbl.t;
     mutable r_ids_next  :  int;
+  }
+
+  let make_ctx () = {
+    r_constraints  =  Dequeue.create ();
+    r_ids          =  Hashtbl.create () ~hashable:hashable_idbox;
+    r_ids_next     =  0
   }
 
   let rec register_ids_term :

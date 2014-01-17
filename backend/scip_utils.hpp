@@ -29,6 +29,8 @@ SCIP_VAR* scip_dvar(SCIP*, SCIP_VAR*, SCIP_VAR*);
 
 bool scip_fix_variable(SCIP*, SCIP_VAR*, llint, bool*);
 
+void scip_fix_diff(SCIP*, SCIP_CONSHDLR*, SCIP_VAR*, SCIP_VAR*, llint);
+
 void scip_branch_around_val(SCIP*, SCIP_VAR*, llint);
 
 void scip_include_default_plugins(SCIP*);

@@ -2,7 +2,7 @@
 
 #include "scip/debug.h"
 
-// #define DEBUG
+#define DEBUG
 
 // FIXME: copy-pasted function
 inline const char* var_id(SCIP_VAR *v) {
@@ -32,10 +32,35 @@ SCIP_VAR* scip_dvar(SCIP* scip, SCIP_VAR* a, SCIP_VAR* b)
   sa(SCIPcreateConsLinear 
      (scip, &cons, cons_id, 3, vars, coefs, 0, 0,
       TRUE, TRUE, TRUE, TRUE, TRUE,
-      FALSE, FALSE, FALSE, FALSE, TRUE));
+      FALSE, FALSE, FALSE, FALSE, FALSE));
   sa(SCIPaddCons(scip, cons));
 
   return rval;
+
+}
+
+void scip_fix_diff(SCIP* scip, SCIP_CONSHDLR* conshdlr,
+                   SCIP_VAR* a, SCIP_VAR* b, llint x)
+{
+
+  assert(a != b);
+  assert(a && b && scip && conshdlr);
+
+  static unsigned int n = 0;
+  char row_id[64];
+  SCIP_ROW* row;
+  // SCIP_VAR* vars[2] = {a, b};
+  // SCIP_Real coefs[3] = {1, -1};
+
+  sprintf(row_id, "drow%d", n++);
+  sa(SCIPcreateEmptyRowCons(scip, &row, conshdlr,
+                            row_id, x, x, TRUE, FALSE, FALSE));
+  sa(SCIPcacheRowExtensions(scip, row));
+  sa(SCIPaddVarToRow(scip, row, a, 1.0));
+  sa(SCIPaddVarToRow(scip, row, b, -1.0));
+  sa(SCIPflushRowExtensions(scip, row));
+  sa(SCIPaddCut(scip, NULL, row, TRUE));
+  cout << "added cut" << endl;
 
 }
 

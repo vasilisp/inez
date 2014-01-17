@@ -12,6 +12,8 @@ type bird = (Int, Int, Int) Schema ;;
 
 type env = (Int, Int, Int) Schema ;;
 
+type quarter_space = (Int, Int) Schema ;;
+
 let birds =
   make_db_bird
     (List.map ~f:make_row_bird
@@ -50,21 +52,22 @@ let env =
 
 let y = fresh_int_var () ;;
 
+let qs =
+  make_rel_quarter_space
+    (fun (x', y' : Row) -> ~logic (x' >= 30 && y' >= y))
+;;
+
 let cp =
-  let env =
-    ~logic
-      (sel env
-         (fun (_, latitude, longitude : Row) ->
-           longitude >= y && latitude >= 30)) in
   ~logic
-    (sel (cross env birds)
-       (fun (id, _, _, id', _, _ : Row) -> id = id')) ;;
+    (sel (cross qs (cross env birds))
+       (fun (y1, x1, id, y2, x2, id', _, _ : Row) ->
+         x1 = x2 && y1 = y2 && id = id')) ;;
 
 constrain
   (~logic
       (exists
          (sel cp
-            (fun (_, _, _, _, y, n : Row) ->
+            (fun (_, _, _, _, _, _, y, n : Row) ->
               y = 43 && n >= 500)))) ;;
 
 minimize (~logic (- y)) ;;

@@ -90,12 +90,4 @@ module Make (Imt : Imt_intf.S_access) (I : Id.S) = struct
     let o = C.map_non_atomic o ~f:purify_atom ~fv in
     add_objective r o
 
-  (* let write_bg_ctx = S.write_bg_ctx *)
-
-  (* let deref_int = S.deref_int *)
-
-  (* let deref_bool = S.deref_bool *)
-
-  (* let solve = S.solve *)
-
 end
