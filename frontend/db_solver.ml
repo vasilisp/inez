@@ -35,7 +35,7 @@ let dequeue_fold_responses d ~f =
 let dequeue_exists_with_swap d ~f =
   let rec g i n = 
     if i <= n then
-      let a = Dequeue.get d i in
+      let a = Dequeue.get_opt d i in
       let a = Option.value_exn a ~here:_here_ in
       if f a then
         true
@@ -522,7 +522,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
           let n = Option.value_exn n ~here:_here_ in
           let rec g i acc =
             if i <= n then
-              match Dequeue.get d i with
+              match Dequeue.get_opt d i with
               | Some (_, _, _, {contents = _} as o) ->
                 (match f i o with
                 | N_Unsat ->
