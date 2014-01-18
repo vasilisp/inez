@@ -95,7 +95,7 @@ module Make (I : Id.Accessors) = struct
     let l = List.map l ~f:string_of_ibtype
     and r = string_of_ibtype r in
     let s_l = String.concat l ~sep:" " in
-    Printf.printf "(declare-fun s%d (%s) %s)\n" data s_l r
+    Printf.printf "(declare-fun c%d (%s) %s)\n" data s_l r
 
   let pp_ids {r_ids} =
     Hashtbl.iter r_ids ~f:pp_id
@@ -104,6 +104,13 @@ module Make (I : Id.Accessors) = struct
     Printf.sprintf "c%d"
       (Option.value_exn ~here:_here_
          (Hashtbl.find r_ids (Id.Box.Box id)))
+
+  let string_of_int63 x =
+    let open Int63 in
+    if x < zero then
+      Printf.sprintf "(- %s)" (Int63.to_string (- x))
+    else
+      Int63.to_string x
 
   let rec id_and_strings_of_app :
   type s t . ctx ->
@@ -122,14 +129,14 @@ module Make (I : Id.Accessors) = struct
     | M.M_Bool g ->
       string_of_formula r g
     | M.M_Int x ->
-      Int63.to_string x
+      string_of_int63 x
     | M.M_Sum (s, t) ->
       Printf.sprintf "(+ %s %s)"
         (string_of_term r s)
         (string_of_term r t)
     | M.M_Prod (x, s) ->
       Printf.sprintf "(* %s %s)"
-        (Int63.to_string x)
+        (string_of_int63 x)
         (string_of_term r s)
     | M.M_Ite (c, s, t) ->
       Printf.sprintf "(ite %s %s %s)"
@@ -169,13 +176,14 @@ module Make (I : Id.Accessors) = struct
         (string_of_formula r h)
 
   let pp_constraint r g =
-    print_endline (string_of_formula r g)
+    Printf.printf "(assert %s)\n" (string_of_formula r g)
 
   let pp_constraints ({r_constraints} as r) =
     Dequeue.iter r_constraints ~f:(pp_constraint r)
 
   let solve r =
     pp_ids r;
-    pp_constraints r
+    pp_constraints r;
+    print_endline "(check-sat)"
 
 end

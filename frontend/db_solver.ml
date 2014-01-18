@@ -873,7 +873,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
 
   module S' = Solver.Make(Imt')(I)
 
- module C =  Logic.Make_term_conv(M)(Logic.M)
+  module C =  Logic.Make_term_conv(M)(Logic.M)
 
   type ibentry =
     (S'.ovar Lazy.t, S'.xvar Lazy.t) ibeither
@@ -1226,10 +1226,20 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     else
       None
 
-  let assert_formula ({r_ctx} as x) g =
+  let assert_formula_smtlib {r_mode; r_smtlib_ctx} g =
+    match r_mode with
+    | `Smt_out ->
+      let r_smtlib_ctx = Option.value_exn ~here:_here_ r_smtlib_ctx in
+      Smt.assert_formula r_smtlib_ctx g
+    | _ ->
+      ()
+
+  let assert_formula ({r_ctx; r_mode} as x) g =
     match purify_formula_top x g with
     | Some g ->
-      S'.assert_formula r_ctx g; `Ok
+      S'.assert_formula r_ctx g;
+      assert_formula_smtlib x g;
+      `Ok
     | None ->
       `Out_of_fragment
 
