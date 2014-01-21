@@ -198,7 +198,8 @@ cc_handler::cc_handler(SCIP* scip, dp* d, cut_gen* c)
     ffcall_m(),
     vars(),
     dvars(),
-    frames()
+    frames(),
+    catchq()
 {}
 
 cc_handler::~cc_handler()
@@ -238,6 +239,7 @@ void cc_handler::catch_variable(SCIP_VAR* v, bool catch_bound)
   
   // SCIPcatchVarEvent expects a transformed variable; create one
   sa(SCIPtransformVar(scip, v, &v_trans));
+  v_trans = v;
   sa(SCIPcaptureVar(scip, v_trans));
   
   orig_var_m.emplace(v_trans, v);
@@ -1101,10 +1103,15 @@ SCIP_RETCODE cc_handler::scip_init(SCIP* s, SCIP_EVENTHDLR* eh)
   ASSERT_SCIP_POINTER(s);
 
   sa(SCIPcatchEvent(s, SCIP_EVENTTYPE_NODEFOCUSED, eh, NULL, NULL));
+
   BOOST_FOREACH (SCIP_VAR* v, vars)
     if(v) catch_variable(v, false);
+
   BOOST_FOREACH (SCIP_VAR* dv, dvars)
     catch_variable(dv, true); 
+
+  BOOST_FOREACH (SCIP_VAR* v, catchq)
+    if (v) catch_var_events_impl(v); 
 
   return SCIP_OKAY;
 
@@ -1357,7 +1364,8 @@ void cc_handler::include()
   sa(SCIPincludeObjEventhdlr(scip, this, false));
 }
 
-void cc_handler::catch_var_events(SCIP_VAR* v)
+// FIXME: can it be merged with catch_variable?
+void cc_handler::catch_var_events_impl(SCIP_VAR* v)
 {
 
   SCIP*& scip = scip::ObjEventhdlr::scip_;
@@ -1385,6 +1393,11 @@ void cc_handler::catch_var_events(SCIP_VAR* v)
      (scip, v_trans, SCIP_EVENTTYPE_VARDELETED, eh,
       NULL, NULL));
 
+}
+
+void cc_handler::catch_var_events(SCIP_VAR* v)
+{
+  catchq.push_back(v);
 }
 
 /* C wrappers */

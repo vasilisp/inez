@@ -159,6 +159,7 @@ private:
   vector<SCIP_VAR*> dvars;
   vector<pnode> frames;
   vector<fcall> fcalls;
+  vector<SCIP_VAR*> catchq;
 
   SCIP_VAR* orig_var(SCIP_VAR*);
   void catch_variable(SCIP_VAR*, bool);
@@ -258,6 +259,8 @@ public:
 
   void call(const scip_ovar&, const string&,
             const vector<scip_ovar>&);
+
+  void catch_var_events_impl(SCIP_VAR*);
 
   void catch_var_events(SCIP_VAR*);
 
