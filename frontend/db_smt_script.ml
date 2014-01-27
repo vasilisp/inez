@@ -65,4 +65,12 @@ let string_of_result =
     "unknown"
 
 (* does not actually print result; for homogeneity w/ db_script *)
-let solve_print_result = solve
+let solve_print_result () =
+  ignore (solve ())
+
+let argv =
+  if !Sys.interactive then
+    Sys.argv
+  else
+    let open Core.Std.Array in
+    slice Sys.argv 1 (length Sys.argv)

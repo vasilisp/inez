@@ -204,6 +204,7 @@ module Make (I : Id.Accessors) = struct
     Dequeue.iter r_constraints ~f:(print_constraint oc r)
 
   let solve r =
+    Printf.printf "(set-logic QF_UFLIA)\n";
     print_declarations stdout r;
     print_constraints stdout r;
     print_endline "(check-sat)"
