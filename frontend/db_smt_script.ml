@@ -2,7 +2,7 @@ module Id' = Id.Make (struct end)
 
 module S = Db_solver.Make(Scip.Scip_with_dp)(Id')
 
-let ctx = S.make_ctx `Eager
+let ctx = S.make_ctx `Smt_out
 
 type c = Id'.c
 
@@ -64,5 +64,5 @@ let string_of_result =
   | R_Unknown ->
     "unknown"
 
-let solve_print_result () =
-  print_endline (string_of_result (solve ()))
+(* does not actually print result; for homogeneity w/ db_script *)
+let solve_print_result = solve

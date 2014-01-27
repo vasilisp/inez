@@ -56,3 +56,6 @@ let minimize o =
     ()
   | `Duplicate ->
     raise (Invalid_argument "problem has objective already")
+
+let solve_print_result () =
+  print_endline (string_of_result (solve ()))

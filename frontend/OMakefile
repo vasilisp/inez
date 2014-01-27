@@ -4,13 +4,13 @@ open build/OCaml
 BYTE_ENABLED = true
 NATIVE_ENABLED = true
 OCAMLFLAGS += -thread -unsafe
-OCAMLOPTFLAGS += -inline 100000
-# OCAMLOPTFLAGS += -g
+OCAMLOPTFLAGS += -inline 30
+OCAMLOPTFLAGS += -g
 USE_OCAMLFIND = true
 OCAMLPACKS = core camlidl herelib
 INCLUDES = $(CAMLIDL_INCLUDE_PATH) $(OCAML_INCLUDE_PATH)
 
-CFLAGS += -O3
+# CFLAGS += -O3
 
 OCAMLDEP_MODULES_ENABLED = true
 
@@ -28,7 +28,7 @@ private.CMI_FILES_EMBED = terminology.cmi type.cmi formula.cmi	\
 
 private.CMI_FILES_EMBED_DB = terminology.cmi type.cmi formula.cmi	\
     logic.cmi db_logic_intf.cmi db_logic.cmi db_script.cmi		\
-    db_eager_script.cmi
+    db_smt_script.cmi db_eager_script.cmi
 
 scip_idl.ml scip_idl.mli scip_idl.h scip_idl_stubs.c: scip_idl.idl
     camlidl -header scip_idl.idl
@@ -264,8 +264,8 @@ section
     MyOCamlProgram(inez-db, terminology unreachable scip_idl scip	\
                    util formula type id logic db_logic pre solver	\
                    bounds smtlib_printer db_solver db_script		\
-                   db_eager_script script_main, native_utils		\
-                   scip_idl_stubs db_ocaml_embedded)
+                   db_smt_script db_eager_script script_main,		\
+                   native_utils scip_idl_stubs db_ocaml_embedded)
 
 camlp4oi.opt: camlp4_maps.cmx pa_logic.cmx
         ocamlfind ocamlopt unix.cmxa dynlink.cmxa -I +camlp4		\

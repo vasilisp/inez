@@ -848,8 +848,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
 
       let push_level ({r_stats} as r) _ =
         r.r_level <- r.r_level + 1;
-        r_stats.s_maxdepth <- max r_stats.s_maxdepth r.r_level;
-        r_stats.s_push_level <- r_stats.s_push_level + 1
+        r.r_stats.s_maxdepth <- max r.r_stats.s_maxdepth r.r_level;
+        r.r_stats.s_push_level <- r.r_stats.s_push_level + 1
 
       let backtrack ({r_occ_h; r_stats} as r) _ =
         assert (r.r_level >= 0);
@@ -1226,20 +1226,18 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     else
       None
 
-  let assert_formula_smtlib {r_mode; r_smtlib_ctx} g =
+  let assert_formula {r_mode; r_ctx; r_smtlib_ctx} g =
     match r_mode with
     | `Smt_out ->
       let r_smtlib_ctx = Option.value_exn ~here:_here_ r_smtlib_ctx in
       Smt.assert_formula r_smtlib_ctx g
     | _ ->
-      ()
+      S'.assert_formula r_ctx g
 
   let assert_formula ({r_ctx; r_mode} as x) g =
     match purify_formula_top x g with
     | Some g ->
-      S'.assert_formula r_ctx g;
-      assert_formula_smtlib x g;
-      `Ok
+      assert_formula x g; `Ok
     | None ->
       `Out_of_fragment
 

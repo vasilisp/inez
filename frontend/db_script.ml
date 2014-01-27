@@ -63,3 +63,6 @@ let string_of_result =
     "unsat"
   | R_Unknown ->
     "unknown"
+
+let solve_print_result () =
+  print_endline (string_of_result (solve ()))

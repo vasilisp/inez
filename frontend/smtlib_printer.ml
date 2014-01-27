@@ -89,101 +89,123 @@ module Make (I : Id.Accessors) = struct
     | Type.E_Int -> i
     | Type.E_Bool -> b
 
-  let pp_id ~key:(Id.Box.Box id) ~data =
+  let print_declaration oc ~key:(Id.Box.Box id) ~data =
+    Printf.fprintf oc "(declare-fun c%d (" data;
     let y = I.type_of_t id in
     let l, r = args_and_ret_of_type [] y in
-    let l = List.map l ~f:string_of_ibtype
-    and r = string_of_ibtype r in
-    let s_l = String.concat l ~sep:" " in
-    Printf.printf "(declare-fun c%d (%s) %s)\n" data s_l r
+    (let f = Fn.compose (output_string oc) string_of_ibtype in
+     List.iter l ~f);
+    Printf.fprintf oc " ) %s)\n" (string_of_ibtype r)
 
-  let pp_ids {r_ids} =
-    Hashtbl.iter r_ids ~f:pp_id
+  let print_declarations oc {r_ids} =
+    Hashtbl.iter r_ids ~f:(print_declaration oc)
 
-  let string_of_id {r_ids} id =
-    Printf.sprintf "c%d"
+  let print_id oc {r_ids} id =
+    Printf.fprintf
+      oc "c%d "
       (Option.value_exn ~here:_here_
          (Hashtbl.find r_ids (Id.Box.Box id)))
 
-  let string_of_int63 x =
+  let print_int63 oc x =
     let open Int63 in
     if x < zero then
-      Printf.sprintf "(- %s)" (Int63.to_string (- x))
+      Printf.fprintf oc "(- %s) " (Int63.to_string (- x))
     else
-      Int63.to_string x
+      Printf.fprintf oc "%s " (Int63.to_string x)
 
-  let rec id_and_strings_of_app :
-  type s t . ctx ->
-    (I.c, s -> t) M.t -> acc:string list -> string * string list =
-    fun r s ~acc ->
+  let rec iter_conjunction g ~f =
+    match g with
+    | Formula.F_And (a, b) ->
+      iter_conjunction a ~f;
+      iter_conjunction b ~f
+    | _ ->
+      f g 
+
+  let rec print_app_aux :
+  type s t . out_channel -> ctx -> (I.c, s -> t) M.t -> unit =
+    fun oc r s ->
       match s with
       | M.M_Var id ->
-        string_of_id r id, List.rev acc
+        print_id oc r id
       | M.M_App (f, s) ->
-        let acc = string_of_term r s :: acc in
-        id_and_strings_of_app r f ~acc
+        print_app_aux oc r f;
+        (* FIXME *)
+        print_term oc r s
 
-  and string_of_term :
-  type s . ctx -> (I.c, s) M.t -> string =
-    fun ({r_ids} as r) -> function
+  and print_term :
+  type s . out_channel -> ctx -> (I.c, s) M.t -> unit =
+    fun oc ({r_ids} as r) -> function
     | M.M_Bool g ->
-      string_of_formula r g
+      print_formula oc r g
     | M.M_Int x ->
-      string_of_int63 x
+      print_int63 oc x
     | M.M_Sum (s, t) ->
-      Printf.sprintf "(+ %s %s)"
-        (string_of_term r s)
-        (string_of_term r t)
+      output_string oc "(+ ";
+      print_term oc r s;
+      print_term oc r t;
+      output_string oc ") "
     | M.M_Prod (x, s) ->
-      Printf.sprintf "(* %s %s)"
-        (string_of_int63 x)
-        (string_of_term r s)
+      output_string oc "(* ";
+      print_int63 oc x;
+      print_term oc r s;
+      output_string oc ") ";
     | M.M_Ite (c, s, t) ->
-      Printf.sprintf "(ite %s %s %s)"
-        (string_of_formula r c)
-        (string_of_term r s)
-        (string_of_term r t)
+      output_string oc "(ite ";
+      print_formula oc r c;
+      print_term oc r s;
+      print_term oc r t;
+      output_string oc ") "
     | M.M_App (f, s) ->
-      let acc = [string_of_term r s] in
-      let id, l = id_and_strings_of_app r f ~acc in
-      Printf.sprintf "(%s %s)" id (String.concat l ~sep:" ")
+      output_string oc "(";
+      print_app_aux oc r f;
+      print_term oc r s;
+      output_string oc ") "
     | M.M_Var id ->
-      string_of_id r id
+      print_id oc r id
 
-  and string_of_atom r = function
+  and print_atom oc r = function
     | A.A_Bool b ->
-      string_of_term r b
+      print_term oc r b
     | A.A_Le s ->
-      Printf.sprintf "(<= %s 0)" (string_of_term r s)
+      output_string oc "(<= ";
+      print_term oc r s;
+      output_string oc " 0) "
     | A.A_Eq s ->
-      Printf.sprintf "(= %s 0)" (string_of_term r s)
+      output_string oc "(= ";
+      print_term oc r s;
+      output_string oc " 0) "
 
-  and string_of_formula r = function
+  and print_formula oc r = function
     | Formula.F_True ->
-      "true"
+      output_string oc "true "
     | Formula.F_Atom a ->
-      string_of_atom r a
+      print_atom oc r a
     | Formula.F_Not g ->
-      Printf.sprintf "(not %s)" (string_of_formula r g)
-    | Formula.F_And (g, h) ->
-      Printf.sprintf "(and %s %s)"
-        (string_of_formula r g)
-        (string_of_formula r h)
+      output_string oc "(not ";
+      print_formula oc r g;
+      output_string oc ") "
+    | Formula.F_And (_, _) as g ->
+      output_string oc "(and ";
+      iter_conjunction g ~f:(print_formula oc r);
+      output_string oc ") "
     | Formula.F_Ite (c, g, h) ->
-      Printf.sprintf "(ite %s %s %s)"
-        (string_of_formula r c)
-        (string_of_formula r g)
-        (string_of_formula r h)
+      output_string oc "(ite ";
+      print_formula oc r c;
+      print_formula oc r g;
+      print_formula oc r h;
+      output_string oc ") "
 
-  let pp_constraint r g =
-    Printf.printf "(assert %s)\n" (string_of_formula r g)
+  let print_constraint oc r g =
+    output_string oc "(assert ";
+    print_formula oc r g;
+    output_string oc ")\n"
 
-  let pp_constraints ({r_constraints} as r) =
-    Dequeue.iter r_constraints ~f:(pp_constraint r)
+  let print_constraints oc ({r_constraints} as r) =
+    Dequeue.iter r_constraints ~f:(print_constraint oc r)
 
   let solve r =
-    pp_ids r;
-    pp_constraints r;
+    print_declarations stdout r;
+    print_constraints stdout r;
     print_endline "(check-sat)"
 
 end

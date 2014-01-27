@@ -24,5 +24,7 @@ module type S = sig
   val gen_id : 's Type.t -> (c, 's) Id.t
 
   val string_of_result : Terminology.result -> string
+    
+  val solve_print_result : unit -> unit
 
 end
