@@ -1262,7 +1262,8 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         List.iter data ~f in
       Hashtbl.iter r_in_m ~f;
       let r = S'.solve r_ctx in
-      Theory_solver.print_stats r_theory_ctx; r
+      if !Sys.interactive then Theory_solver.print_stats r_theory_ctx;
+      r
     | `Eager when Hashtbl.is_empty r_in_m ->
       S'.solve r_ctx
     | `Eager ->

@@ -1,7 +1,7 @@
 open Core.Std ;;
-open Db_script ;;
+open Db_eager_script ;;
 
-let state = Random.State.make [215143; 6764; 936217; 435] ;;
+let state = Random.State.make [|215143; 6764; 936217; 435|] ;;
 
 let random_int = Random.State.int state ;;
 

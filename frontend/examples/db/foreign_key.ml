@@ -25,11 +25,17 @@ let n_managers =
   else
     20 ;;
 
-Printf.printf "%d %d\n%!" n_projects n_managers ;;
-
 (* project_ids = [v_0; v_1; ...; v_{n - 1}] *)
 
 let project_ids = List.init n_projects ~f:(fun _ -> fresh_int_var ()) ;;
+
+(*
+let rec f = function
+  | a :: (ad :: _ as d) ->
+    constrain (~logic (a <= ad)); f d
+  | _ -> () in
+f project_ids ;;
+*)
 
 (* projects = [0, v_0; 1, v_1; ...; n - 1, v_{n - 1}] *)
 
