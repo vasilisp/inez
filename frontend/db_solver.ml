@@ -196,7 +196,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
     }
 
     type mbounds_value =
-      bounds_array * (row * bounds_array) Zom.t * bool
+      bounds_array * row Zom.t * bool
 
     type stats = {
       mutable s_propagate     :  int;
@@ -580,12 +580,14 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
             else
               a.(i) <- (Option.map2 lb lb' ~f:Int63.min,
                         Option.map2 ub ub' ~f:Int63.max));
-        let equal (_, a) (_, a') =
-          let eq1 = Option.equal Int63.equal in
-          let equal = Tuple2.equal ~eq1 ~eq2:eq1 in
-          Array.equal a a' ~equal
+        let equal =
+          let eq1 v1 v2 = Imt.compare_ivar v1 v2 = 0 in
+          let eq1 = Option.equal eq1
+          and eq2 = Int63.equal in
+          let equal = Tuple2.equal ~eq1 ~eq2 in
+          Array.equal ~equal
         and s = s || equal_row r r' witness_row row in
-        a, Zom.update z (row, bounds) ~equal, s
+        a, Zom.update z row ~equal, s
 
       let approx_candidates
           ?cnst_only:(cnst_only = false)
@@ -651,7 +653,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
           | _, Zom.Z0, _ ->
             (* no candidates *)
             N_Unsat
-          | _, Zom.Z1 (row2, _), b ->
+          | _, Zom.Z1 row2, b ->
             (* propagate bounds *)
             if b then s := Some r_level;
             let f i = assert_ovar_equal r r' row.(i) in
