@@ -61,7 +61,8 @@ let solve_print_result () =
   print_endline (string_of_result (solve ()))
 
 let argv =
-  if Sys.interactive then
+  if !Sys.interactive then
     Sys.argv
   else
-    Array.slice Sys.argv 1 (Array.length Sys.argv)
+    let open Core.Std.Array in
+    slice Sys.argv 1 (length Sys.argv)
