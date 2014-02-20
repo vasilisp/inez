@@ -239,7 +239,6 @@ void cc_handler::catch_variable(SCIP_VAR* v, bool catch_bound)
   
   // SCIPcatchVarEvent expects a transformed variable; create one
   sa(SCIPtransformVar(scip, v, &v_trans));
-  v_trans = v;
   sa(SCIPcaptureVar(scip, v_trans));
   
   orig_var_m.emplace(v_trans, v);
@@ -490,7 +489,7 @@ void cc_handler::scip_prop_impl_ranges
       found_not_null = true;
       lb[i] = SCIPvarGetLbLocal(var2);
       ub[i] = SCIPvarGetUbLocal(var2);
-      if (SCIPisGT(scip, ub[i] - lb[i], 100)) return;
+      if (SCIPisGT(scip, ub[i] - lb[i], 1000)) return;
       assert(lb[i] != -SCIPinfinity(scip));
       assert(ub[i] != SCIPinfinity(scip));
       lb[i] += vl[i];

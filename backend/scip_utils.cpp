@@ -2,7 +2,7 @@
 
 #include "scip/debug.h"
 
-#define DEBUG
+// #define DEBUG
 
 // FIXME: copy-pasted function
 inline const char* var_id(SCIP_VAR *v) {
