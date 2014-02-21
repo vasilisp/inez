@@ -510,7 +510,7 @@ module Make (Imt : Imt_intf.S_essentials) = struct
       let f row' ~bounds = equal_row r r' row row' in
       exists_candidate r r' occ ~f
 
-      (* propagate *)
+    (* propagate *)
 
     type bp = Int63.t option * Int63.t option
     with sexp_of
@@ -602,10 +602,10 @@ module Make (Imt : Imt_intf.S_essentials) = struct
       | row, _, i, s as occ ->
         match approx_candidates r r' occ with
         | _, Zom.Z0, _ ->
-            (* no candidates *)
+          (* no candidates *)
           N_Unsat
         | _, Zom.Z1 row2, b ->
-            (* propagate bounds *)
+          (* propagate bounds *)
           if b then s := Some r_level;
           let f i = assert_ovar_equal r r' row.(i) in
           array_foldi_responses row2 ~f
@@ -641,7 +641,7 @@ module Make (Imt : Imt_intf.S_essentials) = struct
       intercept_response "propagate"
         (dequeue_fold_responses r_bvar_d ~f)
 
-      (* check given solution *)
+    (* check given solution *)
         
     let deref_ovar_sol r' sol = function
       | Some v, o ->
@@ -673,7 +673,7 @@ module Make (Imt : Imt_intf.S_essentials) = struct
       let f = check_for_bvar r r' sol in
       intercept_bool "check" (Dequeue.for_all r_bvar_d ~f)
 
-      (* branching *)
+    (* branching *)
 
     let branch_for_bvar r r' v ~f =
       match S.bderef_local r' v with
@@ -797,7 +797,7 @@ module Make (Imt : Imt_intf.S_essentials) = struct
         (Printf.printf "exception: %s\n%!p" (Exn.to_string e);
          raise e)
           
-      (* stack management *)
+    (* stack management *)
 
     let push_level ({r_stats} as r) _ =
       r.r_level <- r.r_level + 1;
