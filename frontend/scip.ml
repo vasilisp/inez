@@ -339,6 +339,13 @@ let add_cut_local ({r_ctx} as r) (l, o) =
   assert_ok _here_ (sCIPflushRowExtensions r_ctx row);
   assert_ok _here_ (sCIPaddCut r_ctx row (scip_null_sol ()) true)
 
+(* FIXME : share with cc_handler.cpp *)
+
+let name_diff r v1 v2 =
+  let v = new_ivar r (T_Int (None, None)) in
+  Int63.(add_eq r [one, v1; minus_one, v2; minus_one, v] zero);
+  Some v
+
 module Types = struct
   type ctx = scip_ctx
   type ivar = var
@@ -376,6 +383,7 @@ module Access = struct
   let ideref = ideref
   let bderef = bderef
   let write_ctx = write_ctx
+  let name_diff = name_diff
 end
 
 module Dp_access_bounds = struct
@@ -452,16 +460,21 @@ module Dp_access = struct
 
   let bbranch r v = branch r v 0.5
 
-  let name_diff r v1 v2 =
-    let v = new_ivar r (T_Int (None, None)) in
-    Int63.(add_eq r [one, v1; minus_one, v2; minus_one, v] zero);
-    Some v
-
 end
+
+module Dvars =
+  Dvars.Make (struct
+    include Dp_access_bounds
+    let name_diff = name_diff
+  end)
 
 module Cut_gen_access = struct
 
   include Dp_access_bounds
+
+  module Dvars = Dvars
+
+  (* type dvar = Dvars.t *)
 
   let add_cut_local = add_cut_local
 
@@ -554,11 +567,14 @@ module Scip_with_cut_gen = struct
   include Types
   include Types_uf
 
+  module Dvars = Dvars
+
   module F
 
     (D : Imt_intf.S_cut_gen
      with type ivar_plug := ivar
-     and type bvar_plug := bvar) =
+     and type bvar_plug := bvar
+     and type dvar_plug := Dvars.t) =
 
   struct
 
@@ -617,6 +633,8 @@ module Scip_with_cut_gen = struct
       assert_ok _here_ (sCIPcreateProbBasic r_ctx "prob");
       run_config_list r_ctx;
       rval
+
+    let create_dvar = Dvars.create_dvar
     
   end
 

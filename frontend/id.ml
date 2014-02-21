@@ -4,7 +4,7 @@ open Core.Std
 module Id = Int63
 
 module M = struct
-  
+
   type ('c, 'u) t = Id.t * 'u Type.t
 
   let sexp_of_t _ f x =

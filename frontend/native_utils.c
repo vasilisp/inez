@@ -1,4 +1,4 @@
-#include "caml/mlvalues.h"
+#define NULL (void*)0
 
 typedef struct { unsigned char data[16]; } IID;
 
