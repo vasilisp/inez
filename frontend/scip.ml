@@ -332,12 +332,13 @@ let add_cut_local ({r_ctx} as r) (l, o) =
          (-. (sCIPinfinity r_ctx)) (Int63.to_float o)
          true false false) in
   assert_ok _here_ (sCIPcacheRowExtensions r_ctx row);
+  assert (not (List.is_empty l));
   List.iter l
     ~f:(fun (c, v) ->
       assert_ok _here_
         (sCIPaddVarToRow r_ctx row v (Int63.to_float c)));
-  assert_ok _here_ (sCIPflushRowExtensions r_ctx row);
-  assert_ok _here_ (sCIPaddCut r_ctx row (scip_null_sol ()) true)
+  assert_ok _here_ (sCIPflushRowExtensions r_ctx row) ;
+  assert_ok _here_ (sCIPaddCut r_ctx (scip_null_sol ()) row true)
 
 (* FIXME : share with cc_handler.cpp *)
 
@@ -566,6 +567,10 @@ module Scip_with_cut_gen = struct
 
   include Types
   include Types_uf
+    
+  type sol' = sol
+    
+  type sol = sol'
 
   module Dvars = Dvars
 
@@ -599,11 +604,15 @@ module Scip_with_cut_gen = struct
         method backtrack =
           D'.backtrack d_ctx ctx
         method generate =
-          match D'.generate d_ctx ctx with
-          | `Ok ->
-            true
-          | `Fail ->
-            false
+          match D'.generate d_ctx ctx (scip_null_sol ()) with
+          | `Unknown ->
+            SCIP_DIDNOTFIND
+          | `Sat ->
+            SCIP_FEASIBLE
+          | `Unsat_Cut_Gen ->
+            SCIP_SEPARATED
+          | `Cutoff ->
+            SCIP_CUTOFF
         method check =
           D'.check d_ctx ctx
       end)

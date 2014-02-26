@@ -22,28 +22,23 @@ struct
   type t = S.ivar signed option offset
   with compare, sexp_of
 
-  let create_dvar r (v1, o1) (v2, o2) =
+  let create_dvar_base r v1 v2 =
     match v1, v2 with
     | Some v1, None ->
-      Some (S_Pos v1), Int63.(o1 - o2)
+      Some (S_Pos v1)
     | None, Some v2 ->
-      Some (S_Neg v2), Int63.(o2 - o1)
+      Some (S_Neg v2)
     | None, None ->
-      None, Int63.zero
+      None
     | Some v1, Some v2 when S.compare_ivar v1 v2 < 0 ->
-      (match S.name_diff r v1 v2 with
-      | Some v ->
-        Some (S_Pos v)
-      | None ->
-        None), Int63.(o1 - o2)
+      Option.(S.name_diff r v1 v2 >>| (fun v -> S_Pos v))
     | Some v1, Some v2 when S.compare_ivar v1 v2 > 0 ->
-      (match S.name_diff r v2 v1 with
-      | Some v ->
-        Some (S_Neg v)
-      | None ->
-        None), Int63.(o1 - o2)
+      Option.(S.name_diff r v2 v1 >>| (fun v -> S_Neg v))
     | Some v1, Some v2 ->
-      None, Int63.(o1 - o2)
+      None
+
+  let create_dvar r (v1, o1) (v2, o2) =
+    create_dvar_base r v1 v2, Int63.(o1 - o2)
 
   let get_lb_local_base r = function
     | Some (S_Pos v) ->

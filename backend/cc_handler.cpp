@@ -33,7 +33,7 @@ struct cut_gen {
   virtual unsigned long Release() = 0;
   virtual void push_level();
   virtual void backtrack();
-  virtual void generate();
+  virtual SCIP_RESULT generate();
   virtual bool check(SCIP_SOL*);
 };
 
@@ -712,8 +712,11 @@ SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
       fcall_lookup_m.emplace(k, r);
   }
 
-  if (ocaml_dp)
-    return (ocaml_dp->check(sol) ? SCIP_FEASIBLE : SCIP_INFEASIBLE);
+  if (ocaml_dp && !ocaml_dp->check(sol))
+    return SCIP_INFEASIBLE;
+
+  if (ocaml_cut_gen && sol && !ocaml_cut_gen->check(sol))
+    return SCIP_INFEASIBLE;
 
   return SCIP_FEASIBLE;
 
@@ -765,7 +768,22 @@ SCIP_RETCODE cc_handler::scip_enfolp
   ASSERT_SCIP_POINTER(s);
   assert(SCIPgetStage(s) != SCIP_STAGE_PRESOLVING);
 
-  *r = scip_check_impl(NULL);
+  if (ocaml_cut_gen) {
+    SCIP_RESULT cg_result = ocaml_cut_gen->generate();
+    switch (cg_result) {
+    case SCIP_CUTOFF:
+    case SCIP_SEPARATED:
+      *r = cg_result;
+      return SCIP_OKAY;
+    case SCIP_FEASIBLE:
+    case SCIP_DIDNOTFIND:
+      break;
+    default:
+      throw util::ec_case;
+    }
+  }
+  
+  *r = scip_check_impl(NULL); 
 
   if (*r == SCIP_INFEASIBLE) {
 #ifdef DEBUG
@@ -773,8 +791,8 @@ SCIP_RETCODE cc_handler::scip_enfolp
       << "[CB] enfolp: solution infeasible, trying to propagate\n";
 #endif
     SCIP_RESULT prop_result = scip_prop_impl(false);
-    switch(prop_result) {
-    case SCIP_DIDNOTFIND:
+    switch (prop_result) {
+    case SCIP_DIDNOTFIND: 
       assert(!node_infeasible);
       assert(ctx.get_consistent());
 #ifdef DEBUG
@@ -795,7 +813,10 @@ SCIP_RETCODE cc_handler::scip_enfolp
         unreachable();
         break;
       }
+      unreachable();
     case SCIP_REDUCEDDOM:
+      *r = prop_result;
+      break;
     case SCIP_CUTOFF:
       *r = prop_result;
       break;
@@ -803,7 +824,7 @@ SCIP_RETCODE cc_handler::scip_enfolp
       throw util::ec_case;
     }
   }
-  
+
   return SCIP_OKAY;
 
 }
@@ -813,11 +834,6 @@ SCIP_RETCODE cc_handler::scip_enfops
  int n, int n_useful, SCIP_Bool infeasible, SCIP_Bool obj_infeasible,
  SCIP_RESULT* result)
 {
-
-  // TODO: once we find a benchmark that calls enfops, we will fix it
-
-  // better to call unreachable() and have a benchmark to play with,
-  // than silently do the wrong thing
 
   unreachable();
   ASSERT_SCIP_POINTER(s);
@@ -845,7 +861,7 @@ SCIP_RETCODE cc_handler::scip_check
   ASSERT_SCIP_POINTER(s);
 
   *result = scip_check_impl(sol);
-
+  
   return SCIP_OKAY;
 
 }
@@ -930,6 +946,7 @@ SCIP_RETCODE cc_handler::scip_exec_nodefocused(SCIP_EVENT* e)
   if (frames.empty()) {
     assert(!seen_node);
     push_frame(en);
+    if (ocaml_cut_gen) ocaml_cut_gen->push_level();
     return SCIP_OKAY;
   }
 
@@ -945,8 +962,11 @@ SCIP_RETCODE cc_handler::scip_exec_nodefocused(SCIP_EVENT* e)
     cout << "we can go on with our stack\n";
 #endif
     push_frame(en);
+    if (ocaml_cut_gen) ocaml_cut_gen->push_level();
     return SCIP_OKAY;
   }
+
+  if (ocaml_cut_gen) ocaml_cut_gen->backtrack();
 
   if (!cn && node_in_frames(pn) && SCIPnodesSharePath(cn, pn)) {
 #ifdef DEBUG
@@ -1440,7 +1460,6 @@ void cc_handler_catch_var_events(cc_handler* c, SCIP_VAR* v)
 {
   c->catch_var_events(v);
 }
-
 
 SCIP_VAR* cc_handler_zero_var(cc_handler* c)
 {

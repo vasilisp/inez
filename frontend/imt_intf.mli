@@ -156,11 +156,30 @@ module type S_dp_access = sig
 
 end
 
+module type Dvars_access = sig
+
+  type ctx_plug
+
+  type sol_plug
+
+  include (S_int_bounds
+           with type ctx := ctx_plug
+           and type sol := sol_plug)
+
+  val sexp_of_t : t -> Sexplib.Sexp.t
+
+  val compare_t : t -> t -> int
+
+end
+
 module type S_cut_gen_access = sig
 
   include S_dp_access_bounds
 
-  module Dvars : S_int_bounds with type ctx := ctx
+  module Dvars :
+    (Dvars_access
+     with type ctx_plug := ctx
+     and type sol_plug := sol)
 
   val add_cut_local :
     ctx -> ivar Terminology.iexpr -> unit
@@ -281,7 +300,8 @@ module type S_cut_gen = sig
       ctx -> S.ctx -> S.sol -> bool
 
     val generate :
-      ctx -> S.ctx -> [ `Ok | `Fail ]
+      ctx -> S.ctx -> S.sol ->
+      [ `Unknown | `Sat | `Unsat_Cut_Gen | `Cutoff ]
 
   end
 
@@ -292,10 +312,18 @@ module type S_with_cut_gen = sig
   include S_essentials
   include S_uf
 
+  type sol
+
   module Dvars : sig
-    include S_int_bounds with type ctx := ctx
+
+    include
+      (Dvars_access
+       with type ctx_plug := ctx
+       and type sol_plug := sol)
+
     val create_dvar :
       ctx -> ivar option offset -> ivar option offset -> t
+
   end
 
   module F
@@ -334,3 +362,4 @@ module type S_with_cut_gen = sig
   end
 
 end
+

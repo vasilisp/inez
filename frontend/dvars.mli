@@ -8,7 +8,13 @@ module Make
 
 sig
 
-  include Imt_intf.S_int_bounds with type ctx := S.ctx
+  include (Imt_intf.S_int_bounds
+           with type ctx := S.ctx
+           and type sol := S.sol)
+
+  val sexp_of_t : t -> Sexplib.Sexp.t
+
+  val compare_t : t -> t -> int
 
   val create_dvar :
     S.ctx ->

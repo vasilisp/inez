@@ -27,6 +27,7 @@ typedef unsigned int proptiming;
 typedef enum
 {
   SCIP_DIDNOTFIND = 3,
+  SCIP_FEASIBLE = 4,
   SCIP_CUTOFF = 7,
   SCIP_SEPARATED = 8,
   SCIP_REDUCEDDOM = 10
@@ -261,8 +262,10 @@ retcode SCIPflushRowExtensions([in] scip s, [in] row r);
 retcode SCIPaddVarToRow([in] scip s, [in] row r,
                         [in] var v, [in] double x);
 
-retcode SCIPaddCut([in] scip s, [in] row r,
-                   [in] sol l, [in] boolean force);
+retcode SCIPaddCut([in] scip s,
+                   [in] sol l, 
+                   [in] row r,
+                   [in] boolean force);
 
 // COM interface for theory solvers in OCaml
 
@@ -277,7 +280,7 @@ retcode SCIPaddCut([in] scip s, [in] row r,
 [object] interface Cut_Gen : IUnknown {
   void push_level();
   void backtrack();
-  boolean generate();
+  result generate();
   boolean check([in] sol s);
 }
 

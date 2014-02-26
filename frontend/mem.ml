@@ -223,7 +223,7 @@ module Make (Imt : Imt_intf.S_essentials) = struct
 
   let rec ivar_of_diff ({r_diff_h} as r) v1 v2 ~fd ~frv =
     if Imt.compare_ivar v1 v2 > 0 then
-      ivar_of_diff r v2 v1 ~fd ~frv
+      ivar_of_diff r v2 v1 ~fd ~frvxb
     else if Imt.compare_ivar v1 v2 = 0 then
       None
     else
