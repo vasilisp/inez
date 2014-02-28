@@ -90,20 +90,6 @@ SCIP_VAR* scip_callback::get_dvar(SCIP_VAR* v1, SCIP_VAR* v2)
     
 }
 
-SCIP_VAR* scip_callback::maybe_get_dvar(SCIP_VAR* v1, SCIP_VAR* v2)
-{
-
-  assert(v1 > v2);
-
-  if (!v2) return v1;
-  
-  dvar_map::const_iterator it =
-    dvar_m->find(v1 > v2 ? vpair(v1, v2) : vpair(v2, v1));
-
-  return it != dvar_m->end() ? it->second : NULL;
-    
-}
-
 void scip_callback::operator()(symbol a, symbol b, llint x)
 {
 
@@ -193,12 +179,14 @@ cc_handler::cc_handler(SCIP* scip, dp* d, cut_gen* c)
     dvar_rev_m(),
     dvar_offset_m(),
     node_seen_m(),
+    node_seen_ocg_m(),
     loc_m(),
-    loc_rev_m(),
     ffcall_m(),
     vars(),
     dvars(),
     frames(),
+    frames_ocg(),
+    fcalls(),
     catchq()
 {}
 
@@ -381,22 +369,56 @@ bool cc_handler::branch_on_diff()
   
 }
 
-void cc_handler::push_frame(pnode node)
+
+SCIP_NODE* cc_handler::current_node_ocg()
 {
-  frames.push_back(node);
+  
+  assert(ocaml_cut_gen);
+  assert(!seen_node || !frames_ocg.empty());
+  
+  return seen_node ? frames_ocg.back() : NULL;
+
+}
+
+void cc_handler::push_frame_ocg(SCIP_NODE* n)
+{
+
+  assert(ocaml_cut_gen);
+  
+  frames_ocg.push_back(n);
+  ocaml_cut_gen->push_level();
+  node_seen_ocg_m.emplace(n, true);
+  
+}
+
+void cc_handler::pop_frame_ocg()
+{
+
+  assert(ocaml_cut_gen);
+  SCIP_NODE* n = current_node_ocg();
+
+  ocaml_cut_gen->backtrack();
+  frames_ocg.pop_back();
+  node_seen_ocg_m.erase(n);
+
+}
+
+void cc_handler::push_frame(SCIP_NODE* n)
+{
+  frames.push_back(n);
   ctx.push_frame();
   if (ocaml_dp) ocaml_dp->push_level();
   assert(ctx.get_consistent());
   assert(!node_infeasible);
   node_infeasible = false;
-  node_seen_m.emplace(node, true);
+  node_seen_m.emplace(n, true);
 }
 
 void cc_handler::pop_frame()
 {
 
   assert(!frames.empty());
-  pnode cn = frames.back();
+  SCIP_NODE* cn = frames.back();
   
   node_infeasible = false;
   frames.pop_back();
@@ -406,21 +428,21 @@ void cc_handler::pop_frame()
 
 }
 
-pnode cc_handler::current_node()
+SCIP_NODE* cc_handler::current_node()
 {
   assert(!frames.empty());
   return frames.back();
 }
 
 // rewind the stack till we find the target node
-void cc_handler::rewind_to_frame(pnode node)
+void cc_handler::rewind_to_frame(SCIP_NODE* node)
 {
   while (true) {
     // assert(!frames.empty());
     // CHECKME
     if (frames.empty())
       return;
-    pnode n = frames.back();
+    SCIP_NODE* n = frames.back();
     if (node == n)
       return;
     else
@@ -428,7 +450,7 @@ void cc_handler::rewind_to_frame(pnode node)
   }
 }
 
-bool cc_handler::node_in_frames(pnode node)
+bool cc_handler::node_in_frames(SCIP_NODE* node)
 {
   return (node_seen_m.find(node) != node_seen_m.end());
 }
@@ -768,15 +790,23 @@ SCIP_RETCODE cc_handler::scip_enfolp
   ASSERT_SCIP_POINTER(s);
   assert(SCIPgetStage(s) != SCIP_STAGE_PRESOLVING);
 
+  bool unknown = false;
+  
   if (ocaml_cut_gen) {
     SCIP_RESULT cg_result = ocaml_cut_gen->generate();
     switch (cg_result) {
     case SCIP_CUTOFF:
+      cout << "cutoff!\n";
+      fflush(stdout);
+      *r = cg_result;
+      return SCIP_OKAY;
     case SCIP_SEPARATED:
       *r = cg_result;
       return SCIP_OKAY;
     case SCIP_FEASIBLE:
+      break;
     case SCIP_DIDNOTFIND:
+      unknown = true;
       break;
     default:
       throw util::ec_case;
@@ -785,7 +815,7 @@ SCIP_RETCODE cc_handler::scip_enfolp
   
   *r = scip_check_impl(NULL); 
 
-  if (*r == SCIP_INFEASIBLE) {
+  if (*r == SCIP_INFEASIBLE || unknown) {
 #ifdef DEBUG
     cout
       << "[CB] enfolp: solution infeasible, trying to propagate\n";
@@ -810,6 +840,7 @@ SCIP_RETCODE cc_handler::scip_enfolp
                << SCIPvarGetUbLocal(it->first) << "]\n";
           it++;
         }
+        assert(unknown);
         unreachable();
         break;
       }
@@ -921,16 +952,33 @@ SCIP_RETCODE cc_handler::scip_presol
 
 }
 
-bool descendant(SCIP_NODE* n, SCIP_NODE* p)
+// rewind the stack till we find the target node
+void cc_handler::rewind_to_frame_ocg(SCIP_NODE* node)
 {
-  uint cnt = 0;
   while (true) {
-    if (p == n) return true;
-    if (!n) return false;
-    n = SCIPnodeGetParent(n);
-    // premature termination; avoiding loops
-    if (cnt++ > 100) return false;
+    if (frames_ocg.empty()) return;
+    if (node == frames_ocg.back()) return;
+    pop_frame_ocg();
   }
+}
+
+void cc_handler::scip_exec_nodefocused_ocg(SCIP_NODE* en)
+{
+
+  assert(ocaml_cut_gen);
+
+  SCIP_NODE* pn = SCIPnodeGetParent(en);
+  SCIP_NODE* cn = current_node_ocg();
+
+  if (pn == cn) {
+    push_frame_ocg(en);
+    return;
+  }
+
+  rewind_to_frame_ocg(node_in_frames(pn) ? pn : NULL);
+  push_frame_ocg(en);
+  return;
+
 }
 
 SCIP_RETCODE cc_handler::scip_exec_nodefocused(SCIP_EVENT* e)
@@ -943,10 +991,12 @@ SCIP_RETCODE cc_handler::scip_exec_nodefocused(SCIP_EVENT* e)
 
   assert(!seen_node || en);
 
+  if (ocaml_cut_gen) scip_exec_nodefocused_ocg(en);
+
   if (frames.empty()) {
     assert(!seen_node);
+    seen_node = true;
     push_frame(en);
-    if (ocaml_cut_gen) ocaml_cut_gen->push_level();
     return SCIP_OKAY;
   }
 
@@ -962,13 +1012,10 @@ SCIP_RETCODE cc_handler::scip_exec_nodefocused(SCIP_EVENT* e)
     cout << "we can go on with our stack\n";
 #endif
     push_frame(en);
-    if (ocaml_cut_gen) ocaml_cut_gen->push_level();
     return SCIP_OKAY;
   }
 
-  if (ocaml_cut_gen) ocaml_cut_gen->backtrack();
-
-  if (!cn && node_in_frames(pn) && SCIPnodesSharePath(cn, pn)) {
+  if (node_in_frames(pn)) {
 #ifdef DEBUG
     cout << "halfway there\n";
 #endif
@@ -995,74 +1042,23 @@ SCIP_RETCODE cc_handler::scip_exec_relaxed
  SCIP_Real old_ub,
  SCIP_Real new_ub)
 {
-  
+
+  assert (new_lb <= new_ub);
+
   SCIP*& scip = scip::ObjEventhdlr::scip_;
   SCIP_NODE* cn = current_node();
-
-  // assert (old_lb <= old_ub);
-  assert (new_lb <= new_ub);
-  // assert (new_lb <= old_lb);
-  // assert (old_ub <= new_ub);
-
-  rewind_to_frame((SCIP_NODE*)NULL);
-  push_frame(cn);
-  return SCIP_OKAY;
 
 #ifdef DEBUG
   cout << "[EV] bound for " << var_id(ev) << " relaxed from ["
        << old_lb << ", " << old_ub << "] to ["
        << new_lb << ", " << new_ub << "]\n";
 #endif
-  
-  if (!SCIPisEQ(scip, old_lb, old_ub)) return SCIP_OKAY;
-  
-  dvar_rev_map::iterator it = dvar_rev_m.find(ev);
-  assert(it != dvar_rev_m.end());
-  SCIP_VAR* v1 = it->second.first;
-  SCIP_VAR* v2 = it->second.second;
-  assert(v1 > v2);
 
-  dvar_offset_map::iterator it_of = dvar_offset_m.find(ev);
+  // tried to be smarter in the past, leading to wrong answers. We
+  // cannot dependably whether our state 
 
-  loc_rev_map::iterator it1 = loc_rev_m.find(v1);
-  if (it1 == loc_rev_m.end()) return SCIP_OKAY;
-  const vector<loc_off>& vl1 = it1->second;
-  loc_rev_map::iterator it2 = loc_rev_m.find(v2);
-  if (it2 == loc_rev_m.end()) return SCIP_OKAY;
-  const vector<loc_off>& vl2 = it2->second;
-
-  BOOST_FOREACH (const loc_off& lo1, vl1) {
-    const loc& loc1 = lo1.first;
-    BOOST_FOREACH (const loc_off& lo2, vl2) {
-      const loc& loc2 = lo2.first;
-      if (loc1 != loc2) continue;
-      llint d = lo2.second - lo1.second;
-      if (SCIPisEQ(scip, old_lb, d)) {
-#ifdef DEBUG
-        cout << "[EV] bounds for " << var_id(ev)
-             << " relaxed... we have to backtrack\n";
-#endif
-        rewind_to_frame((SCIP_NODE*)NULL);
-        push_frame(cn);
-        return SCIP_OKAY;
-      }
-    }
-  }
-
-  if (it_of != dvar_offset_m.end()) {
-    llint b = my_llint(scip, new_lb);
-    assert(!SCIPisEQ(scip, new_lb, new_ub) ||
-           !util::vector_exists_eq(it_of->second, b));
-  }
-
-#ifdef DEBUG
-  cout << "[EV] bound for " << var_id(ev) << " relaxed to ["
-       << new_lb << ", " << new_ub
-       << "]; no need to backtrack\n";
-  if (node_infeasible)
-    cout << "[EV] note: node remains infeasible\n";
-#endif
-
+  rewind_to_frame((SCIP_NODE*)NULL);
+  push_frame(cn);
   return SCIP_OKAY;
 
 }
@@ -1143,12 +1139,6 @@ void cc_handler::register_var(SCIP_VAR* v)
     if (v == v2)
       return;
 
-  // BOOST_FOREACH (SCIP_VAR* v2, vars)
-  //   if (v > v2)
-  //     add_dvar(v, v2);
-  //   else
-  //     add_dvar(v2, v);
-
   vars.push_back(v);
 
 }
@@ -1195,8 +1185,6 @@ void cc_handler::register_arg(const string* s,
 
   loc al(s, n);
   loc_map::iterator it = loc_m.find(al);
-  loc_rev_map::iterator it_r = loc_rev_m.find(ov.base);
-  loc_off lo(al, ov.offset);
 
   register_var(ov.base);
 
@@ -1205,14 +1193,6 @@ void cc_handler::register_arg(const string* s,
     if (!util::vector_exists_eq<scip_ovar>(v, ov)) v.push_back(ov);
   } else
     loc_m.emplace(al, vector<scip_ovar>(1, ov));
-
-  if (it_r == loc_rev_m.end()) {
-    loc_rev_m.emplace(ov.base, vector<loc_off>(1, lo));
-    return;
-  }
-  vector<loc_off>& vl = it_r->second;
-  if (!util::vector_exists_eq<loc_off>(vl, lo))
-    vl.push_back(lo);
 
 }
 
@@ -1464,6 +1444,13 @@ void cc_handler_catch_var_events(cc_handler* c, SCIP_VAR* v)
 SCIP_VAR* cc_handler_zero_var(cc_handler* c)
 {
   return NULL;
+}
+
+SCIP_VAR* cc_handler_add_dvar(cc_handler* c,
+                              SCIP_VAR* v1,
+                              SCIP_VAR* v2)
+{
+  return c->add_dvar(v1, v2);
 }
 
 uintptr_t uintptr_t_of_var(SCIP_VAR* v)

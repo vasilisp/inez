@@ -22,6 +22,15 @@ struct
   type t = S.ivar signed option offset
   with compare, sexp_of
 
+  let compare = compare_t
+
+  let hashable = {
+    Hashtbl.Hashable.
+    compare = compare;
+    hash = Hashtbl.hash;
+    sexp_of_t = sexp_of_t
+  }
+
   let create_dvar_base r v1 v2 =
     match v1, v2 with
     | Some v1, None ->
@@ -30,9 +39,9 @@ struct
       Some (S_Neg v2)
     | None, None ->
       None
-    | Some v1, Some v2 when S.compare_ivar v1 v2 < 0 ->
-      Option.(S.name_diff r v1 v2 >>| (fun v -> S_Pos v))
     | Some v1, Some v2 when S.compare_ivar v1 v2 > 0 ->
+      Option.(S.name_diff r v1 v2 >>| (fun v -> S_Pos v))
+    | Some v1, Some v2 when S.compare_ivar v1 v2 < 0 ->
       Option.(S.name_diff r v2 v1 >>| (fun v -> S_Neg v))
     | Some v1, Some v2 ->
       None

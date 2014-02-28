@@ -4,6 +4,8 @@ module Make (Imt : Imt_intf.S_essentials) : sig
            with type ivar_plug := Imt.ivar
            and type bvar_plug := Imt.bvar)
 
+  val print_stats : ctx -> unit
+
   val assert_membership :
     ctx ->
     Imt.bvar Core.Std.Hashtbl.key ->

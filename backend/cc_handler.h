@@ -25,13 +25,10 @@ using boost::tuples::tuple;
 
 typedef util::uintptr_variant<SCIP_VAR*, const string*> symbol;
 typedef cc::context<symbol> context;
-// typedef context::cnst cnst;
 typedef unordered_map<SCIP_VAR*, SCIP_VAR*> vv_map;
 typedef pair<SCIP_VAR*, SCIP_VAR*> vpair;
 typedef unordered_map<vpair, SCIP_VAR*> dvar_map;
-// typedef pair<cnst, cnst> cpair;
 typedef util::with_offset<SCIP_VAR*> scip_ovar;
-typedef util::uintptr_variant<SCIP_NODE*, void*> pnode;
 
 struct dp;
 
@@ -52,7 +49,7 @@ private:
 
 public:
 
-  scip_callback(SCIP* s, dvar_map* m, bool* ni, bool* b)
+scip_callback(SCIP* s, dvar_map* m, bool* ni, bool* b)
     : scip(s),
       n_called(0),
       node_infeasible(ni),
@@ -105,7 +102,6 @@ class cc_handler:
 private:
   
   typedef pair<const string*, unsigned int> loc;
-  typedef pair<loc, llint> loc_off;
   
   llint uf_call_cnt;
   bool node_infeasible;
@@ -136,15 +132,12 @@ private:
 
   // dvar_offset_map::iterator dvar_offset_rr_iterator;
 
-  typedef unordered_map<pnode, bool> node_seen_map;
+  typedef unordered_map<SCIP_NODE*, bool> node_seen_map;
   node_seen_map node_seen_m;
+  node_seen_map node_seen_ocg_m;
 
   typedef unordered_map<loc, vector<scip_ovar> > loc_map;
   loc_map loc_m;
-
-  // not exactly reverse of the above, but close enough
-  typedef unordered_map<SCIP_VAR*, vector<loc_off> > loc_rev_map;
-  loc_rev_map loc_rev_m;
 
   typedef unordered_map<vector<SCIP_VAR*>,
                         vector<ffc_offset> > ffcall_slave_map;
@@ -157,7 +150,8 @@ private:
   
   vector<SCIP_VAR*> vars;
   vector<SCIP_VAR*> dvars;
-  vector<pnode> frames;
+  vector<SCIP_NODE*> frames;
+  vector<SCIP_NODE*> frames_ocg;
   vector<fcall> fcalls;
   vector<SCIP_VAR*> catchq;
 
@@ -167,7 +161,6 @@ private:
 
   /* difference vars (dvars) and branching on them */
 
-  SCIP_VAR* add_dvar(SCIP_VAR*, SCIP_VAR*);
   SCIP_VAR* add_dvar(const scip_ovar&, const scip_ovar&);
   SCIP_VAR* get_dvar(SCIP_VAR*, SCIP_VAR*);
   bool branch_on_diff(const scip_ovar&, const scip_ovar&);
@@ -175,12 +168,20 @@ private:
 
   /* stack management */
   
-  void push_frame(pnode);
+  void push_frame(SCIP_NODE*);
   void pop_frame();
-  pnode current_node();
-  void rewind_to_frame(pnode);
-  bool node_in_frames(pnode);
+  SCIP_NODE* current_node();
+  void rewind_to_frame(SCIP_NODE*);
+  bool node_in_frames(SCIP_NODE*);
 
+  /* cutgen stack management (ocg stands for OCaml Cut Generation) */
+
+  void push_frame_ocg(SCIP_NODE*);
+  void pop_frame_ocg();
+  SCIP_NODE* current_node_ocg();
+  void rewind_to_frame_ocg(SCIP_NODE*);
+  void scip_exec_nodefocused_ocg(SCIP_NODE*);
+  
   /* register function arguments: keep track of where they appear so
      that we will branch on and query about relevant pairs */
 
@@ -257,6 +258,8 @@ public:
 
   /* extra methods */
 
+  SCIP_VAR* add_dvar(SCIP_VAR*, SCIP_VAR*);
+  
   void call(const scip_ovar&, const string&,
             const vector<scip_ovar>&);
 
@@ -291,6 +294,9 @@ extern "C" {
 	extern void cc_handler_finalize(cc_handler*);
 	extern void cc_handler_include(cc_handler*);
 	extern SCIP_VAR* cc_handler_zero_var(cc_handler*);
+	extern SCIP_VAR* cc_handler_add_dvar(cc_handler*,
+					     SCIP_VAR*,
+					     SCIP_VAR*);
 	extern void cc_handler_catch_var_events(cc_handler*, SCIP_VAR*);
 	extern uintptr_t uintptr_t_of_var(SCIP_VAR*);
 	extern uintptr_t uintptr_t_of_node(SCIP_NODE*);
@@ -301,6 +307,7 @@ extern "C" {
 	extern void cc_handler_finalize();
 	extern void cc_handler_include();
 	extern SCIP_VAR* cc_handler_zero_var();
+	extern SCIP_VAR* cc_handler_add_dvar();
 	extern void cc_handler_catch_var_events();
 	extern uintptr_t uintptr_t_of_var();
 	extern uintptr_t uintptr_t_of_node();

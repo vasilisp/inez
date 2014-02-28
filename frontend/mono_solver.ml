@@ -27,6 +27,10 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
   type app = int_term * int_term
 
   type ovar = Imt.ivar option Terminology.offset
+  (* with compare, sexp_of *)
+
+  type ovar_pair = ovar * ovar
+  (* with compare, sexp_of *)
 
   (* FIXME : monomorphic tables / sets *)
 
@@ -44,7 +48,8 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     and r_lt_ctx   =  Lt.make_ctx () in
     let r_imt_ctx  =  Imt'.make_ctx r_lt_ctx in
     let r_ctx      =  S.make_ctx r_imt_ctx
-    and r_occ_h    =  Hashtbl.Poly.create () ~size:2048
+    and r_occ_h    = 
+      Hashtbl.create () ~size:2048 ~hashable:Imt.Dvars.hashable
     and r_q        =  Dequeue.create () in
     {r_ctx; r_lt_ctx; r_imt_ctx; r_f_h; r_occ_h; r_q}
 

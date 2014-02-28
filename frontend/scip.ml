@@ -340,12 +340,10 @@ let add_cut_local ({r_ctx} as r) (l, o) =
   assert_ok _here_ (sCIPflushRowExtensions r_ctx row) ;
   assert_ok _here_ (sCIPaddCut r_ctx (scip_null_sol ()) row true)
 
-(* FIXME : share with cc_handler.cpp *)
+(* FIXME : do we really need the Option? *)
 
-let name_diff r v1 v2 =
-  let v = new_ivar r (T_Int (None, None)) in
-  Int63.(add_eq r [one, v1; minus_one, v2; minus_one, v] zero);
-  Some v
+let name_diff {r_cch} v1 v2 =
+  Option.(r_cch >>| fun r_cch -> cc_handler_add_dvar r_cch v1 v2)
 
 module Types = struct
   type ctx = scip_ctx

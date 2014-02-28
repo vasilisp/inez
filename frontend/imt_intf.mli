@@ -168,7 +168,9 @@ module type Dvars_access = sig
 
   val sexp_of_t : t -> Sexplib.Sexp.t
 
-  val compare_t : t -> t -> int
+  val compare : t -> t -> int
+
+  val hashable : t Hashtbl.Hashable.t
 
 end
 

@@ -307,6 +307,8 @@ void cc_handler_catch_var_events([in] cch c, [in] var v);
 
 var cc_handler_zero_var();
 
+var cc_handler_add_dvar([in] cch c, [in] var v1, [in] var v2);
+
 unsigned long uintptr_t_of_var([in] var v);
 
 unsigned long uintptr_t_of_node([in] node n);

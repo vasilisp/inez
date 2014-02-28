@@ -14,7 +14,9 @@ sig
 
   val sexp_of_t : t -> Sexplib.Sexp.t
 
-  val compare_t : t -> t -> int
+  val compare : t -> t -> int
+
+  val hashable : t Core.Std.Hashtbl.Hashable.t
 
   val create_dvar :
     S.ctx ->

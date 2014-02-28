@@ -27,6 +27,9 @@ struct
   type cut = Imt.ivar Terminology.iexpr
   with sexp_of
 
+  type cuts = Imt.ivar Terminology.iexpr list
+  with sexp_of
+
   type instantiator = axiom_id -> Imt.Dvars.t list -> cut list
 
   type axiom = occ Dequeue.t * instantiator
@@ -62,8 +65,16 @@ struct
       Int63.(List.fold_left l ~init ~f <= zero)
 
     let check_axiom_occ r' sol axiom_id f (_, dvars, _ : occ) =
-      not (met_hypotheses_sol r' sol dvars) ||
-        List.for_all (f axiom_id dvars) ~f:(eval_cut r' sol)
+      let cuts = f axiom_id dvars in
+      let b1 = met_hypotheses_sol r' sol dvars
+      and b2 = List.for_all cuts ~f:(eval_cut r' sol) in
+      (*
+      Printf.printf "%s => %s\n%!"
+        (Sexplib.Sexp.to_string (sexp_of_hypotheses dvars))
+        (Sexplib.Sexp.to_string (sexp_of_cuts cuts));
+      Printf.printf "not %b => %b\n%!" b1 b2;
+      *)
+      not b1 || b2
 
     let check_axiom r' sol axiom_id (occs, f : axiom) =
       Dequeue.for_all occs ~f:(check_axiom_occ r' sol axiom_id f)
@@ -78,15 +89,14 @@ struct
       let f ~key ~data:(occs, _) =
         let f = function
           | (_, _, ({contents = Some level'} as reference)) ->
-            (* if level' > r.r_level then *)
-            reference := None
+            if level' > r.r_level then
+              reference := None
           | _ ->
             () in
         Dequeue.iter occs ~f in
       Hashtbl.iter r_axioms_h ~f
 
     let push_level r r' =
-      if false then assert false;
       r.r_level <- r.r_level + 1
 
     type response_generate_axiom_occ =
@@ -196,7 +206,7 @@ struct
       | `Sat, `Sat ->
         `Sat
 
-    let generate_axiom r r' sol (occs, f : axiom) =
+    let generate_axiom ({r_level} as r) r' sol (occs, f : axiom) =
       let response = ref `Sat in
       let f ((axiom_id, dvars, level : occ) as occ) =
         match generate_axiom_occ r r' sol axiom_id f occ with
@@ -205,11 +215,14 @@ struct
           false
         | R_Sat ->
           false
-        | R_Sat_Cut l ->
-          List.iter l ~f:(S.add_cut_local r');
+        | R_Sat_Cut _ ->
+          (* in theory we could add the cuts generated; SCIP doesn't
+             like them *)
+          level := Some r_level;
           false
         | R_Unsat l ->
           List.iter l ~f:(S.add_cut_local r');
+          level := Some r_level;
           response := combine_response_ga !response `Unsat_Cut_Gen;
           true
         | R_Cutoff ->
