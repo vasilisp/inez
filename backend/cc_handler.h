@@ -180,6 +180,7 @@ private:
   void pop_frame_ocg();
   SCIP_NODE* current_node_ocg();
   void rewind_to_frame_ocg(SCIP_NODE*);
+  bool node_in_frames_ocg(SCIP_NODE*);
   void scip_exec_nodefocused_ocg(SCIP_NODE*);
   
   /* register function arguments: keep track of where they appear so

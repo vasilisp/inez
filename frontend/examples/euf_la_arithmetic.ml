@@ -1,4 +1,4 @@
-open Script ;;
+open Lt_script ;;
 open Core.Std ;;
 
 let n =
@@ -28,6 +28,8 @@ done ;;
 
 let pred x = ~free ;;
 
+mono succ ;;
+
 for i = 0 to (n - 1) do
   let i = toi i
   and s = toi ((i - 1) % n) in
@@ -42,8 +44,10 @@ constrain (~logic (0 <= a && a < toi n)) ;;
 
 constrain (~logic (0 <= b && b < toi n)) ;;
 
+(*
 let z = ~logic (pred (a +! succ b) +! (b +! (pred (a +! b)))) ;;
 
 constrain (~logic (z < 0 || z >= toi n)) ;;
+*)
 
 solve_print_result () ;;

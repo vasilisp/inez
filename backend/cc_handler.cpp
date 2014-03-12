@@ -334,7 +334,7 @@ inline bool cc_handler::branch_on_diff(const scip_ovar& ov1,
       SCIPisLT(scip, ub, d) ||
       SCIPisGT(scip, lb, d))
     return false;
-
+  
   scip_branch_around_val(scip, dv, d);
   return true;
 
@@ -453,6 +453,11 @@ void cc_handler::rewind_to_frame(SCIP_NODE* node)
 bool cc_handler::node_in_frames(SCIP_NODE* node)
 {
   return (node_seen_m.find(node) != node_seen_m.end());
+}
+
+bool cc_handler::node_in_frames_ocg(SCIP_NODE* node)
+{
+  return (node_seen_ocg_m.find(node) != node_seen_ocg_m.end());
 }
 
 void cc_handler::dbg_print_assignment(SCIP_SOL* sol, SCIP_VAR* v)
@@ -784,7 +789,11 @@ SCIP_RETCODE cc_handler::scip_enfolp
 {
 
 #ifdef DEBUG
-  cout << "[CB] enfolp\n";
+  cout << "[CB] enfolp at " << SCIPgetCurrentNode(s) << endl;
+#endif
+
+#ifdef DEBUG_DESPERATE
+  dbg_print_assignment(NULL);
 #endif
 
   ASSERT_SCIP_POINTER(s);
@@ -796,8 +805,6 @@ SCIP_RETCODE cc_handler::scip_enfolp
     SCIP_RESULT cg_result = ocaml_cut_gen->generate();
     switch (cg_result) {
     case SCIP_CUTOFF:
-      cout << "cutoff!\n";
-      fflush(stdout);
       *r = cg_result;
       return SCIP_OKAY;
     case SCIP_SEPARATED:
@@ -975,7 +982,11 @@ void cc_handler::scip_exec_nodefocused_ocg(SCIP_NODE* en)
     return;
   }
 
-  rewind_to_frame_ocg(node_in_frames(pn) ? pn : NULL);
+#ifdef DEBUG
+  cout << "all the way to the top (OCG)\n";
+#endif
+
+  rewind_to_frame_ocg(node_in_frames_ocg(pn) ? pn : NULL);
   push_frame_ocg(en);
   return;
 
@@ -991,12 +1002,14 @@ SCIP_RETCODE cc_handler::scip_exec_nodefocused(SCIP_EVENT* e)
 
   assert(!seen_node || en);
 
-  if (ocaml_cut_gen) scip_exec_nodefocused_ocg(en);
+  if (ocaml_cut_gen)
+    scip_exec_nodefocused_ocg(en);
 
   if (frames.empty()) {
     assert(!seen_node);
     seen_node = true;
     push_frame(en);
+    push_frame_ocg(en);
     return SCIP_OKAY;
   }
 
@@ -1057,6 +1070,8 @@ SCIP_RETCODE cc_handler::scip_exec_relaxed
   // tried to be smarter in the past, leading to wrong answers. We
   // cannot dependably whether our state 
 
+  rewind_to_frame_ocg(NULL);
+  push_frame_ocg(cn);
   rewind_to_frame((SCIP_NODE*)NULL);
   push_frame(cn);
   return SCIP_OKAY;
@@ -1204,7 +1219,7 @@ void cc_handler::call(const scip_ovar& r, const string& s,
   uf_call_cnt++;
 
 #ifdef DEBUG
-  cout << var_id(r.base)
+  cout << "[CALL] " << var_id(r.base)
        << (r.offset >= 0 ? '+' : '-')
        << (r.offset >= 0 ? r.offset : -r.offset)
        << " = " << s << '(';

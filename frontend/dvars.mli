@@ -24,4 +24,8 @@ sig
     S.ivar option Terminology.offset ->
     t
 
+  val get_left : S.ctx -> t -> S.ivar option Terminology.offset
+
+  val get_right : S.ctx -> t -> S.ivar option Terminology.offset
+
 end

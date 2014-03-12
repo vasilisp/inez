@@ -95,22 +95,24 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     and polarity = `Both in
     Formula.iter_non_atomic g ~f ~polarity
 
-  let register_diffs
-      {r_ctx; r_imt_ctx; r_lt_ctx; r_f_h; r_occ_h}
-      axiom_id =
+  let assert_instance_lt {r_lt_ctx; r_imt_ctx; r_occ_h} axiom_id
+      (ov1, ovr1) (ov2, ovr2) =
+    (* let ov1 = Tuple.T2.map2 ~f:Int63.((+) one) ov1
+    and ovr1 = Tuple.T2.map2 ~f:Int63.((+) one) ovr1 in *)
+    let dv = Imt.Dvars.create_dvar r_imt_ctx ov1 ov2 in
+    Hashtbl.add_multi r_occ_h dv (ovr1, ovr2);
+    Lt.assert_instance r_lt_ctx axiom_id [dv]
+
+  let register_diffs ({r_ctx; r_imt_ctx; r_f_h} as r) axiom_id =
     let f ~key ~data =
       let f = Fn.compose Lazy.force (S.ovar_of_term r_ctx) in
       let f (v1, v2) = f v1, f v2 in
       (* FIXME : avoid conversion *)
       let data = Hash_set.to_list data in
       let data = List.map data ~f in
-      let f (ov1, ovr1) (ov2, ovr2) =
-        let dv = Imt.Dvars.create_dvar r_imt_ctx ov1 ov2 in
-        Hashtbl.add_multi r_occ_h dv (ovr1, ovr2);
-        Lt.assert_instance r_lt_ctx axiom_id [dv];
-        let dv = Imt.Dvars.create_dvar r_imt_ctx ov2 ov1 in
-        Hashtbl.add_multi r_occ_h dv (ovr2, ovr1);
-        Lt.assert_instance r_lt_ctx axiom_id [dv] in
+      let f pair1 pair2 =
+        assert_instance_lt r axiom_id pair1 pair2;
+        assert_instance_lt r axiom_id pair2 pair1 in
       Util.iter_pairs data ~f in
     Hashtbl.iter r_f_h ~f
 

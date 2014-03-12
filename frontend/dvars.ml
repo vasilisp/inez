@@ -19,7 +19,10 @@ struct
 
   type sol = S.sol
 
-  type t = S.ivar signed option offset
+  type t =
+    S.ivar signed option offset *
+      S.ivar option offset *
+      S.ivar option offset
   with compare, sexp_of
 
   let compare = compare_t
@@ -46,8 +49,8 @@ struct
     | Some v1, Some v2 ->
       None
 
-  let create_dvar r (v1, o1) (v2, o2) =
-    create_dvar_base r v1 v2, Int63.(o1 - o2)
+  let create_dvar r (v1, o1 as ov1) (v2, o2 as ov2) =
+    (create_dvar_base r v1 v2, Int63.(o1 - o2)), ov1, ov2
 
   let get_lb_local_base r = function
     | Some (S_Pos v) ->
@@ -95,19 +98,23 @@ struct
     | None ->
       `Infeasible
 
-  let get_lb_local r (dv, o) =
+  let get_lb_local r ((dv, o), _, _) =
     Option.(get_lb_local_base r dv >>| Int63.(+) o)
 
-  let get_ub_local r (dv, o) =
+  let get_ub_local r ((dv, o), _, _) =
     Option.(get_ub_local_base r dv >>| Int63.(+) o)
 
-  let ideref_sol r sol (dv, o) =
+  let ideref_sol r sol ((dv, o), _, _) =
     Int63.(ideref_sol_base r sol dv + o)
 
-  let set_lb_local r (dv, o) x =
+  let set_lb_local r ((dv, o), _, _) x =
     set_lb_local_base r dv Int63.(x - o)
 
-  let set_ub_local r (dv, o) x =
+  let set_ub_local r ((dv, o), _, _) x =
     set_ub_local_base r dv Int63.(x - o)
+
+  let get_left _ (_, ov, _) = ov
+
+  let get_right _ (_, _, ov) = ov
 
 end

@@ -261,11 +261,12 @@ struct
 
   and var_of_app ({r_ctx; r_call_m} as r) f_id l t =
     let f = get_f r f_id
-    and l = List.map l ~f:(ovar_of_ibeither r)
-    and default () = S.new_ivar r_ctx t in
-    let v = Hashtbl.find_or_add r_call_m (f, l) ~default in
-    S.add_call r_ctx (Some v, Int63.zero) f l;
-    v
+    and l = List.map l ~f:(ovar_of_ibeither r) in
+    let default () =
+      let v = S.new_ivar r_ctx t in
+      S.add_call r_ctx (Some v, Int63.zero) f l;
+      v in
+    Hashtbl.find_or_add r_call_m (f, l) ~default
 
   and blast_ite_branch ({r_ctx} as r) xv v e =
     let l, o = iexpr_of_flat_term r e in
