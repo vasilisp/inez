@@ -20,4 +20,11 @@ let iter_pairs l ~f =
       () in
   iter_pairs_aux l
 
+let try_again o ~default =
+  match o with
+  | Some _ ->
+    o
+  | None ->
+    default ()
+
 exception Exn of (string * Here.t)

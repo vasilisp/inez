@@ -225,6 +225,9 @@ Camlp4o_lib(db_solver, herelib, herelib)
 Camlp4o_lib(lt, herelib type_conv comparelib sexplib, herelib	\
                 type_conv compare sexp_conv)
 
+Camlp4o_lib(axiom_solver, herelib type_conv comparelib sexplib,	\
+                          herelib type_conv compare sexp_conv)
+
 OCamlCMXS(pa_logic, camlp4_maps pa_logic)
 
 OCamlCMXS(pa_lt_logic, camlp4_maps pa_lt_logic)
@@ -275,7 +278,7 @@ section
     OCAMLPACKS += ocaml_plugin async
     MyOCamlProgram(inez-lt, terminology unreachable dvars scip_idl	\
                    scip util formula type id logic pre solver lt	\
-                   mono_solver lt_script script_main, native_utils	\
+                   axiom_solver lt_script script_main, native_utils	\
                    scip_idl_stubs lt_ocaml_embedded)
 
 camlp4oi.opt: camlp4_maps.cmx pa_logic.cmx

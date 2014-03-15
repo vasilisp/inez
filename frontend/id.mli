@@ -4,6 +4,13 @@ val compare :
   ('c -> 'c -> int) -> ('u -> 'u -> int) ->
   ('c, 'u) t -> ('c, 'u) t -> int
 
+type 'i t_arrow_type =
+  private { a_f : 't . ('i, 't) t -> 't Type.t }
+
+val type_of_t : ('c, 'u) t -> 'u Type.t
+
+val type_of_t' : 'i t_arrow_type
+
 val sexp_of_t :
   ('a -> Sexplib.Sexp.t) -> ('b -> Sexplib.Sexp.t) ->
   ('a, 'b) t -> Sexplib.Sexp.t
@@ -17,9 +24,6 @@ module Box :
 
 module Box_arrow :
   Box_intf.S2_arrow2 with type ('c, 's) b := ('c, 's) t
-
-type 'i t_arrow_type =
-  { a_f : 't . ('i, 't) t -> 't Type.t }
 
 module type Generators = sig
   type c

@@ -1,5 +1,5 @@
 module Id' = Id.Make (struct end)
-module S = Mono_solver.Make(Scip.Scip_with_cut_gen)(Id')
+module S = Axiom_solver.Make(Scip.Scip_with_cut_gen)(Id')
 
 let ctx = S.make_ctx ()
 

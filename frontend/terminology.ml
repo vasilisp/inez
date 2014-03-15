@@ -41,3 +41,6 @@ with compare, sexp
 
 type ('i, 'b) ibeither  =  H_Int of 'i | H_Bool of 'b
 with compare, sexp
+
+type 'a diff            =  'a * 'a
+with compare, sexp

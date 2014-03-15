@@ -9,13 +9,6 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
 
   module S = Solver.Make(Imt')(I)
   
-  let make_ctx () =
-    S.make_ctx (Imt'.make_ctx (Lt.make_ctx ()))
-
-  let assert_axiom = Lt.assert_axiom
-
-  let assert_instance = Lt.assert_instance
-
   type c = I.c
 
   type mono_id = (I.c, int -> int) Id.t
@@ -27,10 +20,17 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
   type app = int_term * int_term
 
   type ovar = Imt.ivar option Terminology.offset
-  (* with compare, sexp_of *)
+  with compare, sexp_of
 
-  type ovar_pair = ovar * ovar
-  (* with compare, sexp_of *)
+  type ovov = ovar * ovar    
+  with compare, sexp_of
+
+  let hashable_ovov = {
+    Hashtbl.Hashable.
+    hash = Hashtbl.hash;
+    compare = compare_ovov;
+    sexp_of_t = sexp_of_ovov
+  }
 
   (* FIXME : monomorphic tables / sets *)
 
@@ -39,6 +39,7 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     r_lt_ctx   :  Lt.ctx;
     r_imt_ctx  :  Imt'.ctx;
     r_f_h      :  (mono_id, app Hash_set.t) Hashtbl.t;
+    r_dvars_h  :  (ovov, Imt.Dvars.t) Hashtbl.t;
     r_occ_h    :  (Imt.Dvars.t, (ovar * ovar) list) Hashtbl.t;
     r_q        :  formula Dequeue.t
   }
@@ -48,10 +49,12 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     and r_lt_ctx   =  Lt.make_ctx () in
     let r_imt_ctx  =  Imt'.make_ctx r_lt_ctx in
     let r_ctx      =  S.make_ctx r_imt_ctx
+    and r_dvars_h  =
+      Hashtbl.create () ~size:2048 ~hashable:hashable_ovov
     and r_occ_h    = 
       Hashtbl.create () ~size:2048 ~hashable:Imt.Dvars.hashable
     and r_q        =  Dequeue.create () in
-    {r_ctx; r_lt_ctx; r_imt_ctx; r_f_h; r_occ_h; r_q}
+    {r_ctx; r_lt_ctx; r_imt_ctx; r_f_h; r_dvars_h; r_occ_h; r_q}
 
   let mono_increasing {r_f_h} (f : (I.c, int -> int) Id.t) =
     let default () = Hash_set.Poly.create () ~size:128 in
@@ -95,15 +98,17 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     and polarity = `Both in
     Formula.iter_non_atomic g ~f ~polarity
 
-  let assert_instance_lt {r_lt_ctx; r_imt_ctx; r_occ_h} axiom_id
-      (ov1, ovr1) (ov2, ovr2) =
-    (* let ov1 = Tuple.T2.map2 ~f:Int63.((+) one) ov1
-    and ovr1 = Tuple.T2.map2 ~f:Int63.((+) one) ovr1 in *)
-    let dv = Imt.Dvars.create_dvar r_imt_ctx ov1 ov2 in
-    Hashtbl.add_multi r_occ_h dv (ovr1, ovr2);
-    Lt.assert_instance r_lt_ctx axiom_id [dv]
+  let create_dvar {r_imt_ctx; r_dvars_h} ov1 ov2 =
+    let default () = Imt.Dvars.create_dvar r_imt_ctx ov1 ov2 in
+    Hashtbl.find_or_add r_dvars_h (ov1, ov2) ~default
 
-  let register_diffs ({r_ctx; r_imt_ctx; r_f_h} as r) axiom_id =
+  let assert_instance_lt ({r_lt_ctx; r_imt_ctx; r_occ_h} as r)
+      id (ov1, ovr1) (ov2, ovr2) =
+    let dv = create_dvar r ov1 ov2 in
+    Hashtbl.add_multi r_occ_h dv (ovr1, ovr2);
+    Lt.assert_instance r_lt_ctx id [dv]
+
+  let register_diffs ({r_ctx; r_imt_ctx; r_f_h} as r) id =
     let f ~key ~data =
       let f = Fn.compose Lazy.force (S.ovar_of_term r_ctx) in
       let f (v1, v2) = f v1, f v2 in
@@ -111,8 +116,8 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
       let data = Hash_set.to_list data in
       let data = List.map data ~f in
       let f pair1 pair2 =
-        assert_instance_lt r axiom_id pair1 pair2;
-        assert_instance_lt r axiom_id pair2 pair1 in
+        assert_instance_lt r id pair1 pair2;
+        assert_instance_lt r id pair2 pair1 in
       Util.iter_pairs data ~f in
     Hashtbl.iter r_f_h ~f
 
@@ -135,7 +140,7 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     | [dv] ->
       (match Hashtbl.find r_occ_h dv with
       | Some l ->
-        List.map l ~f:(fun (ovr1, ovr2) -> get_cut ovr1 ovr2)
+        List.map l ~f:(Tuple.T2.uncurry get_cut)
       | None ->
         [])
     | _ ->
@@ -145,8 +150,8 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     Dequeue.iter r_q ~f:(register_apps_formula r);
     Dequeue.iter r_q ~f:(S.assert_formula r_ctx);
     let f = get_cuts r_occ_h in
-    let axiom_id = Lt.assert_axiom r_lt_ctx f in
-    register_diffs r axiom_id;
+    let id = Lt.assert_axiom r_lt_ctx f in
+    register_diffs r id;
     S.solve r_ctx
 
   let add_objective {r_ctx} = S.add_objective r_ctx

@@ -7,6 +7,15 @@ module M = struct
 
   type ('c, 'u) t = Id.t * 'u Type.t
 
+  type 'i t_arrow_type = { a_f : 't . ('i, 't) t -> 't Type.t }
+
+  let type_of_t =
+    Tuple2.get2
+
+(* explicit polymorphism; we need System F types in lang_concrete *)
+
+  let type_of_t' = { a_f = type_of_t }
+
   let sexp_of_t _ f x =
     Tuple2.sexp_of_t Id.sexp_of_t (Type.sexp_of_t f) x
 
@@ -48,10 +57,6 @@ module Box_arrow = struct
     Sexplib.Sexp.(List [Atom "Box"; x])
 
 end
-
-(* explicit polymorphism; we need System F types in lang_concrete *)
-type 'i t_arrow_type =
-  { a_f : 't . ('i, 't) t -> 't Type.t }
 
 module type Generators = sig
   type c
@@ -106,11 +111,9 @@ module Make (U : Unit.S) : S = struct
         let id = Id.succ Id.zero in
         Hashtbl.replace m x' id; Id.zero, x
 
-  let type_of_t :
-  type u . (c, u) t -> u Type.t =
-    Tuple2.get2
+  let type_of_t = type_of_t
 
-  let type_of_t' = { a_f = type_of_t }
+  let type_of_t' = type_of_t'
 
   let compare_c _ _ = 0
 
