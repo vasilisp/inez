@@ -1,7 +1,6 @@
 open Core.Std
 
-(* module Id = (Int63 : Id_intf.Full) *)
-module Id = Int63
+module Id = (Int63 : Id_intf.Full)
 
 module M = struct
 
@@ -9,10 +8,25 @@ module M = struct
 
   type 'i t_arrow_type = { a_f : 't . ('i, 't) t -> 't Type.t }
 
-  let type_of_t =
-    Tuple2.get2
+  let type_of_t = Tuple2.get2
 
-(* explicit polymorphism; we need System F types in lang_concrete *)
+  let is_int :
+  type u . ('c, u) t -> bool =
+    function
+    | (_, Type.Y_Int) ->
+      true
+    | _ ->
+      false
+
+  let is_bool :
+  type u . ('c, u) t -> bool =
+    function
+    | (_, Type.Y_Bool) ->
+      true
+    | _ ->
+      false
+
+  (* explicit polymorphism; we need System F types in lang_concrete *)
 
   let type_of_t' = { a_f = type_of_t }
 

@@ -62,7 +62,7 @@ module Make (I : Id.Accessors) = struct
 
   and register_ids_formula r g =
     let f = register_ids_atom r and polarity = `Both in
-    Formula.iter_non_atomic g ~f ~polarity
+    Formula.iter_atoms g ~f ~polarity
 
   let assert_formula ({r_constraints} as r) g =
     register_ids_formula r g;

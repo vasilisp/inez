@@ -9,6 +9,10 @@ type 'i t_arrow_type =
 
 val type_of_t : ('c, 'u) t -> 'u Type.t
 
+val is_int : ('c, 'u) t -> bool
+
+val is_bool : ('c, 'u) t -> bool
+
 val type_of_t' : 'i t_arrow_type
 
 val sexp_of_t :
@@ -17,6 +21,7 @@ val sexp_of_t :
 
 type ('c1, 'c2) id_mapper = {
   f_id : 's . ('c1, 's) t -> ('c2, 's) t
+
 }
 
 module Box :

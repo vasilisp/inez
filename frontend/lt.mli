@@ -21,6 +21,7 @@ sig
            and type dvar_plug := Imt.Dvars.t)
 
   type axiom_id
+  with compare, sexp_of
 
   type occ = axiom_id * Imt.Dvars.t list * int option ref
 

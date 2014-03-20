@@ -386,7 +386,7 @@ module Make (I : Id.Accessors) = struct
   and flatten_term :
   type s . ctx -> (I.c, s) M.t -> ibflat =
     fun r t ->
-      match M.type_of_t t ~f:I.type_of_t' with
+      match M.type_of_t t with
       | Type.Y_Int ->
         H_Int (flatten_int_term r t)
       | Type.Y_Bool ->

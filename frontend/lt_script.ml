@@ -69,6 +69,8 @@ let mono f =
   | _ ->
     ()
 
+let assert_axiom = S.assert_axiom ctx
+
 let argv =
   if !Sys.interactive then
     Sys.argv

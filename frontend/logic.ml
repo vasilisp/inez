@@ -33,26 +33,53 @@ struct
   let of_int63 x = M_Int x
 
   let rec type_of_t :
-  type s . ('i, s) t -> f:('i Id.t_arrow_type) ->
-    s Type.t =
-    fun x ~f:({Id.a_f} as f) ->
-      match x with
-      | M_Bool _ ->
-        Type.Y_Bool
-      | M_Int _ ->
-        Type.Y_Int
-      | M_Sum (_, _) ->
-        Type.Y_Int
-      | M_Prod (_, _) ->
-        Type.Y_Int
-      | M_Ite (_, _, _) ->
-        Type.Y_Int
-      | M_Var id ->
-        a_f id
-      | M_App (a, b) ->
-        let t_a = type_of_t a ~f
-        and t_b = type_of_t b ~f in
-        Type.t_of_app t_a t_b
+  type s . ('i, s) t -> s Type.t =
+    function
+    | M_Bool _ ->
+      Type.Y_Bool
+    | M_Int _ ->
+      Type.Y_Int
+    | M_Sum (_, _) ->
+      Type.Y_Int
+    | M_Prod (_, _) ->
+      Type.Y_Int
+    | M_Ite (_, _, _) ->
+      Type.Y_Int
+    | M_Var id ->
+      Id.type_of_t id
+    | M_App (a, b) ->
+      let t_a = type_of_t a
+      and t_b = type_of_t b in
+      Type.t_of_app t_a t_b
+
+  let is_int :
+  type s . ('i, s) t -> bool =
+    fun m ->
+      match type_of_t m with
+      | Type.Y_Int ->
+        true
+      | _ ->
+        false
+
+  let is_bool :
+  type s . ('i, s) t -> bool =
+    fun m ->
+      match type_of_t m with
+      | Type.Y_Bool ->
+        true
+      | _ ->
+        false
+
+  (* FIXME : definitely not the right place for this *)
+  let rec fun_id_of_app :
+  type r . ('i, r) t ->  'i Id.Box_arrow.t option =
+    function
+    | M_App (M_Var id, _) ->
+      Some (Id.Box_arrow.Box id)
+    | M_App (f, _) ->
+      fun_id_of_app f
+    | _ ->
+      None
 
   let ( + ) a b =
     match a, b with
@@ -185,6 +212,42 @@ module Make_term_conv (M1 : Term) (M2 : Term_with_ops) = struct
       | M1.M_App (a, b) ->
         M_App (map_non_atomic a ~f ~fv,
                map_non_atomic b ~f ~fv)
+
+end
+
+module Make_term_iter (M : Term_with_ops) = struct
+
+  type ('i, 'a) t_arrow__ =
+    {a_f : 't . ('i, 't) M.t -> 'a}
+
+  type polarity = [`Positive | `Negative | `Both]
+
+  let rec iter :
+  type r s . ('c, r) M.t ->
+    f  : ('c , unit) t_arrow__ ->
+    fa : ('c M.atom -> polarity:polarity -> unit) ->
+    unit =
+    fun m ~f:({a_f} as f) ~fa ->
+      a_f m;
+      match m with
+      | M.M_Bool g ->
+        Formula.iter_atoms g ~f:fa ~polarity:`Both
+      | M.M_Int _ ->
+        ()
+      | M.M_Sum (m1, m2) ->
+        iter m1 ~f ~fa;
+        iter m2 ~f ~fa
+      | M.M_Prod (_, m) ->
+        iter m ~f ~fa
+      | M.M_Ite (g, m1, m2) ->
+        Formula.iter_atoms g ~f:fa ~polarity:`Both;
+        iter m1 ~f ~fa;
+        iter m2 ~f ~fa
+      | M.M_Var _ ->
+        ()
+      | M.M_App (m1, m2) ->
+        iter m1 ~f ~fa;
+        iter m2 ~f ~fa
 
 end
 

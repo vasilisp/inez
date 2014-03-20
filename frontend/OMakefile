@@ -30,7 +30,7 @@ private.CMI_FILES_EMBED_DB = terminology.cmi type.cmi formula.cmi	\
      db_logic.cmi db_script.cmi db_smt_script.cmi db_eager_script.cmi
 
 private.CMI_FILES_EMBED_LT = terminology.cmi type.cmi formula.cmi	\
-    id.cmi logic.cmi lt_script.cmi
+    id.cmi logic.cmi flat.cmi axiom.cmi solver.cmi lt_script.cmi
 
 scip_idl.ml scip_idl.mli scip_idl.h scip_idl_stubs.c: scip_idl.idl
     camlidl -header scip_idl.idl
@@ -228,6 +228,9 @@ Camlp4o_lib(lt, herelib type_conv comparelib sexplib, herelib	\
 Camlp4o_lib(axiom_solver, herelib type_conv comparelib sexplib,	\
                           herelib type_conv compare sexp_conv)
 
+Camlp4o_lib(flat, herelib type_conv comparelib sexplib, herelib	\
+            type_conv compare sexp_conv)
+
 OCamlCMXS(pa_logic, camlp4_maps pa_logic)
 
 OCamlCMXS(pa_lt_logic, camlp4_maps pa_lt_logic)
@@ -278,8 +281,8 @@ section
     OCAMLPACKS += ocaml_plugin async
     MyOCamlProgram(inez-lt, terminology unreachable dvars scip_idl	\
                    scip util formula type id logic pre solver lt	\
-                   axiom_solver lt_script script_main, native_utils	\
-                   scip_idl_stubs lt_ocaml_embedded)
+                   axiom flat axiom_solver lt_script script_main,	\
+                   native_utils scip_idl_stubs lt_ocaml_embedded)
 
 camlp4oi.opt: camlp4_maps.cmx pa_logic.cmx
         ocamlfind ocamlopt unix.cmxa dynlink.cmxa -I +camlp4		\

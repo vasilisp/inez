@@ -103,10 +103,6 @@ struct
     sexp_of_t = sexp_of_bg_isum;
   }
 
-  let type_of_term :
-  type t . t term -> t Type.t =
-    fun x -> M.type_of_t ~f:I.type_of_t' x
-
   let flat_sum_negate (l, x) =
     List.map l ~f:(Tuple2.map1 ~f:Int63.neg), Int63.neg x
 

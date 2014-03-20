@@ -18,6 +18,7 @@ module Make
 struct
 
   type axiom_id = int
+  with compare, sexp_of
 
   type occ = axiom_id * Imt.Dvars.t list * int option ref
 

@@ -54,7 +54,7 @@ struct
   let rec make_env m =
     let e_find = String.Map.find m
     and e_replace key data = make_env (String.Map.add m ~key ~data)
-    and e_type = M.type_of_t ~f:I.type_of_t' in
+    and e_type = M.type_of_t in
     {e_find; e_replace; e_type}
 
   let make_ctx r_ctx = {
