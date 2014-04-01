@@ -1,7 +1,5 @@
 open Camlp4.PreCast
 
-exception Reserved of string
-
 type y = Y_Int | Y_Bool
 
 let gensym =
@@ -23,7 +21,8 @@ let uf_ast_fun _loc mid mid' (l, rtype) =
     match rtype with
     | Y_Int -> <:expr< Type.Y_Int >>
     | Y_Bool -> <:expr< Type.Y_Bool >>
-  and ret e = <:expr< $uid:mid$.M.M_Var ($uid:mid'$.gen_id $e$) >> in
+  and ret e =
+    <:expr< $uid:mid$.M.M_Var (Id_for_scripts.gen_id $e$) >> in
   ret (fold l init)
 
 let uf_ast_apps _loc mid init =
@@ -136,3 +135,52 @@ let transform_logic mid = function
 
 let map_logic mid =
   Ast.map_expr (transform_logic mid)
+
+let rec extract_quantifiers e ~acc =
+  match e with
+  | <:expr@loc< ~forall $lid:v$ $g$ >> ->
+    let acc = v :: acc in
+    extract_quantifiers g ~acc
+  | e ->
+    List.rev acc, e
+
+let rec bind_quantified _loc l g =
+  match l with
+  | h :: t ->
+    <:expr< let $lid:h$ = Id_for_scripts.gen_id Type.Y_Int in
+            $bind_quantified _loc t g$ >>
+  | [] ->
+    g
+
+let rec bind_quantified_as_exprs _loc mid l g =
+  match l with
+  | h :: t ->
+    <:expr< let $lid:h$ = $uid:mid$.M.M_Var $lid:h$ in
+            $bind_quantified_as_exprs _loc mid t g$ >>
+  | [] ->
+    g
+
+let rec list_of_quantified _loc l =
+  let init = <:expr< [] >>
+  and f acc id = <:expr< $lid:id$ :: $acc$ >> in
+  List.fold_left f init l
+  
+let map_forall mid mid' = object
+
+  inherit Ast.map as super
+  
+  method expr = function
+  | <:expr@loc< ~forall $lid:v$ $g$ >> ->
+    let l, e =
+      let acc = [v] in
+      extract_quantifiers g ~acc in
+    let e = super#expr e in
+    let e = <:expr@loc< let open $uid:mid'$.Ops in $e$ >> in
+    (<:expr@loc<
+        ($list_of_quantified loc l$,
+         $bind_quantified_as_exprs loc mid l e$) >>) |>
+        bind_quantified loc l
+  | e ->
+    super#expr e
+
+end

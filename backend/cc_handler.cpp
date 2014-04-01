@@ -383,7 +383,7 @@ SCIP_NODE* cc_handler::current_node_ocg()
 void cc_handler::push_frame_ocg(SCIP_NODE* n)
 {
 
-  assert(ocaml_cut_gen);
+  if (!ocaml_cut_gen) return;
   
   frames_ocg.push_back(n);
   ocaml_cut_gen->push_level();

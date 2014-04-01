@@ -11,6 +11,6 @@ sig
 
   val mono_increasing : ctx -> (I.c, int -> int) Id.t -> unit
 
-  val assert_axiom : ctx -> I.c Axiom.t -> unit
+  val assert_axiom : ctx -> I.c Axiom.t -> [`Ok | `Unsupported ]
 
 end

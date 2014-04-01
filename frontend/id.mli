@@ -21,7 +21,6 @@ val sexp_of_t :
 
 type ('c1, 'c2) id_mapper = {
   f_id : 's . ('c1, 's) t -> ('c2, 's) t
-
 }
 
 module Box :

@@ -84,7 +84,8 @@ let forall_pairs l ~f =
   forall_pairs_aux F_True l
 
 let exists l ~f =
-  not (forall l ~f:(Fn.compose (not) f))
+  let f x = not (f x) in
+  not (forall l ~f)
 
 let exists2 l1 l2 ~f =
   Option.map (forall2 l1 l2 ~f:(fun x1 x2 -> not (f x1 x2))) not

@@ -195,7 +195,8 @@ let create_constraint ({r_ctx} as r) eq l o =
     (sCIPcreateConsBasicLinear r_ctx
        (make_constraint_id r)
        (Array.of_list_map ~f:snd l)
-       (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
+       (let f (x, _) = Int63.to_float x in
+        Array.of_list_map ~f l)
        (-.
            (if eq then
                Int63.(to_float (neg o))
@@ -224,7 +225,8 @@ let add_indicator ({r_ctx} as r) v l o =
          (make_constraint_id r)
          (var_of_var_signed r v)
          (Array.of_list_map ~f:snd l)
-         (Array.of_list_map ~f:(Fn.compose Int63.to_float fst) l)
+         (let f (x, _) = Int63.to_float x in
+          Array.of_list_map ~f l)
          (Int63.to_float o)) in
   assert_ok _here_ (sCIPaddCons r_ctx c)
 
@@ -247,8 +249,10 @@ let var_of_var_option {r_cch} =
 let add_call ({r_cch} as r) (v, o) f l =
   Scip_idl.cc_handler_call (Option.value_exn r_cch ~here:_here_)
     (var_of_var_option r v) (Int63.to_int64 o) f
-    (Array.of_list_map l ~f:(Fn.compose (var_of_var_option r) fst))
-    (Array.of_list_map l ~f:(Fn.compose Int63.to_int64 snd))
+    (let f (x, _) = var_of_var_option r x in
+     Array.of_list_map l ~f)
+    (let f (_, x) = Int63.to_int64 x in
+     Array.of_list_map l ~f)
 
 let add_objective {r_ctx; r_has_objective} l =
   if r_has_objective then

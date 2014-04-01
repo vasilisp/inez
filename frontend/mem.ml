@@ -482,8 +482,6 @@ module Make (Imt : Imt_intf.S_essentials) = struct
                 g (i + 1) N_Tightened 
               | N_Ok ->
                 g (i + 1) acc)
-            (* | Some _ ->
-               g (i + 1) acc *)
             | None ->
               raise (Unreachable.Exn _here_)
           else
@@ -543,8 +541,8 @@ module Make (Imt : Imt_intf.S_essentials) = struct
     let approx_candidates
         ?cnst_only:(cnst_only = false)
         r r' (row, (m1, m2, l), i, _) =
-      let n = Array.length row in
-      let p = Some Int63.max_value, Some Int63.min_value in
+      let n = Array.length row
+      and p = Some Int63.max_value, Some Int63.min_value in
       let init = Array.init ~f:(fun _ -> p) n, Zom.Z0, false
       and f = approx_candidates_folded ~cnst_only r r' row in
       let init = fold_constant_candidates r r' row m1 i ~init ~f in
@@ -618,28 +616,30 @@ module Make (Imt : Imt_intf.S_essentials) = struct
               response_of_attempts rl ru)
 
     let propagate_for_occ r r' occ =
-      intercept_response "propagate_for_occ"
-        (propagate_for_occ r r' occ)
+      propagate_for_occ r r' occ |>
+          intercept_response "propagate_for_occ"
 
     let propagate_for_bvar_aux r r' v =
-      intercept_response "propagate_for_bvar_aux"
-        (let f _ = propagate_for_occ r r' in
-         foldi_responses_occs r v ~f)
+      (let f _ = propagate_for_occ r r' in
+       foldi_responses_occs r v ~f) |>
+          intercept_response "propagate_for_bvar_aux"
 
     let propagate_for_bvar r r' v =
-      intercept_response "propagate_for_bvar"
-        (Option.value_map (S.bderef_local r' v)
-           ~f:(function true ->
-             propagate_for_bvar_aux r r' v
-           | false ->
-             N_Ok)
-           ~default:N_Ok)
+      let f = function
+        | true ->
+          propagate_for_bvar_aux r r' v
+        | false ->
+          N_Ok
+      and default = N_Ok in
+      S.bderef_local r' v |>
+          Option.value_map ~f ~default |>
+              intercept_response "propagate_for_bvar"
 
     let propagate ({r_stats; r_bvar_d} as r) r' =
       r_stats.s_propagate <- r_stats.s_propagate + 1;
-      let f = propagate_for_bvar r r' in
-      intercept_response "propagate"
-        (dequeue_fold_responses r_bvar_d ~f)
+      (let f = propagate_for_bvar r r' in
+       dequeue_fold_responses r_bvar_d ~f) |>
+          intercept_response "propagate"
 
     (* check given solution *)
         
@@ -671,7 +671,7 @@ module Make (Imt : Imt_intf.S_essentials) = struct
     let check ({r_stats; r_bvar_d} as r) r' sol =
       r_stats.s_check <- r_stats.s_check + 1;
       let f = check_for_bvar r r' sol in
-      intercept_bool "check" (Dequeue.for_all r_bvar_d ~f)
+      Dequeue.for_all r_bvar_d ~f |> intercept_bool "check"
 
     (* branching *)
 
@@ -702,13 +702,11 @@ module Make (Imt : Imt_intf.S_essentials) = struct
           let middle = Int63.((lb + ub) / (one + one) - o) in
           let middle = Int63.to_float middle
           and range = Int63.to_float ub -. Int63.to_float lb in
-          bool_of_ok_or_fail
-            (S.ibranch r' v 
-               (if n <= 50 && Float.(range <= of_int 50) then
-                   (ignore (range);
-                    middle +. 0.5)
-                else
-                   middle))
+          (if n <= 50 && Float.(range <= of_int 50) then
+              (ignore range;
+               middle +. 0.5)
+           else
+              middle) |> S.ibranch r' v |> bool_of_ok_or_fail
         | None, _ ->
           false
 
@@ -747,8 +745,7 @@ module Make (Imt : Imt_intf.S_essentials) = struct
       let doit v1 v2 x =
         let v = Hashtbl.find r_diff_h (v1, v2) in
         let v = Option.value_exn v ~here:_here_ in
-        let x = Int63.to_float x in
-        bool_of_ok_or_fail (S.ibranch r' v x)
+        Int63.to_float x |> S.ibranch r' v |> bool_of_ok_or_fail
       and d = Int63.(o2 - o1) in
       match v1, v2 with
       | Some v1, Some v2 ->
@@ -787,14 +784,13 @@ module Make (Imt : Imt_intf.S_essentials) = struct
     let branch ({r_stats} as r) r' =
       try
         r_stats.s_branch <- r_stats.s_branch + 1;
-        ok_for_true
-          (branch0 r r' ||
-             branch0_5 r r' ||
-             branch1 r r' ||
-             branch2 r r')
+        (branch0 r r' ||
+           branch0_5 r r' ||
+           branch1 r r' ||
+           branch2 r r') |> ok_for_true
       with
       | e ->
-        (Printf.printf "exception: %s\n%!p" (Exn.to_string e);
+        (Exn.to_string e |> Printf.printf "exception: %s\n%!p";
          raise e)
           
     (* stack management *)

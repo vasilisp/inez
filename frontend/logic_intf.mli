@@ -46,8 +46,17 @@ module type Term_with_ops = sig
 
   val fold :
     ('i, 's) t ->
-    init:'a ->
-    f:('a -> 'i atom Formula.t -> 'a) -> 'a
+    init : 'a ->
+    f    : ('a -> 'i atom Formula.t -> 'a) ->
+    'a
+
+  val fold_sum_terms :
+    ('i, int) t ->
+    factor   : Core.Std.Int63.t ->
+    init     : 'a ->
+    f        : ('a -> Core.Std.Int63.t -> ('i, int) t -> 'a) ->
+    f_offset : ('a -> Core.Std.Int63.t -> 'b) ->
+    'b
 
   (* infix operators *)
 

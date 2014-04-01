@@ -147,7 +147,7 @@ struct
     let generate_axiom_occ {r_level} r' sol axiom_id f occ =
       let cuts = f axiom_id
       and lb c = Option.value (lb_cut r' c) ~default:Int63.minus_one
-      and eval = List.for_all ~f:Int63.(eval_cut r' sol) in
+      and eval = List.for_all ~f:(eval_cut r' sol) in
       match occ with
       | _, dvars, {contents = Some _} ->
         if
@@ -159,7 +159,10 @@ struct
       | _, dvars, _ ->
         if met_hypotheses r' dvars then
           (let l = cuts dvars in
-           if List.exists l ~f:(fun c -> Int63.(lb c > zero)) then
+           if
+             let f c = Int63.(lb c > zero) in
+             List.exists l ~f
+           then
              R_Cutoff
            else if eval l then
              R_Sat

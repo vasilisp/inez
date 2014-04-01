@@ -141,6 +141,33 @@ struct
         let init = fold a ~init ~f in
         fold b ~init ~f
 
+  let rec fold_sum_terms_impl :
+  type s . ('i, int) t ->
+    factor   : Int63.t ->
+    init     : 'a ->
+    f        : ('a -> Int63.t -> ('i, int) t -> 'a) ->
+    'a =
+    fun m ~factor ~init ~f ->
+      match m with
+      | M_Sum (a, b) ->
+        let init = fold_sum_terms_impl a ~factor ~init ~f in
+        fold_sum_terms_impl b ~factor ~init ~f
+      | M_Prod (c, a) ->
+        let factor = Int63.(c * factor) in
+        fold_sum_terms_impl a ~factor ~init ~f
+      | _ ->
+        f init factor m
+
+  let rec fold_sum_terms m ~factor ~init ~f ~f_offset =
+    (let f (acc, offset) c m =
+       match m with
+       | M_Int x ->
+         acc, Int63.(offset + x)
+       | _ ->
+         f acc c m, offset in
+     fold_sum_terms_impl m ~factor ~init:(init, Int63.zero) ~f) |>
+        Tuple.T2.uncurry f_offset 
+
 end
 
 module rec M : (Term_with_ops with type 'i atom = 'i A.t) =

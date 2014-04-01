@@ -61,6 +61,9 @@ module type S_with_holes = sig
   val ovar_of_term :
     ctx -> (c, int) Logic.M.t -> ovar Lazy.t
 
+  val ovar_of_sum :
+    ctx -> ivar Terminology.iexpr -> ovar
+
   val bvar_of_id :
     ctx -> (c, bool) Id.t -> bvar
 

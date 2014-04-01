@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <stdint.h>
 
 /* basic data structures */
 

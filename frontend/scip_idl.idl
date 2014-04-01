@@ -5,6 +5,7 @@ int SCIPtechVersion();
 // CamlIDL thinks that GCC pads virtual tables. This does not seem to
 // be the case any more.
 
+
 quote(h,
 "#undef VTBL_PADDING\n\
 #define VTBL_PADDING\n\
@@ -19,8 +20,6 @@ typedef [abstract] void* cch;
 typedef [abstract] void* node;
 typedef [abstract] void* row;
 typedef [abstract] void* conshdlr;
-
-typedef unsigned int proptiming;
 
 // make sure the enums stay in sync with their C/C++ versions
 

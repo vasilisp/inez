@@ -3,18 +3,42 @@ open Core.Std
 
 type 'i quantified = ('i, int) Id.t
 
-type 'i hypothesis =
-  (('i, int) Flat.t * ('i, int) Flat.t option) offset
+module Flat = struct
 
-type 'i cut =
-  ('i, int) Flat.t iexpr
+  type 'i hypothesis =
+    ('i, int) Flat.t iexpr * ('i, int) Flat.t iexpr
 
-type 'i t =
-  'i quantified list * 'i hypothesis list * 'i cut
+  type 'i cut =
+    ('i, int) Flat.t iexpr
 
-let iter_subterms (_, h, (l, _) : 'i t) ~f =
-  (let f ((a, b), _) = f a; Option.iter b ~f in
-   List.iter h ~f);
-  (let f = Fn.compose f Tuple.T2.get2 in
-   List.iter l ~f)
+  type 'i t =
+    'i quantified list * 'i hypothesis list * 'i cut
 
+  let iter_subterms (_, h, (l, _) : 'i t) ~f =
+    let f (_, x) = f x in
+    List.iter l ~f;
+    let f ((l1, _), (l2, _)) = List.iter l1 ~f; List.iter l2 ~f in
+    List.iter h ~f
+
+end
+
+module X = struct
+
+  type 'c t =
+    'c quantified list *
+      ((('c, int) Logic.M.t * ('c, int) Logic.M.t) list *
+          (('c, int) Logic.M.t * ('c, int) Logic.M.t))
+
+end
+
+include X
+
+module Ops = struct
+
+  include (Logic.M : Ops_intf.Int
+           with type ('i, 'q) t := ('i, 'q) Logic.M.t
+           and type int_plug := Int63.t)
+
+  let (<=) a b = (a, b)
+
+end

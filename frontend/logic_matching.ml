@@ -56,7 +56,7 @@ module Make (M : Logic_intf.Term_with_ops) = struct
     bindings  :  ('i, 'c) bindings ->
     ('i, 'c) bindings option =
     fun id m ~ids ~bindings ->
-      match Id.type_of_t id, M.type_of_t m ~f:Id.type_of_t' with
+      match Id.type_of_t id, M.type_of_t m with
       | Type.Y_Int, Type.Y_Int ->
         try_bind id m ~ids ~bindings
       | _ ->

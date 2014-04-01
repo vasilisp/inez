@@ -72,7 +72,7 @@ struct
     | Some (S_Pos v) ->
       S.ideref_sol r sol v
     | Some (S_Neg v) ->
-      Int63.(- S.ideref_sol r sol v)
+      S.ideref_sol r sol v |> Int63.(~-)
     | None ->
       Int63.zero
 
@@ -105,7 +105,7 @@ struct
     Option.(get_ub_local_base r dv >>| Int63.(+) o)
 
   let ideref_sol r sol ((dv, o), _, _) =
-    Int63.(ideref_sol_base r sol dv + o)
+    ideref_sol_base r sol dv |> Int63.(+) o
 
   let set_lb_local r ((dv, o), _, _) x =
     set_lb_local_base r dv Int63.(x - o)
