@@ -101,6 +101,7 @@ end
 
 let transform_logic_aux mid e =
   let _loc = Ast.loc_of_expr e in
+
   match e with
   | <:expr< true >> ->
     <:expr< Formula.F_True >>
@@ -144,37 +145,34 @@ let rec extract_quantifiers e ~acc =
   | e ->
     List.rev acc, e
 
-let rec bind_quantified _loc l g =
-  match l with
-  | h :: t ->
-    <:expr< let $lid:h$ = Id_for_scripts.gen_id Type.Y_Int in
-            $bind_quantified _loc t g$ >>
-  | [] ->
-    g
+let bind_quantified _loc l init =
+  let l =
+    let f i = <:binding<
+      $lid:i$ = Id_for_scripts.gen_id Type.Y_Int >> in
+    List.map f l in
+  <:expr< let $list:l$ in $init$ >>
 
-let rec bind_quantified_as_exprs _loc mid l g =
-  match l with
-  | h :: t ->
-    <:expr< let $lid:h$ = $uid:mid$.M.M_Var $lid:h$ in
-            $bind_quantified_as_exprs _loc mid t g$ >>
-  | [] ->
-    g
+let bind_quantified_as_exprs _loc mid l init =
+  let l =
+    let f i = <:binding< $lid:i$ = $uid:mid$.M.M_Var $lid:i$ >> in
+    List.map f l in
+  <:expr< let $list:l$ in $init$ >>
 
 let rec list_of_quantified _loc l =
   let init = <:expr< [] >>
-  and f acc id = <:expr< $lid:id$ :: $acc$ >> in
-  List.fold_left f init l
+  and f i acc = <:expr< $lid:i$ :: $acc$ >> in
+  List.fold_right f l init
   
 let map_forall mid mid' = object
 
   inherit Ast.map as super
   
   method expr = function
-  | <:expr@loc< ~forall $lid:v$ $g$ >> ->
+  | <:expr@loc< ~forall $lid:v$ $e$ >> ->
     let l, e =
       let acc = [v] in
-      extract_quantifiers g ~acc in
-    let e = super#expr e in
+      extract_quantifiers e ~acc in
+    let e = (map_logic_aux mid)#expr e in
     let e = <:expr@loc< let open $uid:mid'$.Ops in $e$ >> in
     (<:expr@loc<
         ($list_of_quantified loc l$,
