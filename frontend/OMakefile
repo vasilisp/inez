@@ -77,7 +77,7 @@ Camlp4o_nopacks(module) =
 Reset_cflags(file) =
     section
         CFLAGS =
-        $(file).o:
+        $(file).o: $(file).c
 
 Extra_pack(module, pkg) =
     section
@@ -264,14 +264,14 @@ OCamlTop(inez-db, terminology unreachable dvars scip_idl scip util	\
          db_script, native_utils scip_idl_stubs)
 
 section
+
     OCAMLPACKS += ocaml_plugin async
+
     MyOCamlProgram(inez, terminology unreachable dvars scip_idl scip	\
                    util formula type id id_for_scripts logic pre	\
                    solver script script_main, native_utils		\
                    scip_idl_stubs ocaml_embedded)
 
-section
-    OCAMLPACKS += ocaml_plugin async
     MyOCamlProgram(inez-db, terminology unreachable dvars scip_idl	\
                    scip util formula type id id_for_scripts logic	\
                    db_logic pre solver bounds smtlib_printer mem	\
@@ -279,22 +279,11 @@ section
                    script_main, native_utils scip_idl_stubs		\
                    db_ocaml_embedded)
 
-section
-    OCAMLPACKS += ocaml_plugin async
     MyOCamlProgram(inez-lt, terminology unreachable dvars scip_idl	\
                    scip util formula type id id_for_scripts logic pre	\
                    solver lt axiom flat axiom_solver lt_script		\
                    script_main, native_utils scip_idl_stubs		\
                    lt_ocaml_embedded)
-
-camlp4oi.opt: camlp4_maps.cmx pa_logic.cmx
-        ocamlfind ocamlopt unix.cmxa dynlink.cmxa -I +camlp4		\
-        camlp4lib.cmxa Camlp4Parsers/Camlp4OCamlRevisedParser.cmx	\
-        Camlp4Parsers/Camlp4OCamlParser.cmx				\
-        Camlp4Parsers/Camlp4OCamlRevisedParserParser.cmx		\
-        Camlp4Parsers/Camlp4OCamlParserParser.cmx			\
-        Camlp4Printers/Camlp4AutoPrinter.cmx camlp4_maps.cmx		\
-        pa_logic.cmx Camlp4Bin.cmx -o camlp4oi.opt
 
 ocaml_embedded.c: pa_logic.cmxs $(CMI_FILES_EMBED)
         ocaml-embed-compiler \
