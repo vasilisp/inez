@@ -307,7 +307,10 @@ void cc_handler_catch_var_events([in] cch c, [in] var v);
 
 var cc_handler_zero_var();
 
-var cc_handler_add_dvar([in] cch c, [in] var v1, [in] var v2);
+var cc_handler_add_dvar([in] cch c,
+                        [in] var v1,
+                        [in] var v2,
+                        [in] long long int offset);
 
 unsigned long uintptr_t_of_var([in] var v);
 

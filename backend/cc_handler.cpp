@@ -176,6 +176,7 @@ cc_handler::cc_handler(SCIP* scip, dp* d, cut_gen* c)
     orig_var_m(),
     dvar_rev_m(),
     dvar_offset_m(),
+    ocaml_dvar_offset_m(),
     node_seen_m(),
     node_seen_ocg_m(),
     loc_m(),
@@ -272,6 +273,26 @@ SCIP_VAR* cc_handler::add_dvar(SCIP_VAR* v1, SCIP_VAR* v2)
 
   return dv;
 
+}
+
+SCIP_VAR* cc_handler::ocaml_add_dvar(SCIP_VAR* v1, SCIP_VAR* v2,
+                                     llint o)
+{
+
+  assert(v1 > v2);
+
+  SCIP_VAR* rval = add_dvar(v1, v2);
+
+  dvar_offset_map::iterator it = ocaml_dvar_offset_m.find(rval);
+
+  if (it != ocaml_dvar_offset_m.end()) {
+    vector<llint>& vlli = it->second;
+    if (!util::vector_exists_eq<llint>(vlli, o)) vlli.push_back(o);
+  } else
+    ocaml_dvar_offset_m.emplace(rval, vector<llint>(1, o));
+
+  return rval;
+  
 }
 
 SCIP_VAR* cc_handler::add_dvar(const scip_ovar& ov1,
@@ -659,14 +680,15 @@ SCIP_RESULT cc_handler::scip_prop_impl(context& c)
            << endl;
 #endif
       c.merge(v1, v2, my_llint(scip, lb_again));
-      if (node_infeasible || !c.get_consistent())
-        return  SCIP_CUTOFF;
+      if (node_infeasible) return SCIP_CUTOFF;
+      if (!c.get_consistent()) return  SCIP_CUTOFF;
     }
     it++;
   }
 
-  if (node_infeasible || !c.get_consistent())
-    return SCIP_CUTOFF;
+  if (node_infeasible) return SCIP_CUTOFF;
+
+  if (!c.get_consistent()) return SCIP_CUTOFF;
 
   if (bound_changed) return SCIP_REDUCEDDOM;
 
@@ -781,6 +803,40 @@ SCIP_RETCODE cc_handler::scip_lock
   
 }
 
+bool cc_handler::branch_on_ocaml_diff()
+{
+
+  SCIP*& scip = scip::ObjEventhdlr::scip_;
+
+  dvar_offset_map::iterator it = ocaml_dvar_offset_m.begin();
+
+  while (it != ocaml_dvar_offset_m.end()) {
+
+    SCIP_VAR* dv = it->first;
+    SCIP_Real
+      lb = SCIPvarGetLbLocal(dv),
+      ub = SCIPvarGetUbLocal(dv);
+    vector<llint> v = it->second;
+
+    vector<llint>::const_iterator it2 = v.begin();
+
+    while (it2 != v.end()) {
+      const llint o = *it2;
+      if (SCIPisLT(scip, lb, o) || SCIPisGT(scip, ub, o)) {
+        scip_branch_around_val(scip, dv, o);
+        return true;
+      }
+      it2++;
+    }
+
+    it++;
+
+  }
+
+  return false;
+  
+}
+
 SCIP_RESULT cc_handler::cut_or_branch()
 {
   
@@ -813,6 +869,8 @@ SCIP_RESULT cc_handler::cut_or_branch()
   /* trying to branch on something that makes sense for ocaml_dp */
 
   if (ocaml_dp && ocaml_dp->branch()) return SCIP_BRANCHED;
+
+  if (branch_on_ocaml_diff()) return SCIP_BRANCHED;
   
   /* we are in trouble */
 
@@ -1471,9 +1529,10 @@ SCIP_VAR* cc_handler_zero_var(cc_handler* c)
 
 SCIP_VAR* cc_handler_add_dvar(cc_handler* c,
                               SCIP_VAR* v1,
-                              SCIP_VAR* v2)
+                              SCIP_VAR* v2,
+                              llint o)
 {
-  return c->add_dvar(v1, v2);
+  return c->ocaml_add_dvar(v1, v2, o);
 }
 
 uintptr_t uintptr_t_of_var(SCIP_VAR* v)

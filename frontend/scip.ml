@@ -346,8 +346,9 @@ let add_cut_local ({r_ctx} as r) (l, o) =
 
 (* FIXME : do we really need the Option? *)
 
-let name_diff {r_cch} v1 v2 =
-  Option.(r_cch >>| fun r_cch -> cc_handler_add_dvar r_cch v1 v2)
+let name_diff {r_cch} v1 v2 o =
+  let r_cch = Option.value_exn r_cch ~here:_here_ in
+  Some (cc_handler_add_dvar r_cch v1 v2 (Int63.to_int64 o))
 
 module Types = struct
   type ctx = scip_ctx

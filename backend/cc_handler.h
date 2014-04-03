@@ -130,6 +130,8 @@ private:
   typedef unordered_map<SCIP_VAR*, vector<llint> > dvar_offset_map;
   dvar_offset_map dvar_offset_m;
 
+  dvar_offset_map ocaml_dvar_offset_m;
+
   // dvar_offset_map::iterator dvar_offset_rr_iterator;
 
   typedef unordered_map<SCIP_NODE*, bool> node_seen_map;
@@ -161,13 +163,15 @@ private:
 
   /* difference vars (dvars) and branching on them */
 
+  SCIP_VAR* add_dvar(SCIP_VAR*, SCIP_VAR*);
   SCIP_VAR* add_dvar(const scip_ovar&, const scip_ovar&);
   SCIP_VAR* get_dvar(SCIP_VAR*, SCIP_VAR*);
   bool branch_on_diff(const scip_ovar&, const scip_ovar&);
-
+  
   /* branching high-level methods */
 
   bool branch_on_cc_diff();
+  bool branch_on_ocaml_diff();
   SCIP_RESULT cut_or_branch();
 
   /* stack management */
@@ -263,8 +267,6 @@ public:
 
   /* extra methods */
 
-  SCIP_VAR* add_dvar(SCIP_VAR*, SCIP_VAR*);
-  
   void call(const scip_ovar&, const string&,
             const vector<scip_ovar>&);
 
@@ -275,6 +277,8 @@ public:
   void finalize();
 
   void include();
+
+  SCIP_VAR* ocaml_add_dvar(SCIP_VAR*, SCIP_VAR*, llint);
   
 };
 
@@ -301,7 +305,8 @@ extern "C" {
 	extern SCIP_VAR* cc_handler_zero_var(cc_handler*);
 	extern SCIP_VAR* cc_handler_add_dvar(cc_handler*,
 					     SCIP_VAR*,
-					     SCIP_VAR*);
+					     SCIP_VAR*,
+					     llint);
 	extern void cc_handler_catch_var_events(cc_handler*, SCIP_VAR*);
 	extern uintptr_t uintptr_t_of_var(SCIP_VAR*);
 	extern uintptr_t uintptr_t_of_node(SCIP_NODE*);

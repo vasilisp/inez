@@ -149,9 +149,12 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
   type s . under_forall:bool -> polarity:polarity ->
     (I.c, s) D.t -> bool =
     fun ~under_forall ~polarity -> function
-    | D.D_Rel (_, f) ->
+    | D.D_Rel (s, f) ->
       (* FIXME: looks fine, but think about it again *)
-      not under_forall
+      not under_forall &&
+        let polarity = `Positive
+        and row = get_dummy_row s |> f in
+        in_fragment row ~under_forall ~polarity
     | D.D_Input (_, l) ->
       List.for_all l ~f:in_fragment_row
     | D.D_Cross (a, b) when under_forall ->

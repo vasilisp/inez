@@ -9,7 +9,7 @@ module Make
 
     include Imt_intf.S_int_bounds with type t := ivar
 
-    val name_diff : ctx -> ivar -> ivar -> ivar option
+    val name_diff : ctx -> ivar -> ivar -> Int63.t -> ivar option
 
   end) =
 
@@ -34,7 +34,7 @@ struct
     sexp_of_t = sexp_of_t
   }
 
-  let create_dvar_base r v1 v2 =
+  let create_dvar_base r v1 v2 o =
     match v1, v2 with
     | Some v1, None ->
       Some (S_Pos v1)
@@ -43,14 +43,15 @@ struct
     | None, None ->
       None
     | Some v1, Some v2 when S.compare_ivar v1 v2 > 0 ->
-      Option.(S.name_diff r v1 v2 >>| (fun v -> S_Pos v))
+      Option.(S.name_diff r v1 v2 o >>| (fun v -> S_Pos v))
     | Some v1, Some v2 when S.compare_ivar v1 v2 < 0 ->
-      Option.(S.name_diff r v2 v1 >>| (fun v -> S_Neg v))
+      Option.(S.name_diff r v2 v1 o >>| (fun v -> S_Neg v))
     | Some v1, Some v2 ->
       None
 
   let create_dvar r (v1, o1 as ov1) (v2, o2 as ov2) =
-    (create_dvar_base r v1 v2, Int63.(o1 - o2)), ov1, ov2
+    let o = Int63.(o1 - o2) in
+    (create_dvar_base r v1 v2 Int63.(- o), o), ov1, ov2
 
   let get_lb_local_base r = function
     | Some (S_Pos v) ->
