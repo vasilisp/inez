@@ -57,15 +57,6 @@ let minimize o =
 let solve_print_result () =
   print_endline (string_of_result (solve ()))
 
-let mono f =
-  let open Logic in
-  match f (M.M_Int Core.Std.Int63.zero) with
-  | M.M_App (M.M_Var id, M.M_Int z)
-      when Core.Std.Int63.(compare z zero) = 0 ->
-    S.mono_increasing ctx id
-  | _ ->
-    ()
-
 let assert_axiom = S.assert_axiom ctx
 
 let argv =

@@ -1,7 +1,6 @@
 open Core.Std
 open Logic
 
-
 module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
   
   module Matching = Flat.Matching(M)
@@ -64,15 +63,13 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
        ((c, int) Id.t, (c, int) M.t list) Hashtbl.t)
       Hashtbl.t;
     r_a_occ_h   :  (aocc, binding list list) Hashtbl.t;
-    r_f_h       :  (mono_id, app Hash_set.t) Hashtbl.t;
     r_dvars_h   :  (ovov, Imt.Dvars.t) Hashtbl.t;
     r_occ_h     :  (Imt.Dvars.t, (ovar * ovar) list) Hashtbl.t;
     r_q         :  formula Dequeue.t
   }
 
   let make_ctx () =
-    let r_f_h       =  Hashtbl.Poly.create () ~size:128
-    and r_lt_ctx    =  Lt.make_ctx () in
+    let r_lt_ctx    =  Lt.make_ctx () in
     let r_imt_ctx   =  Imt'.make_ctx r_lt_ctx in
     let r_ctx       =  S.make_ctx r_imt_ctx
     and r_a_h       =  Hashtbl.Poly.create () ~size:32
@@ -87,11 +84,7 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     and r_q         =  Dequeue.create () in
     {r_ctx; r_lt_ctx; r_imt_ctx;
      r_a_h; r_a_patt_h; r_a_bind_h; r_a_occ_h;
-     r_f_h; r_dvars_h; r_occ_h; r_q}
-
-  let mono_increasing {r_f_h} (f : (I.c, int -> int) Id.t) =
-    (let default () = Hash_set.Poly.create () ~size:128 in
-     Hashtbl.find_or_add r_f_h f ~default) |> ignore
+     r_dvars_h; r_occ_h; r_q}
 
   let assert_formula {r_q} =
     Dequeue.enqueue_back r_q
@@ -196,7 +189,7 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
       iter_substitutions r key ~f in
     Hashtbl.iter r_a_h ~f
   
-  let rec register_apps_formula ({r_ctx; r_f_h} as r) =
+  let rec register_apps_formula ({r_ctx} as r) =
     let rec f : type s . (I.c, s) M.t -> unit = function
       | M.M_Int _ ->
         ()
@@ -213,9 +206,6 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
       | M.M_App (M.M_Var id, a) as a' ->
         (match I.type_of_t id with
         | Type.Y_Int_Arrow Type.Y_Int ->
-          (Hashtbl.find r_f_h id |>
-              let f = Fn.flip Hash_set.add (a, a') in
-              Option.iter ~f);
           register_app_for_axioms r a'
         | _ ->
           ()); f a
@@ -240,44 +230,6 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     let dv = get_dvar r ov1 ov2 in
     Hashtbl.add_multi r_occ_h dv (ovr1, ovr2);
     Lt.assert_instance r_lt_ctx id [dv]
-
-  let register_diffs ({r_ctx; r_imt_ctx; r_f_h} as r) id =
-    let f ~key ~data =
-      let f x = S.ovar_of_term r_ctx x |> Lazy.force in
-      let f (v1, v2) = f v1, f v2 in
-      (* FIXME : avoid conversion *)
-      let data = Hash_set.to_list data |> List.map ~f in
-      let f pair1 pair2 =
-        assert_instance_lt r id pair1 pair2;
-        assert_instance_lt r id pair2 pair1 in
-      Util.iter_pairs data ~f in
-    Hashtbl.iter r_f_h ~f
-
-  let get_cut_base v1 v2 =
-    match v1, v2 with
-    | Some v1, Some v2 ->
-      assert (not (Imt.compare_ivar v1 v2 = 0));
-      [Int63.one, v1; Int63.minus_one, v2]
-    | Some v1, None ->
-      [Int63.one, v1]
-    | None, Some v2 ->
-      [Int63.minus_one, v2]
-    | None, None ->
-      []
-
-  let get_cut (v1, o1) (v2, o2) =
-    get_cut_base v1 v2, Int63.(o1 - o2)
-
-  let get_cuts r_occ_h _ = function
-    | [dv] ->
-      (match Hashtbl.find r_occ_h dv with
-      | Some l ->
-        let f = Tuple.T2.uncurry get_cut in
-        List.map l ~f
-      | None ->
-        [])
-    | _ ->
-      []
 
   let register_axiom_terms {r_a_patt_h} id axiom =
     let open Flat in
@@ -350,7 +302,6 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     (let f = S.assert_formula r_ctx in
      Dequeue.iter r_q ~f);
     register_all_axiom_terms r;
-    get_cuts r_occ_h |> Lt.assert_axiom r_lt_ctx |> register_diffs r;
     S.solve r_ctx
 
   let add_objective {r_ctx} = S.add_objective r_ctx
