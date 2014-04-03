@@ -100,9 +100,20 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     let axiom = Hashtbl.find r_a_h axiom_id in
     let q, _, _ = Option.value_exn axiom ~here:_here_ in
     if List.exists q ~f:((=) key) then
-      (let default () = Hashtbl.Poly.create () ~size:128 in
-       Hashtbl.find_or_add r_a_bind_h axiom_id ~default) |>
-          Hashtbl.add_multi ~key ~data
+      let h =
+        let default () = Hashtbl.Poly.create () ~size:128 in
+        Hashtbl.find_or_add r_a_bind_h axiom_id ~default
+      and f x =
+        match x with
+        | Some l ->
+          Some
+            (if let f = (=) data in List.exists l ~f then
+                l
+             else
+                data :: l)
+        | None ->
+          Some [data] in
+      Hashtbl.change h key f
     else
       ()
 
@@ -130,12 +141,12 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     match q with
     | a :: d ->
       Hashtbl.find h a |>
-          let f =
-            let f m =
-              let bound = (a, m) :: bound in
-              iter_substitutions r axiom_id h d ~f ~bound in
-            List.iter ~f in
-          Option.iter ~f
+          (let f =
+             let f m =
+               let bound = (a, m) :: bound in
+               iter_substitutions r axiom_id h d ~f ~bound in
+             List.iter ~f in
+           Option.iter ~f)
     | [] ->
       f bound
 

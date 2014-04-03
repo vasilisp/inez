@@ -1,6 +1,12 @@
 open Core.Std
 open Logic
 
+let dbg = false
+
+let intercept_bool s b =
+  if dbg then Printf.printf "%s: %b\n%!" s b;
+  b
+
 module Make
   
   (Imt : sig
@@ -70,10 +76,10 @@ struct
       let b1 = met_hypotheses_sol r' sol dvars
       and b2 = List.for_all cuts ~f:(eval_cut r' sol) in
       (*
-      Printf.printf "%s => %s\n%!"
+        Printf.printf "%s => %s\n%!"
         (Sexplib.Sexp.to_string (sexp_of_hypotheses dvars))
         (Sexplib.Sexp.to_string (sexp_of_cuts cuts));
-      Printf.printf "not %b => %b\n%!" b1 b2;
+        Printf.printf "not %b => %b\n%!" b1 b2;
       *)
       not b1 || b2
 
@@ -83,6 +89,9 @@ struct
     let check {r_axioms_h} r' sol =
       let f ~key ~data = not (check_axiom r' sol key data) in
       not (Hashtbl.existsi r_axioms_h ~f)
+
+    let check r r' sol =
+      check r r' sol |> intercept_bool "check"
 
     let backtrack ({r_axioms_h; r_level} as r) r' =
       assert (r_level >= 0);

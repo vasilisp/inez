@@ -1,7 +1,5 @@
 open Camlp4.PreCast
 
-type y = Y_Int | Y_Bool
-
 let gensym =
   let cnt = ref 0 in
   fun ?(prefix = "_x") () ->
@@ -12,15 +10,15 @@ let uf_ast_fun _loc mid mid' (l, rtype) =
   let fold l init =
     let f y acc =
       match y with
-      | Y_Int ->
+      | `Int ->
         <:expr< Type.Y_Int_Arrow $acc$ >>
-      | Y_Bool ->
+      | `Bool ->
         <:expr< Type.Y_Bool_Arrow $acc$ >> in
     ListLabels.fold_right l ~f ~init
   and init =
     match rtype with
-    | Y_Int -> <:expr< Type.Y_Int >>
-    | Y_Bool -> <:expr< Type.Y_Bool >>
+    | `Int -> <:expr< Type.Y_Int >>
+    | `Bool -> <:expr< Type.Y_Bool >>
   and ret e =
     <:expr< $uid:mid$.M.M_Var (Id_for_scripts.gen_id $e$) >> in
   ret (fold l init)
@@ -30,9 +28,9 @@ let uf_ast_apps _loc mid init =
     ~f:(fun acc id t ->
       let t =
         match t with
-        | Y_Int ->
+        | `Int ->
           <:expr< $id:id$ >>
-        | Y_Bool ->
+        | `Bool ->
           <:expr< $uid:mid$.M.M_Bool $id:id$ >> in
       <:expr< $uid:mid$.M.M_App ($acc$, $t$) >>)
 
@@ -42,15 +40,15 @@ let ml_lambda_abstract _loc init =
 
 let uf_maybe_convert _loc mid y e =
   match y with
-  | Y_Bool ->
+  | `Bool ->
     <:expr< Formula.F_Atom ($uid:mid$.A.A_Bool ($e$)) >>
-  | Y_Int ->
+  | `Int ->
     e
 
 let uf_ast _loc mid mid' (l, y) =
   let l_ids =
     let f _ = Ast.IdLid (_loc, gensym ()) in
-    List.map f l
+    ListLabels.map l ~f
   and id = gensym ~prefix:"__uf_" () in
   let inside =
     ml_lambda_abstract _loc
@@ -66,15 +64,15 @@ let rec type_of_uf ?acc:(acc = []) =
   | <:expr< fun _ -> $e$ >>
   | <:expr< fun ($lid:_$ : Int) -> $e$ >>
   | <:expr< fun (_ : Int) -> $e$ >> ->
-    type_of_uf ~acc:(Y_Int :: acc) e
+    type_of_uf ~acc:(`Int :: acc) e
   | <:expr< fun ($lid:_$ : Bool) -> $e$ >>
   | <:expr< fun (_ : Bool) -> $e$ >> ->
-    type_of_uf ~acc:(Y_Bool :: acc) e
+    type_of_uf ~acc:(`Bool :: acc) e
   | <:expr< ~free >>
   | <:expr< (~free : Int) >> ->
-    Some (List.rev acc, Y_Int)
+    Some (ListLabels.rev acc, `Int)
   | <:expr< (~free : Bool) >> ->
-    Some (List.rev acc, Y_Bool)
+    Some (ListLabels.rev acc, `Bool)
   | _ ->
     None
 
@@ -93,7 +91,7 @@ let map_uf mid mid' = object
     | Some y ->
       uf_ast loc mid mid' y
     | None ->
-      e)
+      super#expr e)
   | e ->
     super#expr e
 
@@ -101,7 +99,6 @@ end
 
 let transform_logic_aux mid e =
   let _loc = Ast.loc_of_expr e in
-
   match e with
   | <:expr< true >> ->
     <:expr< Formula.F_True >>
@@ -143,25 +140,25 @@ let rec extract_quantifiers e ~acc =
     let acc = v :: acc in
     extract_quantifiers g ~acc
   | e ->
-    List.rev acc, e
+    ListLabels.rev acc, e
 
 let bind_quantified _loc l init =
   let l =
     let f i = <:binding<
       $lid:i$ = Id_for_scripts.gen_id Type.Y_Int >> in
-    List.map f l in
+    ListLabels.map l ~f in
   <:expr< let $list:l$ in $init$ >>
 
 let bind_quantified_as_exprs _loc mid l init =
   let l =
     let f i = <:binding< $lid:i$ = $uid:mid$.M.M_Var $lid:i$ >> in
-    List.map f l in
+    ListLabels.map l ~f in
   <:expr< let $list:l$ in $init$ >>
 
 let rec list_of_quantified _loc l =
   let init = <:expr< [] >>
   and f i acc = <:expr< $lid:i$ :: $acc$ >> in
-  List.fold_right f l init
+  ListLabels.fold_right l ~f ~init
   
 let map_forall mid mid' = object
 

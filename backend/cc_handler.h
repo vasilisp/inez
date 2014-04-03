@@ -164,7 +164,11 @@ private:
   SCIP_VAR* add_dvar(const scip_ovar&, const scip_ovar&);
   SCIP_VAR* get_dvar(SCIP_VAR*, SCIP_VAR*);
   bool branch_on_diff(const scip_ovar&, const scip_ovar&);
-  bool branch_on_diff();
+
+  /* branching high-level methods */
+
+  bool branch_on_cc_diff();
+  SCIP_RESULT cut_or_branch();
 
   /* stack management */
   

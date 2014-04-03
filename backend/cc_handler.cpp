@@ -6,8 +6,6 @@
 #include <cstdlib>
 #include <stdint.h>
 
-using boost::unordered::piecewise_construct;
-
 // #define DEBUG
 // #define DEBUG_DESPERATE
 
@@ -340,7 +338,7 @@ inline bool cc_handler::branch_on_diff(const scip_ovar& ov1,
 
 }
 
-bool cc_handler::branch_on_diff()
+bool cc_handler::branch_on_cc_diff()
 {
 
   loc_map::iterator it = loc_m.begin();
@@ -356,7 +354,8 @@ bool cc_handler::branch_on_diff()
         const scip_ovar& ov2 = *it2;
         SCIP_VAR* v2 = ov2.base;
         bool branched = v1 > v2 ?
-          branch_on_diff(ov1, ov2) : branch_on_diff(ov2, ov1);
+          branch_on_diff(ov1, ov2) :
+          branch_on_diff(ov2, ov1) ;
         if (branched) return true;
         it2++;
       }
@@ -671,8 +670,7 @@ SCIP_RESULT cc_handler::scip_prop_impl(context& c)
 
   if (bound_changed) return SCIP_REDUCEDDOM;
 
-  if (ocaml_dp)
-    return ocaml_dp->propagate();
+  if (ocaml_dp) return ocaml_dp->propagate();
 
   return SCIP_DIDNOTFIND;
   
@@ -783,13 +781,64 @@ SCIP_RETCODE cc_handler::scip_lock
   
 }
 
+SCIP_RESULT cc_handler::cut_or_branch()
+{
+  
+  SCIP*& scip = scip::ObjEventhdlr::scip_;
+
+#ifdef DEBUG
+    cout << "[CB] enfolp: trying to cut or branch\n";
+#endif
+
+  if (ocaml_cut_gen) {
+    SCIP_RESULT cg_result = ocaml_cut_gen->generate();
+    switch (cg_result) {
+    case SCIP_DIDNOTFIND:
+      break;
+    case SCIP_CUTOFF:
+    case SCIP_SEPARATED:
+      return cg_result;
+    case SCIP_FEASIBLE:
+      cout << "[CB] feasible\n";
+      return cg_result;
+    default:
+      throw util::ec_case;
+    }
+  }
+
+  /* trying to branch on something that makes for CC */
+
+  if (branch_on_cc_diff()) return SCIP_BRANCHED;
+
+  /* trying to branch on something that makes sense for ocaml_dp */
+
+  if (ocaml_dp && ocaml_dp->branch()) return SCIP_BRANCHED;
+  
+  /* we are in trouble */
+
+#ifdef DEBUG
+  dvar_rev_map::iterator it = dvar_rev_m.begin();
+
+  while (it != dvar_rev_m.end()) {
+    cout << "[AS] " << var_id(it->first) << " = "
+         << SCIPgetSolVal(scip, NULL, it->first) << " in ["
+         << SCIPvarGetLbLocal(it->first) << ", "
+         << SCIPvarGetUbLocal(it->first) << "]\n";
+    it++;
+  }
+#endif
+
+  unreachable();
+  
+}
+
 SCIP_RETCODE cc_handler::scip_enfolp
 (SCIP* s, SCIP_CONSHDLR* ch, SCIP_CONS** ac,
  int n, int n_useful, SCIP_Bool infeasible, SCIP_RESULT* r)
 {
 
 #ifdef DEBUG
-  cout << "[CB] enfolp at " << SCIPgetCurrentNode(s) << endl;
+  cout << "[CB] enfolp" << endl;
 #endif
 
 #ifdef DEBUG_DESPERATE
@@ -799,33 +848,9 @@ SCIP_RETCODE cc_handler::scip_enfolp
   ASSERT_SCIP_POINTER(s);
   assert(SCIPgetStage(s) != SCIP_STAGE_PRESOLVING);
 
-  bool unknown = false;
-  
-  if (ocaml_cut_gen) {
-    SCIP_RESULT cg_result = ocaml_cut_gen->generate();
-    switch (cg_result) {
-    case SCIP_CUTOFF:
-      *r = cg_result;
-      return SCIP_OKAY;
-    case SCIP_SEPARATED:
-      *r = cg_result;
-      return SCIP_OKAY;
-    case SCIP_FEASIBLE:
-      break;
-    case SCIP_DIDNOTFIND:
-      unknown = true;
-      break;
-    default:
-      throw util::ec_case;
-    }
-  }
-  
-  *r = scip_check_impl(NULL); 
-
-  if (*r == SCIP_INFEASIBLE || unknown) {
+  if (scip_check_impl(NULL) == SCIP_INFEASIBLE) {
 #ifdef DEBUG
-    cout
-      << "[CB] enfolp: solution infeasible, trying to propagate\n";
+    cout << "[CB] enfolp: solution infeasible, trying to propagate\n";
 #endif
     SCIP_RESULT prop_result = scip_prop_impl(false);
     switch (prop_result) {
@@ -835,36 +860,19 @@ SCIP_RETCODE cc_handler::scip_enfolp
 #ifdef DEBUG
       cout << "[CB] ... failed to propagate\n";
 #endif
-      if (branch_on_diff() || (ocaml_dp && ocaml_dp->branch())) {
-        *r = SCIP_BRANCHED;
-        break;
-      } else {
-        dvar_rev_map::iterator it = dvar_rev_m.begin();
-        while (it != dvar_rev_m.end()) {
-          cout << "[AS] " << var_id(it->first) << " = "
-               << SCIPgetSolVal(s, NULL, it->first) << " in ["
-               << SCIPvarGetLbLocal(it->first) << ", "
-               << SCIPvarGetUbLocal(it->first) << "]\n";
-          it++;
-        }
-        assert(unknown);
-        unreachable();
-        break;
-      }
-      unreachable();
-    case SCIP_REDUCEDDOM:
-      *r = prop_result;
       break;
+    case SCIP_REDUCEDDOM:
     case SCIP_CUTOFF:
       *r = prop_result;
-      break;
+      return SCIP_OKAY;
     default:
       throw util::ec_case;
     }
   }
 
+  *r = cut_or_branch();
   return SCIP_OKAY;
-
+  
 }
 
 SCIP_RETCODE cc_handler::scip_enfops
