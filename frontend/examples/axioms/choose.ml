@@ -1,7 +1,7 @@
 open Core.Std ;;
 open Lt_script ;;
 
-let choose _ _ = ~free ;;
+let (|/) _ _ = ~free ;;
 
 let n =
   if not !Sys.interactive && Array.length argv >= 2 then
@@ -9,26 +9,28 @@ let n =
   else
     10 ;;
 
-(* forall x y . choose x y = x \/ choose x y = y *)
+(* forall x y . x |/ y = x \/ x |/ y = y *)
 
 assert_axiom
-  (~forall x (~forall y ([choose x y < x], choose x y <= y))) ;;
+  (~forall x (~forall y ([x |/ y < x], x |/ y <= y))) ;;
 
 assert_axiom
-  (~forall x (~forall y ([choose x y < x], choose x y >= y))) ;;
+  (~forall x (~forall y ([x |/ y < x], x |/ y >= y))) ;;
 
 assert_axiom
-  (~forall x (~forall y ([choose x y > x], choose x y <= y))) ;;
+  (~forall x (~forall y ([x |/ y > x], x |/ y <= y))) ;;
 
 assert_axiom
-  (~forall x (~forall y ([choose x y > x], choose x y >= y))) ;;
+  (~forall x (~forall y ([x |/ y > x], x |/ y >= y))) ;;
+
+(* f n x = x |/ x + 1 |/ ... |/ x + n - 1 *)
 
 let f n x =
   let rec f k ~acc =
     if k >= n then
       acc
     else
-      let acc = ~logic (choose (x + toi k) acc) in
+      let acc = ~logic ((x + toi k) |/ acc) in
       f (k + 1) ~acc 
   and acc = x in
   f 1 ~acc ;;
