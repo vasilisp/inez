@@ -97,22 +97,26 @@ struct
       | M_App (f, id) ->
         E.M_App (term_of_t f ~bindings, term_of_id id ~bindings)
 
-  let rec t_of_term_sum m ~bindings =
-    let open Option in (
-      let f acc c m =
-        acc >>= (fun (l, bindings) ->
-          t_of_term m ~bindings >>| (fun (m, bindings) ->
-            (c, m) :: l, bindings))
-      and f_offset acc o =
-        acc >>| (fun (l, bindings) -> (l, o), bindings)
-      and init = Some ([], bindings)
-      and factor = Int63.one in
-      E.fold_sum_terms m ~init ~factor ~f ~f_offset
-    ) >>| (function
+  let rec sum_of_term m ~bindings =
+    let open Option in
+    let f acc c m =
+      acc >>= (fun (l, bindings) ->
+        t_of_term m ~bindings >>| (fun (m, bindings) ->
+          (c, m) :: l, bindings))
+    and f_offset acc o =
+      acc >>| (fun (l, bindings) -> (l, o), bindings)
+    and init = Some ([], bindings)
+    and factor = Int63.one in
+    E.fold_sum_terms m ~init ~factor ~f ~f_offset
+
+  and t_of_sum_term m ~bindings =
+    let open Option in
+    sum_of_term m ~bindings >>| (function
     | ([one, m], zero), bindings
       when one = Int63.one && zero = Int63.zero ->
       m, bindings
     | (l, o), bindings ->
+      Printf.printf "definition for list\n%!";
       let id = I.gen_id Type.Y_Int in
       M_Var id, (id, (l, o)) :: bindings)
 
@@ -128,9 +132,9 @@ struct
         let id = I.gen_id Type.Y_Int in
         Some (M_Var id, (id, ([], i)) :: bindings)
       | E.M_Sum (_, _) ->
-        t_of_term_sum m ~bindings
+        t_of_sum_term m ~bindings
       | E.M_Prod (_, _) ->
-        t_of_term_sum m ~bindings
+        t_of_sum_term m ~bindings
       | E.M_Var id ->
         Some (M_Var id, bindings)
       | E.M_Ite (_, _, _) ->

@@ -57,7 +57,12 @@ let minimize o =
 let solve_print_result () =
   print_endline (string_of_result (solve ()))
 
-let assert_axiom = S.assert_axiom ctx
+let assert_axiom a =
+  match S.assert_axiom ctx a with
+  | `Ok ->
+    ()
+  | `Unsupported ->
+    raise (Invalid_argument "unsupported axiom")
 
 let argv =
   if !Sys.interactive then

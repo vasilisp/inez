@@ -169,6 +169,8 @@ retcode SCIPstartInteraction([in] scip s);
 
 double SCIPinfinity([in] scip s);
 
+[string] char* SCIPvarGetName([in] var v);
+
 double SCIPvarGetSol([in] var v, [in] boolean getlpval);
 
 double SCIPgetVarSol([in] scip s, [in] var v);

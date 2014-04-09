@@ -172,7 +172,7 @@ private:
 
   bool branch_on_cc_diff();
   bool branch_on_ocaml_diff();
-  SCIP_RESULT cut_or_branch();
+  SCIP_RESULT cut_or_branch(bool);
 
   /* stack management */
   

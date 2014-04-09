@@ -5,14 +5,11 @@ type 'i quantified = ('i, int) Id.t
 
 module Flat = struct
 
-  type 'i hypothesis =
-    ('i, int) Flat.t iexpr * ('i, int) Flat.t iexpr
+  type 'i hypothesis = ('i, int) Flat.t iexpr * ('i, int) Flat.t iexpr
 
-  type 'i cut =
-    ('i, int) Flat.t iexpr
+  type 'i cut = ('i, int) Flat.t iexpr
 
-  type 'i t =
-    'i quantified list * 'i hypothesis list * 'i cut
+  type 'i t = 'i quantified list * 'i hypothesis list * 'i cut
 
   let iter_subterms (_, h, (l, _) : 'i t) ~f =
     let f (_, x) = f x in
@@ -40,5 +37,11 @@ module Ops = struct
            and type int_plug := Int63.t)
 
   let (<=) a b = (a, b)
+
+  let (<) a b = (a, b - Logic.M.one)
+
+  let (>=) a b = (b, a)
+
+  let (>) a b = b < a
 
 end

@@ -30,7 +30,11 @@ let compare_var x y =
 let hash_var = uintptr_t_of_var
 
 let sexp_of_var v =
-  Int.sexp_of_t (uintptr_t_of_var v)
+  Sexplib.Conv.sexp_of_string
+    (if compare_var v dummy_var = 0 then
+        "NULL"
+     else
+        sCIPvarGetName v)
 
 let ivar_of_bvar x = x
 

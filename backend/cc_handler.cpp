@@ -157,7 +157,7 @@ void scip_callback_sol::operator()(symbol a, symbol b, llint x)
 
 cc_handler::cc_handler(SCIP* scip, dp* d, cut_gen* c)
   : scip::ObjConshdlr(scip, "cc", "congruence closure",
-                      1, -100000, -100000,
+                      -100000, -100000, -100000,
                       0, 1, 0, -1,
                       TRUE, TRUE, TRUE, FALSE,
                       1),
@@ -258,11 +258,12 @@ SCIP_VAR* cc_handler::add_dvar(SCIP_VAR* v1, SCIP_VAR* v2)
   if (it != dvar_m->end()) return it->second;
   
   if (v2) {
-#ifdef DEBUG
-    cout << "[DV] adding dvar for "
-         << var_id(v1) << " and " << var_id(v2) << endl;
-#endif
     dv = scip_dvar(scip, v1, v2);
+#ifdef DEBUG
+    cout << "[DV] " << var_id(dv) << " = "
+         << var_id(v1) << " - " << var_id(v2) << endl;
+#endif
+
     sa(SCIPcaptureVar(scip, dv));
   } else
     dv = v1;
@@ -332,6 +333,23 @@ inline SCIP_VAR* cc_handler::get_dvar(SCIP_VAR* v1, SCIP_VAR* v2)
     
 }
 
+inline bool branch_around_val(SCIP* scip, SCIP_VAR* v, llint x)
+{
+
+  SCIP_Real
+    lb = SCIPvarGetLbLocal(v),
+    ub = SCIPvarGetUbLocal(v);
+
+  if ((SCIPisEQ(scip, lb, x) && SCIPisEQ(scip, ub, x)) ||
+      SCIPisLT(scip, ub, x) ||
+      SCIPisGT(scip, lb, x))
+    return false;
+  
+  scip_branch_around_val(scip, v, x);
+  return true;
+
+}
+
 inline bool cc_handler::branch_on_diff(const scip_ovar& ov1,
                                        const scip_ovar& ov2)
 {
@@ -344,18 +362,9 @@ inline bool cc_handler::branch_on_diff(const scip_ovar& ov1,
   assert(v1 > v2);
 
   SCIP_VAR* dv = get_dvar(v1, v2);
-  SCIP_Real
-    lb = SCIPvarGetLbLocal(dv),
-    ub = SCIPvarGetUbLocal(dv);
   llint d = ov2.offset - ov1.offset;
 
-  if ((SCIPisEQ(scip, lb, d) && SCIPisEQ(scip, ub, d)) ||
-      SCIPisLT(scip, ub, d) ||
-      SCIPisGT(scip, lb, d))
-    return false;
-  
-  scip_branch_around_val(scip, dv, d);
-  return true;
+  return branch_around_val(scip, dv, d);
 
 }
 
@@ -460,8 +469,7 @@ void cc_handler::rewind_to_frame(SCIP_NODE* node)
   while (true) {
     // assert(!frames.empty());
     // CHECKME
-    if (frames.empty())
-      return;
+    if (frames.empty()) return;
     SCIP_NODE* n = frames.back();
     if (node == n)
       return;
@@ -813,6 +821,7 @@ bool cc_handler::branch_on_ocaml_diff()
   while (it != ocaml_dvar_offset_m.end()) {
 
     SCIP_VAR* dv = it->first;
+
     SCIP_Real
       lb = SCIPvarGetLbLocal(dv),
       ub = SCIPvarGetUbLocal(dv);
@@ -821,11 +830,8 @@ bool cc_handler::branch_on_ocaml_diff()
     vector<llint>::const_iterator it2 = v.begin();
 
     while (it2 != v.end()) {
-      const llint o = *it2;
-      if (SCIPisLT(scip, lb, o) || SCIPisGT(scip, ub, o)) {
-        scip_branch_around_val(scip, dv, o);
-        return true;
-      }
+      const llint& o = *it2;
+      if (branch_around_val(scip, dv, o)) return true;
       it2++;
     }
 
@@ -837,13 +843,13 @@ bool cc_handler::branch_on_ocaml_diff()
   
 }
 
-SCIP_RESULT cc_handler::cut_or_branch()
+SCIP_RESULT cc_handler::cut_or_branch(bool cc_feasible)
 {
   
   SCIP*& scip = scip::ObjEventhdlr::scip_;
 
 #ifdef DEBUG
-    cout << "[CB] enfolp: trying to cut or branch\n";
+  cout << "[CB] enfolp: trying to cut or branch\n";
 #endif
 
   if (ocaml_cut_gen) {
@@ -855,14 +861,14 @@ SCIP_RESULT cc_handler::cut_or_branch()
     case SCIP_SEPARATED:
       return cg_result;
     case SCIP_FEASIBLE:
-      cout << "[CB] feasible\n";
-      return cg_result;
+      if (cc_feasible) return cg_result;
+      break;
     default:
       throw util::ec_case;
     }
   }
 
-  /* trying to branch on something that makes for CC */
+  /* trying to branch on something that makes sense for CC */
 
   if (branch_on_cc_diff()) return SCIP_BRANCHED;
 
@@ -870,23 +876,22 @@ SCIP_RESULT cc_handler::cut_or_branch()
 
   if (ocaml_dp && ocaml_dp->branch()) return SCIP_BRANCHED;
 
+  /* branch on behalf of theory solvers (on registered diffs) */
+
+#ifdef DEBUG
+  dbg_print_assignment(NULL);
+#endif
+
   if (branch_on_ocaml_diff()) return SCIP_BRANCHED;
   
   /* we are in trouble */
 
 #ifdef DEBUG
-  dvar_rev_map::iterator it = dvar_rev_m.begin();
-
-  while (it != dvar_rev_m.end()) {
-    cout << "[AS] " << var_id(it->first) << " = "
-         << SCIPgetSolVal(scip, NULL, it->first) << " in ["
-         << SCIPvarGetLbLocal(it->first) << ", "
-         << SCIPvarGetUbLocal(it->first) << "]\n";
-    it++;
-  }
+  dbg_print_assignment(NULL);
 #endif
 
   unreachable();
+  return SCIP_DIDNOTFIND;
   
 }
 
@@ -906,29 +911,34 @@ SCIP_RETCODE cc_handler::scip_enfolp
   ASSERT_SCIP_POINTER(s);
   assert(SCIPgetStage(s) != SCIP_STAGE_PRESOLVING);
 
-  if (scip_check_impl(NULL) == SCIP_INFEASIBLE) {
+  if (scip_check_impl(NULL) == SCIP_FEASIBLE) {
+    *r = cut_or_branch(true);
+    return SCIP_OKAY;
+  }
+    
 #ifdef DEBUG
-    cout << "[CB] enfolp: solution infeasible, trying to propagate\n";
+  cout << "[CB] enfolp: solution infeasible, trying to propagate\n";
 #endif
-    SCIP_RESULT prop_result = scip_prop_impl(false);
-    switch (prop_result) {
-    case SCIP_DIDNOTFIND: 
-      assert(!node_infeasible);
-      assert(ctx.get_consistent());
-#ifdef DEBUG
-      cout << "[CB] ... failed to propagate\n";
-#endif
-      break;
-    case SCIP_REDUCEDDOM:
-    case SCIP_CUTOFF:
-      *r = prop_result;
-      return SCIP_OKAY;
-    default:
-      throw util::ec_case;
-    }
+
+  switch (scip_prop_impl(false)) {
+  case SCIP_DIDNOTFIND: 
+    break;
+  case SCIP_REDUCEDDOM:
+  case SCIP_CUTOFF:
+    *r = SCIP_CUTOFF;
+    return SCIP_OKAY;
+  default:
+    throw util::ec_case;
   }
 
-  *r = cut_or_branch();
+#ifdef DEBUG
+    cout << "[CB] ... failed to propagate\n";
+#endif
+  
+  *r = cut_or_branch(false);
+  assert(!node_infeasible);
+  assert(ctx.get_consistent());
+  assert(*r != SCIP_FEASIBLE);
   return SCIP_OKAY;
   
 }
@@ -1049,7 +1059,7 @@ void cc_handler::scip_exec_nodefocused_ocg(SCIP_NODE* en)
   }
 
 #ifdef DEBUG
-  cout << "all the way to the top (OCG)\n";
+  cout << "[OC] all the way to the top\n";
 #endif
 
   rewind_to_frame_ocg(node_in_frames_ocg(pn) ? pn : NULL);

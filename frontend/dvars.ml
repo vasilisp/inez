@@ -45,7 +45,7 @@ struct
     | Some v1, Some v2 when S.compare_ivar v1 v2 > 0 ->
       Option.(S.name_diff r v1 v2 o >>| (fun v -> S_Pos v))
     | Some v1, Some v2 when S.compare_ivar v1 v2 < 0 ->
-      Option.(S.name_diff r v2 v1 o >>| (fun v -> S_Neg v))
+      Option.(S.name_diff r v2 v1 Int63.(- o) >>| (fun v -> S_Neg v))
     | Some v1, Some v2 ->
       None
 

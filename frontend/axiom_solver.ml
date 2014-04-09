@@ -26,6 +26,9 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
   type ovar = Imt.ivar option Terminology.offset
   with compare, sexp_of
 
+  type iexpr = Imt.ivar Terminology.iexpr
+  with compare, sexp_of
+
   type ovov = ovar * ovar    
   with compare, sexp_of
 
@@ -64,7 +67,6 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
       Hashtbl.t;
     r_a_occ_h   :  (aocc, binding list list) Hashtbl.t;
     r_dvars_h   :  (ovov, Imt.Dvars.t) Hashtbl.t;
-    r_occ_h     :  (Imt.Dvars.t, (ovar * ovar) list) Hashtbl.t;
     r_q         :  formula Dequeue.t
   }
 
@@ -79,12 +81,10 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
       Hashtbl.create () ~size:4096 ~hashable:hashable_aocc;
     and r_dvars_h   =
       Hashtbl.create () ~size:2048 ~hashable:hashable_ovov
-    and r_occ_h     =
-      Hashtbl.create () ~size:2048 ~hashable:Imt.Dvars.hashable
     and r_q         =  Dequeue.create () in
     {r_ctx; r_lt_ctx; r_imt_ctx;
      r_a_h; r_a_patt_h; r_a_bind_h; r_a_occ_h;
-     r_dvars_h; r_occ_h; r_q}
+     r_dvars_h; r_q}
 
   let assert_formula {r_q} =
     Dequeue.enqueue_back r_q
@@ -203,12 +203,6 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
         f a
       | M.M_Ite (g, a, b) ->
         register_apps_formula r g; f a; f b
-      | M.M_App (M.M_Var id, a) as a' ->
-        (match I.type_of_t id with
-        | Type.Y_Int_Arrow Type.Y_Int ->
-          register_app_for_axioms r a'
-        | _ ->
-          ()); f a
       | M.M_App (a, b) as m ->
         (match M.type_of_t m with
         | Type.Y_Int ->
@@ -224,12 +218,6 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
         f m
     and polarity = `Both in
     Formula.iter_atoms ~f ~polarity
-
-  let assert_instance_lt ({r_lt_ctx; r_imt_ctx; r_occ_h} as r)
-      id (ov1, ovr1) (ov2, ovr2) =
-    let dv = get_dvar r ov1 ov2 in
-    Hashtbl.add_multi r_occ_h dv (ovr1, ovr2);
-    Lt.assert_instance r_lt_ctx id [dv]
 
   let register_axiom_terms {r_a_patt_h} id axiom =
     let open Flat in
@@ -268,10 +256,9 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     let open Option in (
       let f acc (m1, m2) =
         acc >>= (fun (l, bindings) ->
-          Conv.t_of_term m1 ~bindings >>= (fun (m1, bindings) ->
-            Conv.t_of_term m2 ~bindings >>| (fun (m2, bindings) ->
-              Int63.(([one, m1], zero), ([one, m2], zero)) :: l,
-              bindings)))
+          Conv.sum_of_term m1 ~bindings >>= (fun (s1, bindings) ->
+            Conv.sum_of_term m2 ~bindings >>| (fun (s2, bindings) ->
+              (s1, s2) :: l, bindings)))
       and init = Some ([], []) in
       List.fold_left l ~init ~f) >>= (fun (l, bindings) ->
         M.(c1 - c2) |>
@@ -296,7 +283,7 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     and default = `Unsupported in
     Option.value_map (flatten_axiom axiom) ~f ~default
 
-  let solve ({r_ctx; r_lt_ctx; r_occ_h; r_q} as r) =
+  let solve ({r_ctx; r_lt_ctx; r_q} as r) =
     (let f = register_apps_formula r in
      Dequeue.iter r_q ~f);
     (let f = S.assert_formula r_ctx in

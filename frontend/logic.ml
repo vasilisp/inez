@@ -153,8 +153,11 @@ struct
         let init = fold_sum_terms_impl a ~factor ~init ~f in
         fold_sum_terms_impl b ~factor ~init ~f
       | M_Prod (c, a) ->
-        let factor = Int63.(c * factor) in
-        fold_sum_terms_impl a ~factor ~init ~f
+        if Int63.(c = zero) then
+          init
+        else
+          let factor = Int63.(c * factor) in
+          fold_sum_terms_impl a ~factor ~init ~f
       | _ ->
         f init factor m
 
@@ -162,7 +165,7 @@ struct
     (let f (acc, offset) c m =
        match m with
        | M_Int x ->
-         acc, Int63.(offset + x)
+         acc, Int63.(offset + c * x)
        | _ ->
          f acc c m, offset in
      fold_sum_terms_impl m ~factor ~init:(init, Int63.zero) ~f) |>

@@ -227,6 +227,12 @@ Camlp4o_lib(db_solver, herelib, herelib)
 Camlp4o_lib(lt, herelib type_conv comparelib sexplib, herelib	\
                 type_conv compare sexp_conv)
 
+Camlp4o_lib(flat, type_conv comparelib sexplib, type_conv compare	\
+                  sexp_conv)
+
+Camlp4o_lib(axiom, type_conv comparelib sexplib, type_conv compare	\
+                  sexp_conv)
+
 Camlp4o_lib(axiom_solver, herelib type_conv comparelib sexplib,	\
                           herelib type_conv compare sexp_conv)
 
@@ -262,6 +268,11 @@ OCamlTop(inez-db, terminology unreachable dvars scip_idl scip util	\
          formula type id id_for_scripts logic db_logic camlp4_maps	\
          pa_db_logic pre solver bounds smtlib_printer mem db_solver	\
          db_script, native_utils scip_idl_stubs)
+
+OCamlTop(inez-lt, terminology unreachable dvars scip_idl scip util	\
+         formula type id id_for_scripts logic camlp4_maps pa_lt_logic	\
+         pre solver bounds smtlib_printer mem lt axiom flat		\
+         axiom_solver lt_script, native_utils scip_idl_stubs)
 
 section
 
