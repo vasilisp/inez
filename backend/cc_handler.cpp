@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <stdint.h>
 
-#define DEBUG
+// #define DEBUG
 // #define DEBUG_DESPERATE
 
 // potentially not portable stuff

@@ -266,7 +266,6 @@ module Linear (I : Id.S) = struct
                 linearize f ~quantified ~under ~map ~copies in
               M_App (f, id'), map, copies
             | None ->
-              Printf.printf "we are here!!!\n%!";
               let map =
                 let key = id and data = Loc (under, f) in
                 Map.add map ~key ~data in
@@ -286,5 +285,4 @@ end
 
 module Box_arrow = struct
   type 'i t = Box : ('i, 'r -> 's) M.t -> 'i t
-en
-d
+end
