@@ -241,15 +241,15 @@ Camlp4o_lib(flat, herelib type_conv comparelib sexplib, herelib	\
 
 OCamlCMXS(pa_logic, camlp4_maps pa_logic)
 
-OCamlCMXS(pa_lt_logic, camlp4_maps pa_lt_logic)
-
 OCamlCMXS(pa_db_logic, camlp4_maps pa_db_logic)
+
+OCamlCMXS(pa_lt_logic, camlp4_maps pa_lt_logic)
 
 Camlp4o_nopacks(camlp4_maps)
 
-Camlp4o_nopacks(pa_db_logic)
-
 Camlp4o_nopacks(pa_logic)
+
+Camlp4o_nopacks(pa_db_logic)
 
 Camlp4o_nopacks(pa_lt_logic)
 

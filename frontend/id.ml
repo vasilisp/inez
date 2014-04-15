@@ -1,14 +1,18 @@
 open Core.Std
 
-module Id = (Int63 : Id_intf.Full)
+module Id_untyped = (Int63 : Id_intf.Full_untyped)
 
 module M = struct
 
-  type ('c, 'u) t = Id.t * 'u Type.t
-
-  type 'i t_arrow_type = { a_f : 't . ('i, 't) t -> 't Type.t }
+  type ('c, 'u) t = Id_untyped.t * 'u Type.t
 
   let type_of_t = Tuple2.get2
+
+  let sexp_of_t _ f x =
+    Tuple2.sexp_of_t Id_untyped.sexp_of_t (Type.sexp_of_t f) x
+
+  let compare _ _ (id1, _) (id2, _) =
+    Id_untyped.compare id1 id2
 
   let is_int :
   type u . ('c, u) t -> bool =
@@ -25,16 +29,6 @@ module M = struct
       true
     | _ ->
       false
-
-  (* explicit polymorphism; we need System F types in lang_concrete *)
-
-  let type_of_t' = { a_f = type_of_t }
-
-  let sexp_of_t _ f x =
-    Tuple2.sexp_of_t Id.sexp_of_t (Type.sexp_of_t f) x
-
-  let compare _ _ (id1, _) (id2, _) =
-    Id.compare id1 id2
 
 end
 
@@ -72,27 +66,18 @@ module Box_arrow = struct
 
 end
 
-module type Generators = sig
-  type c
-  val gen_id : 'u Type.t -> (c, 'u) t
-end
+module type Generators =
+  Id_intf.Generators with type ('c, 'u) t_plug := ('c, 'u) t
 
-module type Accessors = sig
-  type c
-  val type_of_t : (c, 'u) t -> 'u Type.t
-  val type_of_t' : c t_arrow_type
-  val compare_c : c -> c -> int
-  val sexp_of_c : c -> Sexplib.Sexp.t
-end
+module type Accessors =
+  Id_intf.Accessors with type ('c, 'u) t_plug := ('c, 'u) t
 
-module type S = sig
-  include Generators
-  include Accessors with type c := c
-end
+module type S =
+  Id_intf.S with type ('c, 'u) t_plug := ('c, 'u) t
 
 module Make (U : Unit.S) : S = struct
 
-  (* [c] is empty and abstract outside this module. Applying the
+  (* [c] is empty. [c] is abstract outside this module. Applying the
      functor produces a different [c] each time. We tag IDs and
      expressions with [c], so that expressions with IDs that come from
      different contexts cannot be mixed. *)
@@ -112,7 +97,7 @@ module Make (U : Unit.S) : S = struct
 
   let m = TypeBox.Table.create () ~size:64
 
-  let update_id = Option.map ~f:Id.succ
+  let update_id = Option.map ~f:Id_untyped.succ
 
   let gen_id :
   type u . u Type.t -> (c, u) t =
@@ -122,12 +107,10 @@ module Make (U : Unit.S) : S = struct
       | Some id ->
         Hashtbl.change m x' update_id; id, x
       | None ->
-        let id = Id.succ Id.zero in
-        Hashtbl.replace m x' id; Id.zero, x
+        let id = Id_untyped.succ Id_untyped.zero in
+        Hashtbl.replace m x' id; Id_untyped.zero, x
 
   let type_of_t = type_of_t
-
-  let type_of_t' = type_of_t'
 
   let compare_c _ _ = 0
 

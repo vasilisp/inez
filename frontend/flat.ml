@@ -24,7 +24,7 @@ module M = struct
       None
 
   let rec type_of_t :
-  type r s . ('i, s) t -> s Type.t =
+  type s . ('i, s) t -> s Type.t =
     function
     | M_Var id ->
       Id.type_of_t id
@@ -50,17 +50,17 @@ module Conv
 
 struct
 
-  type c = I.c
-
   type binding =
-  [ `Int   of  (c, int) Id.t * (c, int) E.t
-  | `Bool  of  (c, bool) Id.t * (c, bool) E.t
+  [ `Int   of  (I.c, int) Id.t * (I.c, int) E.t
+  | `Bool  of  (I.c, bool) Id.t * (I.c, bool) E.t
   ]
   
-  type rev_binding = (c, int) Id.t * (c, int) t Terminology.iexpr
+  type rev_binding = (I.c, int) Id.t * (I.c, int) t Terminology.iexpr
+
+  type 'c id_occs = ((I.c, int) Id.t, (I.c, int) E.t, 'c) Map.t
 
   let term_of_id :
-  type s . (c, s) Id.t -> bindings:binding list -> (c, s) E.t =
+  type s . (I.c, s) Id.t -> bindings:binding list -> (I.c, s) E.t =
     fun id ~bindings ->
       match
         let f (b : binding) =
@@ -89,7 +89,7 @@ struct
         E.M_Var id
 
   let rec term_of_t :
-  type s . (c, s) t -> bindings:binding list -> (c, s) E.t =
+  type s . (I.c, s) t -> bindings:binding list -> (I.c, s) E.t =
     fun m ~bindings ->
       match m with
       | M_Var v ->
@@ -116,14 +116,13 @@ struct
       when one = Int63.one && zero = Int63.zero ->
       m, bindings
     | (l, o), bindings ->
-      Printf.printf "definition for list\n%!";
       let id = I.gen_id Type.Y_Int in
       M_Var id, (id, (l, o)) :: bindings)
 
   and t_of_term :
-  type s . (c, s) E.t ->
+  type s . (I.c, s) E.t ->
     bindings : rev_binding list ->
-    ((c, s) t * rev_binding list) option =
+    ((I.c, s) t * rev_binding list) option =
     fun m ~bindings ->
       match m with
       | E.M_Bool _ ->
@@ -168,7 +167,7 @@ module Matching (E : Logic_intf.Term_with_ops) = struct
   ]
 
   let equal_type :
-  type r s . r Type.t -> s  Type.t -> bool =
+  type r s . r Type.t -> s Type.t -> bool =
     fun r s -> Type.Box.(compare (Box r) (Box s)) = 0
 
   let bind_id :
@@ -227,10 +226,65 @@ module Matching (E : Logic_intf.Term_with_ops) = struct
 
 end
 
+module Linear (I : Id.S) = struct
+
+  type loc = Loc : (I.c, int) t * (I.c, int -> 's) t -> loc
+
+  type copy = (I.c, int) Id.t * (I.c, int) Id.t
+
+  let rec linearize :
+  type r .
+  (I.c, r) t ->
+    quantified : (I.c, int) Id.t list ->
+    under      : (I.c, int) t ->
+    map        : ((I.c, int) Id.t, loc, 'c) Map.t ->
+    copies     : copy list ->
+    (I.c, r) t * ((I.c, int) Id.t, loc, 'c) Map.t * copy list =
+    fun x ~quantified ~under ~map ~copies ->
+      match x with
+      | M_Var _ ->
+        x, map, copies
+      | M_App (f, id) ->
+        match Id.type_of_t id with
+        | Type.Y_Int ->
+          if 
+            let f = (=) id in List.exists quantified ~f
+          then
+            let (under : (I.c, int) t) =
+              match type_of_t x with
+              | Type.Y_Int ->
+                x
+              | _ ->
+                under in
+            match Map.find map id with
+            | Some loc when compare loc (Loc (under, f)) = 0 ->
+              x, map, copies
+            | Some _ ->
+              let id' = Id.(id |> type_of_t |> I.gen_id) in
+              let copies = (id', id) :: copies in
+              let f, map, copies =
+                linearize f ~quantified ~under ~map ~copies in
+              M_App (f, id'), map, copies
+            | None ->
+              Printf.printf "we are here!!!\n%!";
+              let map =
+                let key = id and data = Loc (under, f) in
+                Map.add map ~key ~data in
+              let f, map, copies =
+                linearize f ~quantified ~under ~map ~copies in
+              M_App (f, id), map, copies
+          else
+            x, map, copies
+        | _ ->
+          x, map, copies
+
+end
+
 module Box = struct
   type 'i t = Box : ('i, 'r) M.t -> 'i t
 end
 
 module Box_arrow = struct
   type 'i t = Box : ('i, 'r -> 's) M.t -> 'i t
-end
+en
+d

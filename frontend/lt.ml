@@ -179,21 +179,20 @@ struct
       and eval = List.for_all ~f:(eval_cut r' sol)
       and filter_cuts l =
         let f c =
-          ub_cut r' c |>
-              (let f ub = not Int63.(ub <= zero)
-              and default = true in
-               Option.value_map ~f ~default) in
+          ub_cut r' c |> (
+            let f ub = not Int63.(ub <= zero)
+            and default = true in
+            Option.value_map ~f ~default) in
         let l = List.filter l ~f in
         assert (List.length l > 0); l in
       match occ with
-        (*
       | _, dvars, {contents = Some _} ->
         if
-          not (met_hypotheses r' dvars) || not (eval (cuts dvars))
+          dbg && not (met_hypotheses r' dvars)
         then
           raise (Unreachable.Exn _here_)
         else
-          R_Sat  *)
+          R_Sat
       | _, dvars, _ ->
         if met_hypotheses r' dvars then
           let l = cuts dvars
@@ -208,7 +207,7 @@ struct
           end
         else if
             not (met_hypotheses_sol r' sol dvars) ||
-              dvars |> cuts |> eval 
+              eval (cuts dvars)
         then
           R_Sat
         else (* if not_met_hypotheses r' dvars then *)
