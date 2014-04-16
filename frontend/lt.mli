@@ -23,8 +23,6 @@ sig
   type axiom_id
   with compare, sexp_of
 
-  type occ = axiom_id * Imt.Dvars.t list * int option ref
-
   type instantiator =
     axiom_id -> Imt.Dvars.t list -> Imt.ivar Terminology.iexpr list
 

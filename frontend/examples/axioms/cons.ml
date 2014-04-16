@@ -8,16 +8,10 @@ let cdr _ = ~free ;;
 let cons _ _ = ~free ;;
 
 assert_axiom
-  (~forall x (~forall y ([], car (cons x y) <= x))) ;;
+  (~forall x (~forall y ([], car (cons x y) = x))) ;;
 
 assert_axiom
-  (~forall x (~forall y ([], x <= car (cons x y)))) ;;
-
-assert_axiom
-  (~forall x (~forall y ([], cdr (cons x y) <= y))) ;;
-
-assert_axiom
-  (~forall x (~forall y ([], y <= cdr (cons x y)))) ;;
+  (~forall x (~forall y ([], cdr (cons x y) = y))) ;;
 
 let x = fresh_int_var () ;;
 

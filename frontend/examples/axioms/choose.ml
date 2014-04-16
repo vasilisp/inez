@@ -12,16 +12,10 @@ let n =
 (* forall x y . x |/ y = x \/ x |/ y = y *)
 
 assert_axiom
-  (~forall x (~forall y ([x |/ y < x], x |/ y <= y))) ;;
+  (~forall x (~forall y ([x |/ y < x], x |/ y = y))) ;;
 
 assert_axiom
-  (~forall x (~forall y ([x |/ y < x], x |/ y >= y))) ;;
-
-assert_axiom
-  (~forall x (~forall y ([x |/ y > x], x |/ y <= y))) ;;
-
-assert_axiom
-  (~forall x (~forall y ([x |/ y > x], x |/ y >= y))) ;;
+  (~forall x (~forall y ([x |/ y > x], x |/ y = y))) ;;
 
 (* f n x = x |/ x + 1 |/ ... |/ x + n - 1 *)
 
@@ -39,7 +33,7 @@ let x = fresh_int_var () ;;
 
 let c = f n x ;;
 
-constrain (~logic (c >= x + toi n)) ;;
+constrain (~logic (c >= x + toi n - 1)) ;;
 
 solve_print_result () ;;
 

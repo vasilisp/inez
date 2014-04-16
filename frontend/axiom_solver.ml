@@ -270,27 +270,39 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     and factor = Int63.one in
     M.fold_sum_terms m ~f ~f_offset ~init ~factor
 
-  let flatten_axiom (q, (l, (c1, c2))) =
+  let negate_cut (l, o) =
+    let f (c, x) = Int63.(~-) c, x
+    and o = Int63.(~-) o in
+    List.map l ~f, o
+
+  let flatten_axiom (q, (l, (c1, c2, op))) =
     let open Option in (
-      let f acc (m1, m2) =
+      let f acc (m1, m2, op) =
         acc >>= (fun (l, bindings) ->
           Conv.sum_of_term m1 ~bindings >>= (fun (s1, bindings) ->
             Conv.sum_of_term m2 ~bindings >>| (fun (s2, bindings) ->
-              (s1, s2) :: l, bindings)))
+              (match op with
+              | Terminology.O'_Le ->
+                (s1, s2) :: l
+              | Terminology.O'_Eq ->
+                (s1, s2) :: (s2, s1) :: l), bindings)))
       and init = Some ([], []) in
-      List.fold_left l ~init ~f) >>= (fun (l, bindings) ->
+      List.fold_left l ~init ~f) >>= (fun (init, bindings) ->
         M.(c1 - c2) |>
-            cut_of_term ~bindings >>| (fun (cut, bindings) ->
+            cut_of_term ~bindings >>| (fun (c, bindings) ->
               let q =
                 let f = Tuple.T2.get1 in
                 List.rev_map_append bindings q ~f
               and h =
                 let f acc (id, def) =
                   let e = Int63.([one, Flat.M_Var id], zero) in
-                  (e, def) :: (def, e) :: acc
-                and init = l in
+                  (e, def) :: (def, e) :: acc in
                 List.fold_left bindings ~f ~init in
-              q, h, cut))
+              (match op with
+              | Terminology.O'_Le ->
+                [q, h, c]
+              | Terminology.O'_Eq ->
+                [q, h, c; q, h, negate_cut c])))
 
   let linearize_iexpr (l, o) ~quantified ~map ~copies =
     let l, map, copies =
@@ -329,15 +341,16 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     quantified, h, cut
     
   let assert_axiom ({r_lt_ctx; r_axiom_h} as r) axiom =
-    let f axiom =
-      let id = instantiate r |> Lt.assert_axiom r_lt_ctx in
-      Hashtbl.replace r_axiom_h id axiom;
-      register_axiom_terms r id axiom;
-      `Ok
-    and default = `Unsupported in
-    let open Option in
-    flatten_axiom axiom >>| linearize_axiom |>
-        value_map ~f ~default
+    match flatten_axiom axiom with
+    | Some axioms ->
+      let f axiom =
+        let axiom = linearize_axiom axiom in
+        let id = instantiate r |> Lt.assert_axiom r_lt_ctx in
+        Hashtbl.replace r_axiom_h id axiom;
+        register_axiom_terms r id axiom in
+      List.iter axioms ~f; `Ok
+    | None ->
+      `Unsupported
 
   let solve ({r_ctx; r_lt_ctx; r_q} as r) =
     (let f = register_apps_formula r in
