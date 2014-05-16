@@ -787,7 +787,9 @@ module Make (Imt : Imt_intf.S_essentials) = struct
         (branch0 r r' ||
            branch0_5 r r' ||
            branch1 r r' ||
-           branch2 r r') |> ok_for_true
+           branch2 r r') |>
+            intercept_bool "branch" |>
+                ok_for_true
       with
       | e ->
         (Exn.to_string e |> Printf.printf "exception: %s\n%!p";

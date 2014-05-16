@@ -156,4 +156,6 @@ module Ops = struct
 
   let toi x = M.M_Int (Int63.of_int x)
 
+  let toi63 x = M.M_Int x
+
 end
