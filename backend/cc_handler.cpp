@@ -912,7 +912,9 @@ SCIP_RETCODE cc_handler::scip_enfolp
   assert(SCIPgetStage(s) != SCIP_STAGE_PRESOLVING);
 
   if (scip_check_impl(NULL) == SCIP_FEASIBLE) {
-    *r = cut_or_branch(true);
+    *r = ocaml_cut_gen ?
+      cut_or_branch(true) :
+      SCIP_FEASIBLE;
     return SCIP_OKAY;
   }
     
@@ -924,6 +926,8 @@ SCIP_RETCODE cc_handler::scip_enfolp
   case SCIP_DIDNOTFIND: 
     break;
   case SCIP_REDUCEDDOM:
+    *r = SCIP_REDUCEDDOM;
+    return SCIP_OKAY;
   case SCIP_CUTOFF:
     *r = SCIP_CUTOFF;
     return SCIP_OKAY;

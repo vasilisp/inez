@@ -46,6 +46,8 @@ let bderef = function
 let toi x =
   Db_logic.M.M_Int (Core.Std.Int63.of_int x)
 
+let toi63 x = Db_logic.M.M_Int x
+
 let gen_id = Id_for_scripts.gen_id
 
 let string_of_result =

@@ -33,6 +33,8 @@ let bderef = function
 let toi x =
   Logic.M.M_Int (Core.Std.Int63.of_int x)
 
+let toi63 x = Logic.M.M_Int x
+
 let string_of_result =
   let open Terminology in
   function
