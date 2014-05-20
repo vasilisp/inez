@@ -1,3 +1,5 @@
+(* benchmark for "ILP Modulo Data" (http://arxiv.org/abs/1404.5665) *)
+
 open Core.Std ;;
 open Db_script ;;
 
