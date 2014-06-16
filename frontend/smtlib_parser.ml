@@ -162,6 +162,9 @@ and parse_mult m = function
   | [S_Atom (L.K_Int i); e] 
   | [e; S_Atom (L.K_Int i)] ->
     H_Int Ops.(i * parse_int m e)
+  | [S_List [S_Atom L.K_Symbol "-"; S_Atom (L.K_Int i)]; e]
+  | [e; S_List [S_Atom L.K_Symbol "-"; S_Atom (L.K_Int i)]] ->
+    H_Int (Ops.( * ) (Int63.(~-) i) (parse_int m e))
   | _ ->
     raise (Smtlib_Exn "syntax error: non-linear term")
 
