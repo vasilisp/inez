@@ -158,23 +158,12 @@ and parse_eq m e1 e2 =
     ~fi:(fun e1 e2 -> F.F_Atom (A.A_Eq M.(e1 - e2)))
     ~fb:(fun e1 e2 -> Ops.((e1 => e2) && (e2 => e1)))
 
-and parse_mult m l =
-  match
-    List.fold_left l
-      ~init:(None, Int63.one)
-      ~f:(fun (v, c) e ->
-        match e, v with
-        | S_Atom L.K_Int i, _ ->
-          v, Int63.(c * i)
-        | _, Some _ ->
-          raise (Smtlib_Exn "syntax error: non-linear term")
-        | _, None ->
-          Some (parse_int m e), c)
-  with
-  | Some v, c ->
-    H_Int (M.(c * v))
-  | None, c ->
-    H_Int (M.of_int63 c)
+and parse_mult m = function
+  | [S_Atom (L.K_Int i); e] 
+  | [e; S_Atom (L.K_Int i)] ->
+    H_Int Ops.(i * parse_int m e)
+  | _ ->
+    raise (Smtlib_Exn "syntax error: non-linear term")
 
 and parse_app_aux :
 type t . 'c env -> ('c, t) M.t -> t Type.t ->
