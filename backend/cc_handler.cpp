@@ -953,14 +953,13 @@ SCIP_RETCODE cc_handler::scip_enfops
  SCIP_RESULT* result)
 {
 
-  unreachable();
-  ASSERT_SCIP_POINTER(s);
-  
 #ifdef DEBUG
   cout << "[CB] enfops\n";
 #endif
   
-  *result = scip_check_impl(NULL);
+  SCIP_RESULT r = scip_check_impl(NULL);
+
+  *result = (r == SCIP_FEASIBLE) ? SCIP_FEASIBLE : SCIP_SOLVELP;
   
   return SCIP_OKAY;
 
