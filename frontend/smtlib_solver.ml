@@ -94,6 +94,8 @@ struct
     | None, "unsat" ->
       r.r_status <- Some K_Unsat;
       R.P_Ok x
+    | None, "unknown" ->
+      R.P_Ok x
     | None, _ ->
       R.P_Syntax
 
