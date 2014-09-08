@@ -75,7 +75,7 @@ module type Accessors =
 module type S =
   Id_intf.S with type ('c, 'u) t_plug := ('c, 'u) t
 
-module Make (U : Unit.S) : S = struct
+module Make () : S = struct
 
   (* [c] is empty. [c] is abstract outside this module. Applying the
      functor produces a different [c] each time. We tag IDs and

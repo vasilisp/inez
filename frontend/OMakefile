@@ -303,6 +303,7 @@ ocaml_embedded.c: pa_logic.cmxs $(CMI_FILES_EMBED)
             -pa-cmxs pa_logic.cmxs \
             -o $@ \
             $(shell ocamlfind printconf stdlib)/pervasives.cmi \
+            $(shell ocamlfind printconf stdlib)/camlinternalFormatBasics.cmi \
             $(shell ocamlfind query core_kernel)/core_kernel.cmi \
             $(shell ocamlfind query core)/core.cmi \
             $(shell ocamlfind query ocaml_plugin)/ocaml_plugin.cmi \
@@ -315,6 +316,7 @@ lt_ocaml_embedded.c: pa_lt_logic.cmxs $(CMI_FILES_EMBED_LT)
             -pa-cmxs pa_lt_logic.cmxs \
             -o $@ \
             $(shell ocamlfind printconf stdlib)/pervasives.cmi \
+            $(shell ocamlfind printconf stdlib)/camlinternalFormatBasics.cmi \
             $(shell ocamlfind query core_kernel)/core_kernel.cmi \
             $(shell ocamlfind query core)/core.cmi \
             $(shell ocamlfind query ocaml_plugin)/ocaml_plugin.cmi \
@@ -327,6 +329,7 @@ db_ocaml_embedded.c: pa_db_logic.cmxs $(CMI_FILES_EMBED_DB)
             -pa-cmxs pa_db_logic.cmxs \
             -o $@ \
             $(shell ocamlfind printconf stdlib)/pervasives.cmi \
+            $(shell ocamlfind printconf stdlib)/camlinternalFormatBasics.cmi \
             $(shell ocamlfind query core_kernel)/core_kernel.cmi \
             $(shell ocamlfind query core)/core.cmi \
             $(shell ocamlfind query ocaml_plugin)/ocaml_plugin.cmi \

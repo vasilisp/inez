@@ -1,1 +1,1 @@
-include (Id.Make (struct end))
+include (Id.Make ())

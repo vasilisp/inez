@@ -33,8 +33,7 @@ module type Accessors =
 module type S =
   Id_intf.S with type ('c, 'u) t_plug := ('c, 'u) t
 
-module Make (U : Core.Std.Unit.S) :
-  (Id_intf.S with type ('c, 'u) t_plug := ('c, 'u) t)
+module Make () : (Id_intf.S with type ('c, 'u) t_plug := ('c, 'u) t)
 
 module Make_mapper
 

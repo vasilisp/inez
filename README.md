@@ -29,9 +29,10 @@ Inez does not work on Windows. We depend quite heavily on
 
 ### SCIP
 
-Inez depends on the [SCIP optimization suite][scip], which is
-available without charge for academic and non-commercial purposes. For
-other purposes, you will need a license agreement.
+Inez depends on the [SCIP optimization suite][scip], version
+3.0.x. The SCIP optimization suite is available without charge for
+academic and non-commercial purposes. For other purposes, a license
+agreement is required.
 
 Once you obtain the "optimization suite" distribution, the following
 recipe suffices (applied to the toplevel directory):
@@ -53,10 +54,8 @@ Boost. Fetch and untar a [fresh tarball][boost].
 
 ### OCaml Libraries and Tools
 
-Inez requires OCaml 4.00 or newer. Older OCaml will not work; the
-reason is GADTs.
-
-Additionally, you will need recent versions of the following packages:
+Inez requires OCaml 4.02 or newer. Additionally, you will need recent
+versions of the following packages:
 
 - `async`
 - `camlidl`
