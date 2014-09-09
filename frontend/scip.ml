@@ -346,7 +346,12 @@ let add_cut_local ({r_ctx} as r) (l, o) =
       assert_ok _here_
         (sCIPaddVarToRow r_ctx row v (Int63.to_float c)));
   assert_ok _here_ (sCIPflushRowExtensions r_ctx row) ;
-  assert_ok _here_ (sCIPaddCut r_ctx (scip_null_sol ()) row true)
+  if
+    assert_ok1 _here_ (sCIPaddCut r_ctx (scip_null_sol ()) row true)
+  then
+    `Ok
+  else
+    `Unsat
 
 (* FIXME : do we really need the Option? *)
 

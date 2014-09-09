@@ -184,7 +184,7 @@ module type S_cut_gen_access = sig
      and type sol_plug := sol)
 
   val add_cut_local :
-    ctx -> ivar Terminology.iexpr -> unit
+    ctx -> ivar Terminology.iexpr -> [`Ok | `Unsat]
 
 end
 

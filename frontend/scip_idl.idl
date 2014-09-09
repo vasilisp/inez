@@ -266,8 +266,8 @@ retcode SCIPaddVarToRow([in] scip s, [in] row r,
 retcode SCIPaddCut([in] scip s,
                    [in] sol l, 
                    [in] row r,
-                   [in] boolean force);
-//                 [out] boolean* infeasible);
+                   [in] boolean force,
+                   [out] boolean* infeasible);
 
 // COM interface for theory solvers in OCaml
 

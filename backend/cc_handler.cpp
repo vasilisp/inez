@@ -985,7 +985,8 @@ SCIP_RETCODE cc_handler::scip_check
 
 SCIP_RETCODE cc_handler::scip_prop
 (SCIP* s, SCIP_CONSHDLR* ch, SCIP_CONS** ac,
- int n, int n_useful, SCIP_PROPTIMING pt, SCIP_RESULT* result)
+ int n, int n_useful, int n_marked,
+ SCIP_PROPTIMING pt, SCIP_RESULT* result)
 {
 
 #ifdef DEBUG

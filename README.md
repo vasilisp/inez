@@ -30,7 +30,7 @@ Inez does not work on Windows. We depend quite heavily on
 ### SCIP
 
 Inez depends on the [SCIP optimization suite][scip], version
-3.0.x. The SCIP optimization suite is available without charge for
+3.1.x. The SCIP optimization suite is available without charge for
 academic and non-commercial purposes. For other purposes, a license
 agreement is required.
 
@@ -41,11 +41,12 @@ recipe suffices (applied to the toplevel directory):
         SHARED=true \
         READLINE=false \
         ZLIB=false \
+        GMP=false \
         ZIMPL=false
 
 The `.so` is under `lib/`. Create a symbolic link to it as follows:
 
-    ln -s libscipopt-3.0.1.linux.x86_64.gnu.opt.so libscipopt.so
+    ln -s libscipopt-3.1.0.linux.x86_64.gnu.opt.so libscipopt.so
 
 ### C and C++ Libraries and Tools
 

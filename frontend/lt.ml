@@ -238,10 +238,19 @@ struct
              like them *)
           false
         | R_Unsat l ->
-          List.iter l ~f:(S.add_cut_local r');
-          level := Some r_level;
-          response := combine_response_ga !response `Unsat_Cut_Gen;
-          true
+          if
+            let f x =
+              S.add_cut_local r' x
+              |> (function `Ok -> true | _ -> false) in
+            List.for_all l ~f
+          then begin
+            level := Some r_level;
+            response := combine_response_ga !response `Unsat_Cut_Gen;
+            true
+          end else begin
+            response := combine_response_ga !response `Cutoff;
+            true
+          end
         | R_Cutoff ->
           response := combine_response_ga !response `Cutoff;
           true in

@@ -3,7 +3,7 @@ open build/OCaml
 
 BYTE_ENABLED = true
 NATIVE_ENABLED = true
-OCAMLFLAGS += -thread -unsafe
+OCAMLFLAGS += -thread -unsafe -safe-string
 OCAMLOPTFLAGS += -inline 30
 # OCAMLOPTFLAGS += -g
 USE_OCAMLFIND = true
