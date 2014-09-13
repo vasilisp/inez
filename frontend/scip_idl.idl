@@ -208,7 +208,15 @@ retcode SCIPchgVarObj([in] scip s, [in] var v, [in] double newobj);
 retcode SCIPsetIntParam([in] scip s, [in,string] const char* name,
                         [in] int val);
 
+retcode SCIPsetHeuristics([in] scip s,
+                          [in] param_setting ps,
+                          [in] boolean b);
+
 retcode SCIPsetPresolving([in] scip s,
+                          [in] param_setting ps,
+                          [in] boolean b);
+
+retcode SCIPsetSeparating([in] scip s,
                           [in] param_setting ps,
                           [in] boolean b);
 

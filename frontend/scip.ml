@@ -113,9 +113,11 @@ let string_of_version () =
 
 let config_list = [
   _here_,
-  (fun c -> sCIPsetEmphasis c SCIP_PARAMEMPHASIS_EASYCIP true);
-  _here_,
   (fun c -> sCIPsetIntParam c "display/verblevel" 0);
+  _here_,
+  (fun c -> sCIPsetHeuristics c SCIP_PARAMSETTING_FAST true);
+  _here_,
+  (fun c -> sCIPsetSeparating c SCIP_PARAMSETTING_AGGRESSIVE true);
   _here_,
   (fun c -> sCIPsetPresolving c SCIP_PARAMSETTING_OFF true);
 ]

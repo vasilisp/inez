@@ -148,7 +148,12 @@ private:
   ffcall_map ffcall_m;
 
   typedef pair<const string*, vector<llint> > fcall_lookup_key;
-  typedef unordered_map<fcall_lookup_key, llint> fcall_lookup_map;
+  typedef pair<llint, const fcall * const> fcall_lookup_data;
+  typedef unordered_map<fcall_lookup_key, fcall_lookup_data>
+	  fcall_lookup_map;
+
+  const fcall* conflict_fcall1;
+  const fcall* conflict_fcall2;
   
   vector<SCIP_VAR*> vars;
   vector<SCIP_VAR*> dvars;
@@ -170,6 +175,7 @@ private:
   
   /* branching high-level methods */
 
+  bool branch_on_last_cc_conflict();
   bool branch_on_cc_diff();
   bool branch_on_ocaml_diff();
   SCIP_RESULT cut_or_branch(bool);

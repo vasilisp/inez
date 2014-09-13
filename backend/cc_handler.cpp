@@ -181,6 +181,8 @@ cc_handler::cc_handler(SCIP* scip, dp* d, cut_gen* c)
     node_seen_ocg_m(),
     loc_m(),
     ffcall_m(),
+    conflict_fcall1(NULL),
+    conflict_fcall2(NULL),
     vars(),
     dvars(),
     frames(),
@@ -350,21 +352,52 @@ inline bool branch_around_val(SCIP* scip, SCIP_VAR* v, llint x)
 
 }
 
-inline bool cc_handler::branch_on_diff(const scip_ovar& ov1,
-                                       const scip_ovar& ov2)
+bool cc_handler::branch_on_diff(const scip_ovar& ov1,
+                                const scip_ovar& ov2)
 {
 
-  SCIP*& scip = scip::ObjEventhdlr::scip_;
-  SCIP_VAR* v1 = ov1.base;
-  SCIP_VAR* v2 = ov2.base;
+  SCIP_VAR* const& v1 = ov1.base;
+  SCIP_VAR* const& v2 = ov2.base;
 
   if (v1 == v2) return false;
-  assert(v1 > v2);
+  if (v2 > v1) return branch_on_diff(ov2, ov1);
 
+  assert(v1 > v2);
+  SCIP*& scip = scip::ObjEventhdlr::scip_;
   SCIP_VAR* dv = get_dvar(v1, v2);
   llint d = ov2.offset - ov1.offset;
 
   return branch_around_val(scip, dv, d);
+
+}
+
+bool cc_handler::branch_on_last_cc_conflict()
+{
+
+  if (!conflict_fcall1 || !conflict_fcall2) return false;
+
+  const scip_ovar& ov1 = conflict_fcall1->get<1>();
+  const scip_ovar& ov2 = conflict_fcall1->get<1>();
+
+  if (branch_on_diff(ov1, ov2)) return true;
+  
+  const vector<scip_ovar> a1 = conflict_fcall1->get<2>();
+  const vector<scip_ovar> a2 = conflict_fcall2->get<2>();
+  vector<scip_ovar>::const_iterator it1 = a1.begin();
+  vector<scip_ovar>::const_iterator it2 = a2.begin();
+
+  while (it1 != a1.end()) {
+    assert (it2 != a2.end());
+    if (branch_on_diff(*it1, *it2)) {
+      conflict_fcall1 = NULL;
+      conflict_fcall2 = NULL;
+      return true;
+    }
+    it1++;
+    it2++;
+  }
+
+  return false;
 
 }
 
@@ -378,15 +411,10 @@ bool cc_handler::branch_on_cc_diff()
     vector<scip_ovar>::const_iterator it1 = v.begin();
     while (it1 != v.end()) {
       const scip_ovar& ov1 = *it1;
-      SCIP_VAR* v1 = ov1.base;
       vector<scip_ovar>::const_iterator it2 = it1 + 1;
       while (it2 != v.end()) {
         const scip_ovar& ov2 = *it2;
-        SCIP_VAR* v2 = ov2.base;
-        bool branched = v1 > v2 ?
-          branch_on_diff(ov1, ov2) :
-          branch_on_diff(ov2, ov1) ;
-        if (branched) return true;
+        if (branch_on_diff(ov1, ov2)) return true;
         it2++;
       }
       it1++;
@@ -762,9 +790,13 @@ SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
     fcall_lookup_key k(fc.get<0>(), args);
     fcall_lookup_map::iterator it = fcall_lookup_m.find(k);
     if (it != fcall_lookup_m.end()) {
-      if (r != it->second) return SCIP_INFEASIBLE;
+      if (r != it->second.first) {
+        conflict_fcall1 = &fc;
+        conflict_fcall2 = it->second.second;
+        return SCIP_INFEASIBLE;
+      }
     } else
-      fcall_lookup_m.emplace(k, r);
+      fcall_lookup_m.emplace(k, fcall_lookup_data(r, &fc));
   }
 
   if (ocaml_dp && !ocaml_dp->check(sol))
@@ -870,6 +902,10 @@ SCIP_RESULT cc_handler::cut_or_branch(bool cc_feasible)
 
   /* trying to branch on something that makes sense for CC */
 
+  if (branch_on_last_cc_conflict()) return SCIP_BRANCHED;
+
+  assert(ocaml_dp || ocaml_cut_gen);
+  
   if (branch_on_cc_diff()) return SCIP_BRANCHED;
 
   /* trying to branch on something that makes sense for ocaml_dp */
