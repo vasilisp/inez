@@ -404,6 +404,8 @@ bool cc_handler::branch_on_last_cc_conflict()
 bool cc_handler::branch_on_cc_diff()
 {
 
+  unreachable();
+
   loc_map::iterator it = loc_m.begin();
 
   while (it != loc_m.end()) {
@@ -771,32 +773,45 @@ SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
   dbg_print_assignment(sol);
 #endif
 
-  BOOST_FOREACH (const fcall& fc, fcalls) {
+  vector<fcall>::iterator it = fcalls.begin();
+
+  while (it != fcalls.end()) {
     vector<llint> args;
-    BOOST_FOREACH (const scip_ovar& ov, fc.get<2>()) {
+    BOOST_FOREACH (const scip_ovar& ov, it->get<2>()) {
       llint x = ov.base ?
         my_llint(scip, SCIPgetSolVal(scip, sol, ov.base)) :
         0;
       args.push_back(x + ov.offset);
     }
-    SCIP_VAR* v = fc.get<1>().base;
+    SCIP_VAR* v = it->get<1>().base;
     llint r = v ? my_llint(scip, SCIPgetSolVal(scip, sol,v)) : 0;
-    r += fc.get<1>().offset;
+    r += it->get<1>().offset;
 #ifdef DEBUG_DESPERATE
-    cout << *fc.get<0>() << "(";
+    cout << it->get<0>() << "(";
     BOOST_FOREACH (llint x, args) cout << x << ", ";
     cout << ") = " << r << endl;
 #endif
-    fcall_lookup_key k(fc.get<0>(), args);
-    fcall_lookup_map::iterator it = fcall_lookup_m.find(k);
-    if (it != fcall_lookup_m.end()) {
-      if (r != it->second.first) {
-        conflict_fcall1 = &fc;
-        conflict_fcall2 = it->second.second;
+    fcall_lookup_key k(it->get<0>(), args);
+    fcall_lookup_map::iterator it_m = fcall_lookup_m.find(k);
+    if (it_m != fcall_lookup_m.end()) {
+      if (r != it_m->second.first) {
+        vector<fcall>::iterator it0 = it_m->second.second;
+        assert(it != fcalls.begin());
+        if (it0 != fcalls.begin()) {
+          std::iter_swap(it, fcalls.begin());
+          if (it0 != fcalls.begin() + 1)
+            std::iter_swap(it0, fcalls.begin() + 1);
+        } else {
+          if (it != fcalls.begin() + 1)
+            std::iter_swap(it, fcalls.begin() + 1);
+        }
+        conflict_fcall1 = &*fcalls.begin();
+        conflict_fcall2 = &*(fcalls.begin() + 1);
         return SCIP_INFEASIBLE;
       }
     } else
-      fcall_lookup_m.emplace(k, fcall_lookup_data(r, &fc));
+      fcall_lookup_m.emplace(k, fcall_lookup_data(r, it));
+    it++;
   }
 
   if (ocaml_dp && !ocaml_dp->check(sol))

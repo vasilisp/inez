@@ -148,7 +148,7 @@ private:
   ffcall_map ffcall_m;
 
   typedef pair<const string*, vector<llint> > fcall_lookup_key;
-  typedef pair<llint, const fcall * const> fcall_lookup_data;
+  typedef pair<llint, vector<fcall>::iterator> fcall_lookup_data;
   typedef unordered_map<fcall_lookup_key, fcall_lookup_data>
 	  fcall_lookup_map;
 
