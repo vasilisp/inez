@@ -63,6 +63,34 @@ bool scip_fix_variable
 
 }
 
+bool scip_fix_diff(SCIP* scip, SCIP_CONSHDLR* conshdlr,
+                   SCIP_VAR* a, SCIP_VAR* b, llint x)
+{
+
+  SCIP_Bool infeasible;
+
+  assert(a != b);
+  assert(a && b && scip && conshdlr);
+
+  static unsigned int n = 0;
+  char row_id[64];
+  SCIP_ROW* row;
+  SCIP_VAR* vars[2] = {a, b};
+  SCIP_Real coefs[3] = {1, -1};
+
+  sprintf(row_id, "drow%d", n++);
+  sa(SCIPcreateEmptyRowCons(scip, &row, conshdlr,
+                            row_id, x, x, TRUE, FALSE, FALSE));
+  sa(SCIPcacheRowExtensions(scip, row));
+  sa(SCIPaddVarToRow(scip, row, a, 1.0));
+  sa(SCIPaddVarToRow(scip, row, b, -1.0));
+  sa(SCIPflushRowExtensions(scip, row));
+  sa(SCIPaddCut(scip, NULL, row, TRUE, &infeasible));
+  // cout << "added cut (feasible = " << !infeasible << ")\n" << endl;
+  return !infeasible;
+
+}
+
 void scip_branch_around_val(SCIP* scip, SCIP_VAR* v, llint x)
 {
 

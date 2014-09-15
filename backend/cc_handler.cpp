@@ -91,38 +91,28 @@ SCIP_VAR* scip_callback::get_dvar(SCIP_VAR* v1, SCIP_VAR* v2)
 void scip_callback::operator()(symbol a, symbol b, llint x)
 {
 
-  bool ch = false, infeasible = false;
+  bool feasible = true;
   SCIP_VAR* v_a = a;
   SCIP_VAR* v_b = b;
   SCIP_VAR* dv = NULL;
 
+  SCIP_CONSHDLR* cch = SCIPfindConshdlr(scip, "cc");
+  assert(cch);
+  
 #ifdef DEBUG
   cout << "[CP] " << var_id(a) << " = " << var_id(b)
        << " + " << x << endl;
 #endif
 
-  if (v_a > v_b) {
-    dv = get_dvar(v_a, v_b);
-    ch = scip_fix_variable(scip, dv, x, &infeasible);
-  } else {
-    dv = get_dvar(v_b, v_a);
-    ch = scip_fix_variable(scip, dv, -x, &infeasible);
-  }
+  feasible = scip_fix_diff(scip, cch, v_a, v_b, x);
 
-#ifdef DEBUG
-  if (ch)
-    cout << "[CP] bound changed\n";
-  else
-    cout << "[CP] bound did not change\n";
-#endif
-  
-  if (infeasible) {
+  if (!feasible) {
 #ifdef DEBUG
     cout << "[CP] infeasible\n";
 #endif
     *node_infeasible = true;
   }
-  *bound_changed = *bound_changed || ch;
+  *cons_added = *cons_added || feasible;
 
 }
 
@@ -164,13 +154,14 @@ cc_handler::cc_handler(SCIP* scip, dp* d, cut_gen* c)
     scip::ObjEventhdlr(scip, "cce", "congruence closure events"),
     uf_call_cnt(0),
     bound_changed(false),
+    cons_added(false),
     seen_node(false),
     node_infeasible(false),
     dvar_m(new dvar_map()),
     ocaml_dp(d),
     ocaml_cut_gen(c),
     cback(new scip_callback(scip, dvar_m.get(), &node_infeasible,
-                            &bound_changed)),
+                            &bound_changed, &cons_added)),
     ctx(cback.get()),
     fun_symbol_m(),
     orig_var_m(),
@@ -239,7 +230,8 @@ void cc_handler::catch_variable(SCIP_VAR* v, bool catch_bound)
     sa(SCIPcatchVarEvent
        (scip, v_trans, SCIP_EVENTTYPE_UBRELAXED, eh,
         NULL, NULL));
- }
+  }
+
   sa(SCIPcatchVarEvent
      (scip, v_trans, SCIP_EVENTTYPE_VARDELETED, eh,
       NULL, NULL));
@@ -634,6 +626,9 @@ void cc_handler::scip_prop_impl_ranges
                           &ub_infeasible, &ub_tightened));
     bound_changed |= lb_tightened;
     bound_changed |= ub_tightened;
+#ifdef DEBUG
+    if (node_infeasible) cout << "[RS] node_infeasible" << endl;
+#endif
     node_infeasible |= lb_infeasible;
     node_infeasible |= ub_infeasible;
     // assert(!node_infeasible);
@@ -692,6 +687,7 @@ SCIP_RESULT cc_handler::scip_prop_impl(context& c)
   SCIP*& scip = scip::ObjEventhdlr::scip_;
 
   bound_changed = false;
+  cons_added = false;
 
   scip_prop_impl_ranges();
 
@@ -727,6 +723,8 @@ SCIP_RESULT cc_handler::scip_prop_impl(context& c)
   if (!c.get_consistent()) return SCIP_CUTOFF;
 
   if (bound_changed) return SCIP_REDUCEDDOM;
+
+  if (cons_added) return SCIP_SEPARATED;
 
   if (ocaml_dp) return ocaml_dp->propagate();
 
@@ -961,7 +959,11 @@ SCIP_RETCODE cc_handler::scip_enfolp
   switch (scip_prop_impl(false)) {
   case SCIP_DIDNOTFIND: 
     break;
+  case SCIP_SEPARATED:
+    *r = SCIP_SEPARATED;
+    return SCIP_OKAY;
   case SCIP_REDUCEDDOM:
+    unreachable();
     *r = SCIP_REDUCEDDOM;
     return SCIP_OKAY;
   case SCIP_CUTOFF:
@@ -1031,8 +1033,34 @@ SCIP_RETCODE cc_handler::scip_prop
 
   ASSERT_SCIP_POINTER(s);
 
-  *result = scip_prop_impl(false);
+  if (node_infeasible || !ctx.get_consistent()) {
+#ifdef DEBUG
+    cout << "[W!] prop called, although we are infeasible\n";
+    if (node_infeasible)
+      cout << "[W!] node_infeasible\n";
+    if (!ctx.get_consistent())
+      cout << "[W!] !ctx.get_consistent()\n";
+    cout << "[W!] ... this is probably fine; double-check\n";
+#endif
+    // return SCIP_CUTOFF;
+  }
   
+  bound_changed = false;
+  cons_added = false;
+
+  scip_prop_impl_ranges();
+
+  assert (!cons_added);
+
+  *result =
+    node_infeasible ?
+    SCIP_CUTOFF :
+    (bound_changed ? SCIP_REDUCEDDOM : SCIP_DIDNOTFIND);
+
+  return SCIP_OKAY;
+
+  // *result = scip_prop_impl(false);
+
 #ifdef DEBUG
   switch (*result) {
   case SCIP_DIDNOTFIND:
@@ -1176,15 +1204,13 @@ SCIP_RETCODE cc_handler::scip_exec_relaxed
 
   SCIP*& scip = scip::ObjEventhdlr::scip_;
   SCIP_NODE* cn = current_node();
+  assert(cn);
 
 #ifdef DEBUG
   cout << "[EV] bound for " << var_id(ev) << " relaxed from ["
        << old_lb << ", " << old_ub << "] to ["
        << new_lb << ", " << new_ub << "]\n";
 #endif
-
-  // tried to be smarter in the past, leading to wrong answers. We
-  // cannot dependably whether our state 
 
   rewind_to_frame_ocg(NULL);
   push_frame_ocg(cn);
@@ -1251,7 +1277,7 @@ SCIP_RETCODE cc_handler::scip_init(SCIP* s, SCIP_EVENTHDLR* eh)
   sa(SCIPcatchEvent(s, SCIP_EVENTTYPE_NODEFOCUSED, eh, NULL, NULL));
 
   BOOST_FOREACH (SCIP_VAR* v, vars)
-    if(v) catch_variable(v, false);
+    if (v) catch_variable(v, true);
 
   BOOST_FOREACH (SCIP_VAR* dv, dvars)
     catch_variable(dv, true); 
@@ -1456,6 +1482,7 @@ void cc_handler::finalize()
     it++;
   }
 
+  /*
   ffcall_map::iterator it_r = ffcall_m.begin();
   
   while (it_r != ffcall_m.end()) {
@@ -1484,6 +1511,7 @@ void cc_handler::finalize()
     it_r++;
 
   }
+  */
 
 }
 

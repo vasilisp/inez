@@ -42,6 +42,7 @@ private:
   int n_called;
   bool* node_infeasible;
   bool* bound_changed;
+  bool* cons_added;
   const dvar_map* dvar_m;
 
   SCIP_VAR* get_dvar(SCIP_VAR*, SCIP_VAR*);
@@ -49,11 +50,12 @@ private:
 
 public:
 
-scip_callback(SCIP* s, dvar_map* m, bool* ni, bool* b)
+scip_callback(SCIP* s, dvar_map* m, bool* ni, bool* b, bool* c)
     : scip(s),
       n_called(0),
       node_infeasible(ni),
       bound_changed(b),
+      cons_added(c),
       dvar_m(m)
   {}
 
@@ -106,6 +108,7 @@ private:
   llint uf_call_cnt;
   bool node_infeasible;
   bool bound_changed;
+  bool cons_added;
   bool seen_node;
   boost::scoped_ptr<dvar_map> dvar_m;
   boost::scoped_ptr<scip_callback> cback;
