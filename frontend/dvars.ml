@@ -69,14 +69,6 @@ struct
     | None ->
       Some Int63.zero
 
-  let ideref_sol_base r sol = function
-    | Some (S_Pos v) ->
-      S.ideref_sol r sol v
-    | Some (S_Neg v) ->
-      S.ideref_sol r sol v |> Int63.(~-)
-    | None ->
-      Int63.zero
-
   let set_lb_local_base r v x =
     match v with
     | Some (S_Pos v) ->
@@ -105,8 +97,14 @@ struct
   let get_ub_local r ((dv, o), _, _) =
     Option.(get_ub_local_base r dv >>| Int63.(+) o)
 
-  let ideref_sol r sol ((dv, o), _, _) =
-    ideref_sol_base r sol dv |> Int63.(+) o
+  let ideref_sol_base r sol = function
+    | Some v, o ->
+      S.ideref_sol r sol v |> Int63.(+) o
+    | None, o ->
+      o
+
+  let ideref_sol r sol (_, ov1, ov2) =
+    Int63.(ideref_sol_base r sol ov1 - ideref_sol_base r sol ov2)
 
   let set_lb_local r ((dv, o), _, _) x =
     set_lb_local_base r dv Int63.(x - o)
