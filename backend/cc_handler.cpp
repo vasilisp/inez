@@ -6,8 +6,17 @@
 #include <cstdlib>
 #include <stdint.h>
 
-// #define DEBUG
-// #define DEBUG_DESPERATE
+// #define DEBUG0
+// #define DEBUG1
+// #define DEBUG2
+
+#ifdef DEBUG2
+#define DEBUG1
+#endif
+
+#ifdef DEBUG1
+#define DEBUG0
+#endif
 
 // potentially not portable stuff
 
@@ -96,7 +105,7 @@ void scip_callback::operator()(symbol a, symbol b, llint x)
   SCIP_VAR* v_b = b;
   SCIP_VAR* dv = NULL;
 
-#ifdef DEBUG
+#ifdef DEBUG1
   cout << "[CP] " << var_id(a) << " = " << var_id(b)
        << " + " << x << endl;
 #endif
@@ -109,7 +118,7 @@ void scip_callback::operator()(symbol a, symbol b, llint x)
     ch = scip_fix_variable(scip, dv, -x, &infeasible);
   }
 
-#ifdef DEBUG
+#ifdef DEBUG1
   if (ch)
     cout << "[CP] bound changed\n";
   else
@@ -117,7 +126,7 @@ void scip_callback::operator()(symbol a, symbol b, llint x)
 #endif
   
   if (infeasible) {
-#ifdef DEBUG
+#ifdef DEBUG1
     cout << "[CP] infeasible\n";
 #endif
     *node_infeasible = true;
@@ -142,7 +151,7 @@ void scip_callback_sol::operator()(symbol a, symbol b, llint x)
   llint val_b =
     v_b ? my_llint(scip, SCIPgetSolVal(scip, sol, b)) : 0;
 
-#ifdef DEBUG
+#ifdef DEBUG1
   cout << "[DB] "
        << var_id(v_a) << " = " << val_a << ", "
        << var_id(v_b) << " = " << val_b << ", "
@@ -261,7 +270,7 @@ SCIP_VAR* cc_handler::add_dvar(SCIP_VAR* v1, SCIP_VAR* v2)
   
   if (v2) {
     dv = scip_dvar(scip, v1, v2);
-#ifdef DEBUG
+#ifdef DEBUG1
     cout << "[DV] " << var_id(dv) << " = "
          << var_id(v1) << " - " << var_id(v2) << endl;
 #endif
@@ -356,6 +365,8 @@ bool cc_handler::branch_on_diff(const scip_ovar& ov1,
                                 const scip_ovar& ov2)
 {
 
+  fflush(stdout);
+
   SCIP_VAR* const& v1 = ov1.base;
   SCIP_VAR* const& v2 = ov2.base;
 
@@ -377,7 +388,7 @@ bool cc_handler::branch_on_last_cc_conflict()
   if (!conflict_fcall1 || !conflict_fcall2) return false;
 
   const scip_ovar& ov1 = conflict_fcall1->get<1>();
-  const scip_ovar& ov2 = conflict_fcall1->get<1>();
+  const scip_ovar& ov2 = conflict_fcall2->get<1>();
 
   if (branch_on_diff(ov1, ov2)) return true;
   
@@ -531,6 +542,12 @@ void cc_handler::dbg_print_assignment(SCIP_SOL* sol, SCIP_VAR* v)
   } else {
     cout << " in [" << lb << ", " << ub << ']' << endl;
   }
+  
+  if (SCIPisLE(scip, lb, val) && SCIPisLE(scip, val, ub)) return;
+  cout << "[W!] SCIP numerical issues (?)" << endl;
+  assert(sol);
+  fflush(stdout);
+  // unreachable();
 
 }
 
@@ -552,8 +569,6 @@ void cc_handler::scip_prop_impl_ranges
  const ffc_offset& fo,
  const vector<ffc_offset>& vfo)
 {
-
-  // dbg_print_assignment(NULL);
 
   SCIP*& scip = scip::ObjEventhdlr::scip_;
 
@@ -708,8 +723,15 @@ SCIP_RESULT cc_handler::scip_prop_impl(context& c)
       assert(it != dvar_rev_m.end());
       SCIP_VAR* v1 = it->second.first;
       SCIP_VAR* v2 = it->second.second;
-      assert(v1 > v2);
-#ifdef DEBUG
+      SCIP_Real
+        lb1 = v1 ? SCIPvarGetLbLocal(v1) : 0,
+        ub1 = v1 ? SCIPvarGetUbLocal(v1) : 0,
+        lb2 = v2 ? SCIPvarGetLbLocal(v2) : 0,
+        ub2 = v2 ? SCIPvarGetUbLocal(v2) : 0;
+      // infinities shouldn't cause trouble
+      assert(SCIPisLE(scip, lb1 - ub2, lb));
+      assert(SCIPisLE(scip, ub, ub1 - lb2));
+#ifdef DEBUG1
       cout << "[CB] prop-in " << var_id(it->second.first) << ", "
            << var_id(it->second.second) << ", "
            << lb
@@ -738,7 +760,7 @@ SCIP_RESULT cc_handler::scip_prop_impl(bool stateless = true)
 {
 
   if (node_infeasible || !ctx.get_consistent()) {
-#ifdef DEBUG
+#ifdef DEBUG1
     cout << "[W!] prop called, although we are infeasible\n";
     if (node_infeasible)
       cout << "[W!] node_infeasible\n";
@@ -767,7 +789,7 @@ SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
   SCIP*& scip = scip::ObjEventhdlr::scip_;
   fcall_lookup_map fcall_lookup_m;
 
-#ifdef DEBUG_DESPERATE
+#ifdef DEBUG1
   dbg_print_assignment(sol);
 #endif
 
@@ -782,7 +804,7 @@ SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
     SCIP_VAR* v = fc.get<1>().base;
     llint r = v ? my_llint(scip, SCIPgetSolVal(scip, sol,v)) : 0;
     r += fc.get<1>().offset;
-#ifdef DEBUG_DESPERATE
+#ifdef DEBUG1
     cout << *fc.get<0>() << "(";
     BOOST_FOREACH (llint x, args) cout << x << ", ";
     cout << ") = " << r << endl;
@@ -813,7 +835,7 @@ SCIP_RETCODE cc_handler::scip_trans
 (SCIP* s, SCIP_CONSHDLR* ch, SCIP_CONS* src, SCIP_CONS** tgt)
 {
   
-#ifdef DEBUG
+#ifdef DEBUG0
   cout << "[CB] trans\n";
 #endif
   
@@ -827,7 +849,7 @@ SCIP_RETCODE cc_handler::scip_lock
 (SCIP* s, SCIP_CONSHDLR* ch, SCIP_CONS* c, int n_pos, int n_neg)
 {
 
-#ifdef DEBUG
+#ifdef DEBUG0
   cout << "[CB] lock\n";
 #endif
 
@@ -880,7 +902,7 @@ SCIP_RESULT cc_handler::cut_or_branch(bool cc_feasible)
   
   SCIP*& scip = scip::ObjEventhdlr::scip_;
 
-#ifdef DEBUG
+#ifdef DEBUG1
   cout << "[CB] enfolp: trying to cut or branch\n";
 #endif
 
@@ -914,7 +936,7 @@ SCIP_RESULT cc_handler::cut_or_branch(bool cc_feasible)
 
   /* branch on behalf of theory solvers (on registered diffs) */
 
-#ifdef DEBUG
+#ifdef DEBUG1
   dbg_print_assignment(NULL);
 #endif
 
@@ -922,7 +944,7 @@ SCIP_RESULT cc_handler::cut_or_branch(bool cc_feasible)
   
   /* we are in trouble */
 
-#ifdef DEBUG
+#ifdef DEBUG1
   dbg_print_assignment(NULL);
 #endif
 
@@ -936,11 +958,11 @@ SCIP_RETCODE cc_handler::scip_enfolp
  int n, int n_useful, SCIP_Bool infeasible, SCIP_RESULT* r)
 {
 
-#ifdef DEBUG
+#ifdef DEBUG0
   cout << "[CB] enfolp" << endl;
 #endif
 
-#ifdef DEBUG_DESPERATE
+#ifdef DEBUG2
   dbg_print_assignment(NULL);
 #endif
 
@@ -954,7 +976,7 @@ SCIP_RETCODE cc_handler::scip_enfolp
     return SCIP_OKAY;
   }
     
-#ifdef DEBUG
+#ifdef DEBUG1
   cout << "[CB] enfolp: solution infeasible, trying to propagate\n";
 #endif
 
@@ -971,7 +993,7 @@ SCIP_RETCODE cc_handler::scip_enfolp
     throw util::ec_case;
   }
 
-#ifdef DEBUG
+#ifdef DEBUG1
     cout << "[CB] ... failed to propagate\n";
 #endif
   
@@ -989,9 +1011,11 @@ SCIP_RETCODE cc_handler::scip_enfops
  SCIP_RESULT* result)
 {
 
-#ifdef DEBUG
+#ifdef DEBUG0
   cout << "[CB] enfops\n";
 #endif
+
+  unreachable();
   
   SCIP_RESULT r = scip_check_impl(NULL);
 
@@ -1007,7 +1031,7 @@ SCIP_RETCODE cc_handler::scip_check
  SCIP_Bool print_reason, SCIP_RESULT* result)
 {
 
-#ifdef DEBUG
+#ifdef DEBUG0
   cout << "[CB] check\n";
 #endif
 
@@ -1025,7 +1049,7 @@ SCIP_RETCODE cc_handler::scip_prop
  SCIP_PROPTIMING pt, SCIP_RESULT* result)
 {
 
-#ifdef DEBUG
+#ifdef DEBUG0
   cout << "[CB] prop ...\n";
 #endif
 
@@ -1033,7 +1057,7 @@ SCIP_RETCODE cc_handler::scip_prop
 
   *result = scip_prop_impl(false);
   
-#ifdef DEBUG
+#ifdef DEBUG1
   switch (*result) {
   case SCIP_DIDNOTFIND:
     cout << "[CB] ... no propagation\n";
@@ -1065,7 +1089,7 @@ SCIP_RETCODE cc_handler::scip_presol
  SCIP_RESULT* result)
 {
 
-#ifdef DEBUG
+#ifdef DEBUG0
   cout << "[CB] presol\n";
 #endif
 
@@ -1098,7 +1122,7 @@ void cc_handler::scip_exec_nodefocused_ocg(SCIP_NODE* en)
     return;
   }
 
-#ifdef DEBUG
+#ifdef DEBUG1
   cout << "[OC] all the way to the top\n";
 #endif
 
@@ -1129,7 +1153,7 @@ SCIP_RETCODE cc_handler::scip_exec_nodefocused(SCIP_EVENT* e)
     return SCIP_OKAY;
   }
 
-#ifdef DEBUG
+#ifdef DEBUG1
   cout << "[EV] node " << en << " focused ...";
 #endif
 
@@ -1137,7 +1161,7 @@ SCIP_RETCODE cc_handler::scip_exec_nodefocused(SCIP_EVENT* e)
   pn = SCIPnodeGetParent(en);
   assert(pn || SCIPgetRootNode(scip) == en);
   if (pn == cn) {
-#ifdef DEBUG
+#ifdef DEBUG1
     cout << "we can go on with our stack\n";
 #endif
     push_frame(en);
@@ -1145,7 +1169,7 @@ SCIP_RETCODE cc_handler::scip_exec_nodefocused(SCIP_EVENT* e)
   }
 
   if (node_in_frames(pn)) {
-#ifdef DEBUG
+#ifdef DEBUG1
     cout << "halfway there\n";
 #endif
     rewind_to_frame(pn);
@@ -1153,7 +1177,7 @@ SCIP_RETCODE cc_handler::scip_exec_nodefocused(SCIP_EVENT* e)
     return SCIP_OKAY;
   }
 
-#ifdef DEBUG
+#ifdef DEBUG1
   cout << "all the way to the top\n";
 #endif
 
@@ -1177,7 +1201,7 @@ SCIP_RETCODE cc_handler::scip_exec_relaxed
   SCIP*& scip = scip::ObjEventhdlr::scip_;
   SCIP_NODE* cn = current_node();
 
-#ifdef DEBUG
+#ifdef DEBUG1
   cout << "[EV] bound for " << var_id(ev) << " relaxed from ["
        << old_lb << ", " << old_ub << "] to ["
        << new_lb << ", " << new_ub << "]\n";
@@ -1242,7 +1266,7 @@ SCIP_RETCODE cc_handler::scip_exec
 SCIP_RETCODE cc_handler::scip_init(SCIP* s, SCIP_EVENTHDLR* eh)
 {
 
-#ifdef DEBUG
+#ifdef DEBUG0
   cout << "[CB] init\n";
 #endif
 
@@ -1334,7 +1358,7 @@ void cc_handler::call(const scip_ovar& r, const string& s,
   uint i = 0;
   uf_call_cnt++;
 
-#ifdef DEBUG
+#ifdef DEBUG1
   cout << "[CALL] " << var_id(r.base)
        << (r.offset >= 0 ? '+' : '-')
        << (r.offset >= 0 ? r.offset : -r.offset)
