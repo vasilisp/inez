@@ -45,7 +45,7 @@ struct
   type cut = Imt.ivar Terminology.iexpr
   with sexp_of
 
-  type cuts = Imt.ivar Terminology.iexpr list
+  type cuts = cut list
   with sexp_of
 
   type instantiator = axiom_id -> Imt.Dvars.t list -> cut list
@@ -86,12 +86,10 @@ struct
       let cuts = f axiom_id dvars in
       let b1 = met_hypotheses_sol r' sol dvars
       and b2 = List.for_all cuts ~f:(eval_cut r' sol) in
-      (*
-      Printf.printf "%s => %s\n%!"
-        (Sexplib.Sexp.to_string (sexp_of_hypotheses dvars))
-        (Sexplib.Sexp.to_string (sexp_of_cuts cuts));
-      Printf.printf "not %b => %b\n%!" b1 b2;
-      *)
+      (* Printf.printf "%s => %s\n%!"
+          (Sexplib.Sexp.to_string (sexp_of_hypotheses dvars))
+          (Sexplib.Sexp.to_string (sexp_of_cuts cuts));
+         Printf.printf "not %b => %b\n%!" b1 b2; *)
       not b1 || b2
 
     let check_axiom r' sol axiom_id (occs, f : axiom) =
@@ -203,7 +201,11 @@ struct
             else if eval l then
               R_Sat
             else
-              R_Unsat (filter_cuts l)
+              (let l = filter_cuts l in
+               (* sexp_of_cuts l |>
+                    Sexplib.Sexp.to_string |>
+                    Printf.printf "cuts: %s\n%!"; *)
+               R_Unsat l)
           end
         else if
             not (met_hypotheses_sol r' sol dvars) ||

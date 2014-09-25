@@ -115,7 +115,7 @@ let config_list = [
   _here_,
   (fun c -> sCIPsetIntParam c "display/verblevel" 0);
   _here_,
-  (fun c -> sCIPsetHeuristics c SCIP_PARAMSETTING_FAST true);
+  (fun c -> sCIPsetHeuristics c SCIP_PARAMSETTING_AGGRESSIVE true);
   _here_,
   (fun c -> sCIPsetSeparating c SCIP_PARAMSETTING_AGGRESSIVE true);
   _here_,
@@ -351,9 +351,9 @@ let add_cut_local ({r_ctx} as r) (l, o) =
   if
     assert_ok1 _here_ (sCIPaddCut r_ctx (scip_null_sol ()) row true)
   then
-    `Ok
-  else
     `Unsat
+  else
+    `Ok
 
 (* FIXME : do we really need the Option? *)
 
