@@ -17,15 +17,15 @@ let odd x =
   let x_2 = fresh_int_var () in
   ~logic (2 * x_2 + 1 = x) ;;
 
-(* forall x y . x |/ y = x \/ x |/ y = y *)
+(* forall x y . x |? y = x \/ x |? y = y *)
 
 assert_axiom
-  (~forall x (~forall y ([x |/ y < x], x |/ y = y))) ;;
+  (~forall x (~forall y ([x |? y < x], x |? y = y))) ;;
 
 assert_axiom
-  (~forall x (~forall y ([x |/ y > x], x |/ y = y))) ;;
+  (~forall x (~forall y ([x |? y > x], x |? y = y))) ;;
 
-(* f n x = x |/ x + 1 |/ ... |/ x + n - 1 *)
+(* f n x = x |? x + 1 |? ... |? x + n - 1 *)
 
 let f n x =
   let rec f k ~acc =
@@ -33,7 +33,7 @@ let f n x =
       acc
     else
       let two_k = 2 * k in
-      let acc = ~logic ((x + toi two_k) |/ acc) in
+      let acc = ~logic ((x + toi two_k) |? acc) in
       f (k + 1) ~acc 
   and acc = x in
   f 1 ~acc ;;

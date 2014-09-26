@@ -271,6 +271,12 @@ retcode SCIPflushRowExtensions([in] scip s, [in] row r);
 retcode SCIPaddVarToRow([in] scip s, [in] row r,
                         [in] var v, [in] double x);
 
+retcode SCIPaddVarsToRow([in] scip s,
+                         [in] row r,
+                         [in] int n,
+                         [in,size_is(n)] var vars[],
+                         [in,size_is(n)] double coefs[]);
+
 retcode SCIPaddCut([in] scip s,
                    [in] sol l, 
                    [in] row r,

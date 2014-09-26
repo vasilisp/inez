@@ -131,6 +131,11 @@ void scip_callback::operator()(symbol a, symbol b, llint x)
 #endif
     *node_infeasible = true;
   }
+
+#ifdef DEBUG1
+  fflush(stdout);
+#endif
+
   *bound_changed = *bound_changed || ch;
 
 }
@@ -156,6 +161,7 @@ void scip_callback_sol::operator()(symbol a, symbol b, llint x)
        << var_id(v_a) << " = " << val_a << ", "
        << var_id(v_b) << " = " << val_b << ", "
        << "diff is " << x << endl;
+  fflush(stdout);
 #endif
   
   if (val_a != val_b + x) consistent = false;
@@ -197,7 +203,8 @@ cc_handler::cc_handler(SCIP* scip, dp* d, cut_gen* c)
     frames(),
     frames_ocg(),
     fcalls(),
-    catchq()
+    catchq(),
+    scip_sepafreq_(2)
 {}
 
 cc_handler::~cc_handler()
@@ -364,8 +371,6 @@ inline bool branch_around_val(SCIP* scip, SCIP_VAR* v, llint x)
 bool cc_handler::branch_on_diff(const scip_ovar& ov1,
                                 const scip_ovar& ov2)
 {
-
-  fflush(stdout);
 
   SCIP_VAR* const& v1 = ov1.base;
   SCIP_VAR* const& v2 = ov2.base;
@@ -553,6 +558,8 @@ void cc_handler::dbg_print_assignment(SCIP_SOL* sol, SCIP_VAR* v)
 
 void cc_handler::dbg_print_assignment(SCIP_SOL* sol)
 {
+
+  cout << "[SOL:BEGIN]\n";
 
   BOOST_FOREACH (SCIP_VAR* dv, dvars)
     if (dv) dbg_print_assignment(sol, dv);
@@ -783,13 +790,30 @@ SCIP_RESULT cc_handler::scip_prop_impl(bool stateless = true)
 
 }
 
+inline SCIP_RESULT scip_check_impl_return(SCIP_RESULT r) {
+
+#ifdef DEBUG1
+  switch (r) {
+  case SCIP_INFEASIBLE:
+    cout << "[CK] infeasible\n";
+    break;
+  case SCIP_FEASIBLE:
+    cout << "[CK] feasible\n";
+    break;
+  }
+#endif
+
+  return r;
+
+}
+
 SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
 {
 
   SCIP*& scip = scip::ObjEventhdlr::scip_;
   fcall_lookup_map fcall_lookup_m;
 
-#ifdef DEBUG1
+#ifdef DEBUG2
   dbg_print_assignment(sol);
 #endif
 
@@ -805,7 +829,7 @@ SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
     llint r = v ? my_llint(scip, SCIPgetSolVal(scip, sol,v)) : 0;
     r += fc.get<1>().offset;
 #ifdef DEBUG1
-    cout << *fc.get<0>() << "(";
+    cout << "[CK] " << *fc.get<0>() << "(";
     BOOST_FOREACH (llint x, args) cout << x << ", ";
     cout << ") = " << r << endl;
 #endif
@@ -815,19 +839,19 @@ SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
       if (r != it->second.first) {
         conflict_fcall1 = &fc;
         conflict_fcall2 = it->second.second;
-        return SCIP_INFEASIBLE;
+        return scip_check_impl_return(SCIP_INFEASIBLE);
       }
     } else
       fcall_lookup_m.emplace(k, fcall_lookup_data(r, &fc));
   }
 
   if (ocaml_dp && !ocaml_dp->check(sol))
-    return SCIP_INFEASIBLE;
+    return scip_check_impl_return(SCIP_INFEASIBLE);
 
   if (ocaml_cut_gen && sol && !ocaml_cut_gen->check(sol))
-    return SCIP_INFEASIBLE;
+    return scip_check_impl_return(SCIP_INFEASIBLE);
 
-  return SCIP_FEASIBLE;
+  return scip_check_impl_return(SCIP_FEASIBLE);
 
 }
 
@@ -899,7 +923,7 @@ bool cc_handler::branch_on_ocaml_diff()
 
 SCIP_RESULT cc_handler::cut_or_branch(bool cc_feasible)
 {
-  
+
   SCIP*& scip = scip::ObjEventhdlr::scip_;
 
 #ifdef DEBUG1
@@ -913,6 +937,7 @@ SCIP_RESULT cc_handler::cut_or_branch(bool cc_feasible)
       break;
     case SCIP_CUTOFF:
     case SCIP_SEPARATED:
+    case SCIP_CONSADDED:
       return cg_result;
     case SCIP_FEASIBLE:
       if (cc_feasible) return cg_result;
@@ -1050,7 +1075,8 @@ SCIP_RETCODE cc_handler::scip_prop
 {
 
 #ifdef DEBUG0
-  cout << "[CB] prop ...\n";
+  cout << "[CB] prop ... ";
+  fflush(stdout);
 #endif
 
   ASSERT_SCIP_POINTER(s);
@@ -1060,13 +1086,13 @@ SCIP_RETCODE cc_handler::scip_prop
 #ifdef DEBUG1
   switch (*result) {
   case SCIP_DIDNOTFIND:
-    cout << "[CB] ... no propagation\n";
+    cout << "no propagation\n";
     break;
   case SCIP_CUTOFF:
-    cout << "[CB] ... cutoff\n";
+    cout << "cutoff\n";
     break;
   case SCIP_REDUCEDDOM:
-    cout << "[CB] ... domain reduction\n";
+    cout << "domain reduction\n";
     break;
   default:
     throw util::ec_case;
@@ -1153,32 +1179,35 @@ SCIP_RETCODE cc_handler::scip_exec_nodefocused(SCIP_EVENT* e)
     return SCIP_OKAY;
   }
 
-#ifdef DEBUG1
-  cout << "[EV] node " << en << " focused ...";
+#ifdef DEBUG0
+  cout << "[EV] node " << en << " focused ... ";
 #endif
 
   cn = current_node();
   pn = SCIPnodeGetParent(en);
   assert(pn || SCIPgetRootNode(scip) == en);
   if (pn == cn) {
-#ifdef DEBUG1
+#ifdef DEBUG0
     cout << "we can go on with our stack\n";
+    fflush(stdout);
 #endif
     push_frame(en);
     return SCIP_OKAY;
   }
 
   if (node_in_frames(pn)) {
-#ifdef DEBUG1
+#ifdef DEBUG0
     cout << "halfway there\n";
+    fflush(stdout);
 #endif
     rewind_to_frame(pn);
     push_frame(en);
     return SCIP_OKAY;
   }
 
-#ifdef DEBUG1
+#ifdef DEBUG0
   cout << "all the way to the top\n";
+  fflush(stdout);
 #endif
 
   rewind_to_frame((SCIP_NODE*)NULL);
@@ -1205,6 +1234,7 @@ SCIP_RETCODE cc_handler::scip_exec_relaxed
   cout << "[EV] bound for " << var_id(ev) << " relaxed from ["
        << old_lb << ", " << old_ub << "] to ["
        << new_lb << ", " << new_ub << "]\n";
+  fflush(stdout);
 #endif
 
   // tried to be smarter in the past, leading to wrong answers. We
@@ -1257,6 +1287,14 @@ SCIP_RETCODE cc_handler::scip_exec
     return scip_exec_lbrelaxed(e);
   case SCIP_EVENTTYPE_UBRELAXED:
     return scip_exec_ubrelaxed(e);
+#ifdef DEBUG2
+  case SCIP_EVENTTYPE_ROWADDEDLP:
+    cout << "[EV] row added\n";
+    fflush(stdout);
+  case SCIP_EVENTTYPE_ROWDELETEDLP:
+    cout << "[EV] row deleted\n";
+    fflush(stdout);
+#endif
   }
   
   return SCIP_OKAY;
@@ -1272,6 +1310,11 @@ SCIP_RETCODE cc_handler::scip_init(SCIP* s, SCIP_EVENTHDLR* eh)
 
   ASSERT_SCIP_POINTER(s);
 
+#ifdef DEBUG2
+  sa(SCIPcatchEvent(s, SCIP_EVENTTYPE_ROWADDEDLP, eh, NULL, NULL));
+  sa(SCIPcatchEvent(s, SCIP_EVENTTYPE_ROWDELETEDLP, eh, NULL, NULL));
+#endif
+  
   sa(SCIPcatchEvent(s, SCIP_EVENTTYPE_NODEFOCUSED, eh, NULL, NULL));
 
   BOOST_FOREACH (SCIP_VAR* v, vars)
@@ -1508,6 +1551,10 @@ void cc_handler::finalize()
     it_r++;
 
   }
+
+#ifdef DEBUG0
+  fflush(stdout);
+#endif
 
 }
 

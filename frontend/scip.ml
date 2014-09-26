@@ -341,13 +341,11 @@ let add_cut_local ({r_ctx} as r) (l, o) =
          (make_cut_id r)
          (-. (sCIPinfinity r_ctx)) Int63.(to_float (- o))
          true false false) in
-  assert_ok _here_ (sCIPcacheRowExtensions r_ctx row);
-  assert (not (List.is_empty l));
-  List.iter l
-    ~f:(fun (c, v) ->
-      assert_ok _here_
-        (sCIPaddVarToRow r_ctx row v (Int63.to_float c)));
-  assert_ok _here_ (sCIPflushRowExtensions r_ctx row) ;
+  let vars = Array.of_list_map ~f:snd l
+  and coefs =
+    let f (x, _) = Int63.to_float x in
+    Array.of_list_map ~f l in
+  assert_ok _here_ (sCIPaddVarsToRow r_ctx row vars coefs);
   if
     assert_ok1 _here_ (sCIPaddCut r_ctx (scip_null_sol ()) row true)
   then
