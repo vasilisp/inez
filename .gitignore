@@ -1,0 +1,15 @@
+frontend/*.cm[iox]
+frontend/*.cmxs
+frontend/*.top
+frontend/*.opt
+frontend/*.o
+frontend/scip_idl.h
+frontend/scip_idl.ml
+frontend/scip_idl.mli
+frontend/scip_idl_stubs.c
+frontend/smtlib_lexer.ml
+frontend/*ocaml_embedded.c
+backend/*.[oa]
+*.omc
+.omakedb*
+OMakefile.config
