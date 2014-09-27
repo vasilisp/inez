@@ -7,7 +7,7 @@ sig
 
   include (Solver_intf.S with type c := I.c)
 
-  val make_ctx : unit -> ctx
+  val make_ctx : [`Eager | `Lazy] -> ctx
 
   val assert_axiom : ctx -> I.c Axiom.t -> [`Ok | `Unsupported ]
 

@@ -93,6 +93,11 @@ module type S_access = sig
     ctx -> ivar option offset -> f -> ivar option offset list ->
     unit
 
+  val add_diffs_disjunction :
+    ctx ->
+    (ivar option offset * ivar option offset) list ->
+    unit    
+
   val add_objective : ctx -> ivar isum -> [ `Duplicate | `Ok ]
 
   val solve : ctx -> result

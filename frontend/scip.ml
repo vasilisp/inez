@@ -354,10 +354,62 @@ let add_cut_local ({r_ctx} as r) (l, o) =
     `Ok
 
 (* FIXME : do we really need the Option? *)
-
 let name_diff {r_cch} v1 v2 o =
   let r_cch = Option.value_exn r_cch ~here:_here_ in
-  Some (cc_handler_add_dvar r_cch v1 v2 (Int63.to_int64 o))
+  Some (cc_handler_add_dvar r_cch v1 v2 (Int63.to_int64 o) true)
+
+let add_diffs_disjunction ({r_ctx; r_cch} as r) l =
+  let r_cch = Option.value_exn r_cch ~here:_here_ in
+  let name_diff v1 v2 o =
+    cc_handler_add_dvar r_cch v1 v2 (Int63.to_int64 o) false in
+  let (>>|) = Option.(>>|) in
+  let l =
+    let f acc = function
+      | ((Some v1, o1), (Some v2, o2)) when
+          compare_var v1 v2 > 0 ->
+        acc >>| (fun l ->
+          let d =
+            let o = Int63.(o2 - o1) in
+            name_diff v1 v2 o, o, SCIP_BOUNDTYPE_UPPER in
+          d :: l)
+      | ((Some v1, o1), (Some v2, o2)) when
+          compare_var v1 v2 < 0 ->
+        acc >>| (fun l ->
+          let d =
+            let o = Int63.(o1 - o2) in
+            name_diff v2 v1 o, o, SCIP_BOUNDTYPE_LOWER in
+          d :: l)
+      | (Some _, o1), (Some _, o2)
+      | (None, o1), (None, o2) ->
+        if Int63.(o1 <= o2) then
+          None
+        else
+          acc
+      | (Some v1, o1), (None, o2) ->
+        acc >>| (fun l ->
+          let o = Int63.(o2 - o1) in
+          (v1, o, SCIP_BOUNDTYPE_UPPER) :: l)
+      | (None, o1), (Some v2, o2) ->
+        acc >>| (fun l ->
+          let o = Int63.(o1 - o2) in
+          (v2, o, SCIP_BOUNDTYPE_LOWER) :: l)
+    and init = Some [] in
+    List.fold_left l ~f ~init in
+  match l with
+  | Some l ->
+    let vars = Array.of_list_map ~f:Tuple.T3.get1 l
+    and bounds =
+      let f (_, x, _) = Int63.to_float x in
+      Array.of_list_map ~f l
+    and types = Array.of_list_map ~f:Tuple.T3.get3 l in
+    let c =
+      assert_ok1 _here_
+        (sCIPcreateConsBasicBounddisjunction r_ctx 
+           (make_constraint_id r)
+           vars types bounds) in
+    assert_ok _here_ (sCIPaddCons r_ctx c)
+  | None ->
+    ()
 
 module Types = struct
   type ctx = scip_ctx
@@ -392,6 +444,7 @@ module Access = struct
   let add_clause = add_clause
   let add_call = add_call
   let add_objective = add_objective
+  let add_diffs_disjunction = add_diffs_disjunction
   let solve = solve
   let ideref = ideref
   let bderef = bderef

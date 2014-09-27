@@ -2,7 +2,7 @@ module S = Axiom_solver.Make(Scip.Scip_with_cut_gen)(Id_for_scripts)
 
 type c = Id_for_scripts.c
 
-let ctx = S.make_ctx ()
+let ctx = S.make_ctx `Lazy
 
 let constrain =
   S.assert_formula ctx

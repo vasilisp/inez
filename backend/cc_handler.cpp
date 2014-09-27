@@ -295,12 +295,14 @@ SCIP_VAR* cc_handler::add_dvar(SCIP_VAR* v1, SCIP_VAR* v2)
 }
 
 SCIP_VAR* cc_handler::ocaml_add_dvar(SCIP_VAR* v1, SCIP_VAR* v2,
-                                     llint o)
+                                     llint o, bool reg)
 {
 
   assert(v1 > v2);
 
   SCIP_VAR* rval = add_dvar(v1, v2);
+
+  if (!reg) return rval;
 
   dvar_offset_map::iterator it = ocaml_dvar_offset_m.find(rval);
 
@@ -1651,9 +1653,10 @@ SCIP_VAR* cc_handler_zero_var(cc_handler* c)
 SCIP_VAR* cc_handler_add_dvar(cc_handler* c,
                               SCIP_VAR* v1,
                               SCIP_VAR* v2,
-                              llint o)
+                              llint o,
+                              bool reg)
 {
-  return c->ocaml_add_dvar(v1, v2, o);
+  return c->ocaml_add_dvar(v1, v2, o, reg);
 }
 
 uintptr_t uintptr_t_of_var(SCIP_VAR* v)

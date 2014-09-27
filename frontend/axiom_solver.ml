@@ -70,10 +70,13 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     sexp_of_t = sexp_of_bind_key
   }
 
+  type mode = [`Eager | `Lazy]
+
   type ctx = {
     r_ctx      :  S.ctx;
     r_lt_ctx   :  Lt.ctx;
     r_imt_ctx  :  Imt'.ctx;
+    r_mode     :  mode;
     r_axiom_h  :  (Lt.axiom_id, c Axiom.Flat.t) Hashtbl.t;
     r_patt_h   :
       (c Id.Box_arrow.t, (Lt.axiom_id * c Flat.Box.t) list) Hashtbl.t;
@@ -84,7 +87,7 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     r_q        :  formula Dequeue.t
   }
 
-  let make_ctx () =
+  let make_ctx r_mode =
     let r_lt_ctx   =  Lt.make_ctx () in
     let r_imt_ctx  =  Imt'.make_ctx r_lt_ctx in
     let r_ctx      =  S.make_ctx r_imt_ctx
@@ -97,6 +100,7 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
       Hashtbl.create () ~size:2048 ~hashable:hashable_ovov
     and r_q        =  Dequeue.create () in
     {r_ctx; r_lt_ctx; r_imt_ctx;
+     r_mode;
      r_axiom_h; r_patt_h; r_bind_h; r_occ_h;
      r_dvars_h; r_q}
 
@@ -206,7 +210,25 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
         Hashtbl.add_multi r_occ_h (key, dvars) s in
       iter_substitutions r key ~f in
     Hashtbl.iter r_axiom_h ~f
-  
+
+  let encode_all_axiom_instances
+      ({r_ctx; r_lt_ctx; r_imt_ctx; r_axiom_h; r_occ_h} as r) =
+    let f ~key ~data:(q, l, c) =
+      let f s =
+        let bindings = bindings_of_substitution s in
+        let f (a, b) =
+          let f x =
+            instantiate r ~bindings x |> S.ovar_of_sum r_ctx in
+          let v_a, o_a = f a in
+          f b, (v_a, Int63.(o_a - one)) in
+        let l = List.map l ~f
+        and c =
+          instantiate r ~bindings c |> S.ovar_of_sum r_ctx in
+        let l = (c, (None, Int63.zero)) :: l in
+        Imt'.add_diffs_disjunction r_imt_ctx l in
+      iter_substitutions r key ~f in
+    Hashtbl.iter r_axiom_h ~f
+
   let rec register_apps_formula ({r_ctx} as r) =
     let rec f : type s . (I.c, s) M.t -> unit = function
       | M.M_Int _ ->
@@ -352,12 +374,16 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
     | None ->
       `Unsupported
 
-  let solve ({r_ctx; r_lt_ctx; r_q} as r) =
+  let solve ({r_ctx; r_lt_ctx; r_mode; r_q} as r) =
     (let f = register_apps_formula r in
      Dequeue.iter r_q ~f);
     (let f = S.assert_formula r_ctx in
      Dequeue.iter r_q ~f);
-    register_all_axiom_terms r;
+    (match r_mode with
+    | `Lazy ->
+      register_all_axiom_terms r
+    | `Eager ->
+      encode_all_axiom_instances r);
     S.solve r_ctx
 
   let add_objective {r_ctx} = S.add_objective r_ctx

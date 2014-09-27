@@ -284,7 +284,7 @@ public:
 
   void include();
 
-  SCIP_VAR* ocaml_add_dvar(SCIP_VAR*, SCIP_VAR*, llint);
+  SCIP_VAR* ocaml_add_dvar(SCIP_VAR*, SCIP_VAR*, llint, bool);
 
   const int scip_sepafreq_;
 
@@ -314,7 +314,8 @@ extern "C" {
 	extern SCIP_VAR* cc_handler_add_dvar(cc_handler*,
 					     SCIP_VAR*,
 					     SCIP_VAR*,
-					     llint);
+					     llint,
+					     bool);
 	extern void cc_handler_catch_var_events(cc_handler*, SCIP_VAR*);
 	extern uintptr_t uintptr_t_of_var(SCIP_VAR*);
 	extern uintptr_t uintptr_t_of_node(SCIP_NODE*);
