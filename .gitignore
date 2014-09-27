@@ -13,3 +13,4 @@ backend/*.[oa]
 *.omc
 .omakedb*
 OMakefile.config
+.#*
