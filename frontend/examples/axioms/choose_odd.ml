@@ -32,6 +32,7 @@ let f n x =
     if k >= n then
       acc
     else
+      let two_k = 2 * k in
       let acc = ~logic ((x + toi two_k) |? acc) in
       f (k + 1) ~acc 
   and acc = x in

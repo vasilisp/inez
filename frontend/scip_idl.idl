@@ -112,7 +112,7 @@ retcode SCIPcreateProbBasic
 ([in] scip s,
  [in,string] char* name);
 
-retcode SCIPincludeDefaultPlugins([in] scip s);
+retcode SCIPincludeDefaultPlugins_modified([in] scip s);
 
 retcode SCIPsolve([in] scip s);
 
@@ -223,6 +223,9 @@ retcode SCIPchgVarObj([in] scip s, [in] var v, [in] double newobj);
 
 retcode SCIPsetIntParam([in] scip s, [in,string] const char* name,
                         [in] int val);
+
+retcode SCIPsetBoolParam([in] scip s, [in,string] const char* name,
+                         [in] boolean val);
 
 retcode SCIPsetHeuristics([in] scip s,
                           [in] param_setting ps,

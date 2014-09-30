@@ -394,11 +394,6 @@ bool cc_handler::branch_on_last_cc_conflict()
 
   if (!conflict_fcall1 || !conflict_fcall2) return false;
 
-  const scip_ovar& ov1 = conflict_fcall1->get<1>();
-  const scip_ovar& ov2 = conflict_fcall2->get<1>();
-
-  if (branch_on_diff(ov1, ov2)) return true;
-  
   const vector<scip_ovar> a1 = conflict_fcall1->get<2>();
   const vector<scip_ovar> a2 = conflict_fcall2->get<2>();
   vector<scip_ovar>::const_iterator it1 = a1.begin();
@@ -414,6 +409,11 @@ bool cc_handler::branch_on_last_cc_conflict()
     it1++;
     it2++;
   }
+
+  const scip_ovar& ov1 = conflict_fcall1->get<1>();
+  const scip_ovar& ov2 = conflict_fcall2->get<1>();
+
+  if (branch_on_diff(ov1, ov2)) return true;
 
   return false;
 

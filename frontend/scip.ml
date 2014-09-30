@@ -112,6 +112,8 @@ let string_of_version () =
     (sCIPtechVersion ())
 
 let config_list = [
+  (* _here_, *)
+  (* (fun c -> sCIPsetEmphasis c SCIP_PARAMEMPHASIS_FEASIBILITY true); *)
   _here_,
   (fun c -> sCIPsetIntParam c "display/verblevel" 0);
   _here_,
@@ -120,6 +122,10 @@ let config_list = [
   (fun c -> sCIPsetSeparating c SCIP_PARAMSETTING_AGGRESSIVE true);
   _here_,
   (fun c -> sCIPsetPresolving c SCIP_PARAMSETTING_OFF true);
+  (* _here_, *)
+  (* (fun c -> sCIPsetBoolParam c "presolving/donotmultaggr" true); *)
+  (* _here_, *)
+  (* (fun c -> sCIPsetBoolParam c "presolving/donotaggr" true); *)
 ]
 
 let run_config_list c =
@@ -129,7 +135,7 @@ let make_ctx () =
   let r_ctx = assert_ok1 _here_ (sCIPcreate ()) in
   let r_cch = Some (new_cc_handler r_ctx None None) in
   cc_handler_include (Option.value_exn r_cch ~here:_here_);
-  assert_ok _here_ (sCIPincludeDefaultPlugins r_ctx);
+  assert_ok _here_ (sCIPincludeDefaultPlugins_modified r_ctx);
   assert_ok _here_ (sCIPcreateProbBasic r_ctx "prob");
   run_config_list r_ctx;
   let r_var_d = Dequeue.create () ~initial_length:1023
@@ -611,7 +617,7 @@ module Scip_with_dp = struct
       let r_cch = Some (new_cc_handler r_ctx o None) in
       rval.r_cch <- r_cch;
       cc_handler_include (Option.value_exn rval.r_cch ~here:_here_);
-      assert_ok _here_ (sCIPincludeDefaultPlugins r_ctx);
+      assert_ok _here_ (sCIPincludeDefaultPlugins_modified r_ctx);
       assert_ok _here_ (sCIPcreateProbBasic r_ctx "prob");
       run_config_list r_ctx;
       rval
@@ -703,7 +709,7 @@ module Scip_with_cut_gen = struct
       let r_cch = Some (new_cc_handler r_ctx None o) in
       rval.r_cch <- r_cch;
       cc_handler_include (Option.value_exn rval.r_cch ~here:_here_);
-      assert_ok _here_ (sCIPincludeDefaultPlugins r_ctx);
+      assert_ok _here_ (sCIPincludeDefaultPlugins_modified r_ctx);
       assert_ok _here_ (sCIPcreateProbBasic r_ctx "prob");
       run_config_list r_ctx;
       rval

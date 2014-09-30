@@ -1,6 +1,8 @@
 open Core.Std
 open Logic
 
+let dbg = true
+
 module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
   
   module Matching = Flat.Matching(M)
@@ -213,6 +215,7 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
 
   let encode_all_axiom_instances
       ({r_ctx; r_lt_ctx; r_imt_ctx; r_axiom_h; r_occ_h} as r) =
+    let cnt = ref 0 in
     let f ~key ~data:(q, l, c) =
       let f s =
         let bindings = bindings_of_substitution s in
@@ -225,9 +228,11 @@ module Make (Imt : Imt_intf.S_with_cut_gen) (I : Id.S) = struct
         and c =
           instantiate r ~bindings c |> S.ovar_of_sum r_ctx in
         let l = (c, (None, Int63.zero)) :: l in
-        Imt'.add_diffs_disjunction r_imt_ctx l in
+        Imt'.add_diffs_disjunction r_imt_ctx l;
+        incr cnt in
       iter_substitutions r key ~f in
-    Hashtbl.iter r_axiom_h ~f
+    Hashtbl.iter r_axiom_h ~f;
+    if dbg then Printf.printf "[INFO] %d axiom instances\n%!" !cnt
 
   let rec register_apps_formula ({r_ctx} as r) =
     let rec f : type s . (I.c, s) M.t -> unit = function

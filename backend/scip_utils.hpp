@@ -31,4 +31,8 @@ bool scip_fix_variable(SCIP*, SCIP_VAR*, llint, bool*);
 
 void scip_branch_around_val(SCIP*, SCIP_VAR*, llint);
 
+extern "C" {
+  SCIP_RETCODE SCIPincludeDefaultPlugins_modified(SCIP*);
+}
+
 #endif
