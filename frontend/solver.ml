@@ -123,12 +123,6 @@ struct
 
   let xfalse = S_Neg None
 
-  (* standard MIP types *)
-
-  let mip_type_int = T_Int (None, None)
-
-  let mip_type_bool = T_Int (Some Int63.zero, Some Int63.one)
-
   (* axiom-related datatypes *)
 
   type int_id = (I.c, int) Id.t
@@ -203,28 +197,29 @@ struct
 
   let get_f ({r_ctx; r_fun_m; r_fun_cnt} as r)
       (Id.Box_arrow.Box id' as id) =
-    let t = I.type_of_t id' in
-    Hashtbl.find_or_add r_fun_m id
-      ~default:(fun () ->
-        let s = Printf.sprintf "f_%d" r_fun_cnt in
-        r.r_fun_cnt <- r.r_fun_cnt + 1;
-        S.new_f r_ctx s (Type.count_arrows t))
+    let default =
+      let t = I.type_of_t id' in
+      fun () ->
+      let s = Printf.sprintf "f_%d" r_fun_cnt in
+      r.r_fun_cnt <- r.r_fun_cnt + 1;
+      S.new_f r_ctx s (Type.count_arrows t) in
+    Hashtbl.find_or_add r_fun_m id ~default
 
   let get_axiom_id ({r_axiom_cnt} as r) =
     r.r_axiom_cnt <- r.r_axiom_cnt + 1;
     r_axiom_cnt
 
   let ivar_of_iid {r_ctx; r_ivar_m; r_iid_m} x =
-    Hashtbl.find_or_add r_ivar_m x
-      ~default:(fun () ->
-        let v = S.new_ivar r_ctx mip_type_int in
-        Hashtbl.replace r_iid_m v x; v)
+    let default () = 
+      let v = S.new_ivar r_ctx in
+      Hashtbl.replace r_iid_m v x; v in
+    Hashtbl.find_or_add r_ivar_m x ~default
 
   let bvar_of_bid {r_ctx; r_bvar_m; r_bid_m} x =
-    Hashtbl.find_or_add r_bvar_m x
-      ~default:(fun () ->
-        let v = S.new_bvar r_ctx in
-        Hashtbl.replace r_bid_m v x; v)
+    let default () =
+      let v = S.new_bvar r_ctx in
+      Hashtbl.replace r_bid_m v x; v in
+    Hashtbl.find_or_add r_bvar_m x ~default
 
   let iid_of_ivar {r_iid_m} = Hashtbl.find r_iid_m
 
@@ -288,14 +283,19 @@ struct
     S.add_clause r_ctx [b_eq; b_lt; b_gt];
     S_Pos (Some b)
 
-  and var_of_app ({r_ctx; r_call_m} as r) f_id l t =
+  and var_of_app ?lb ?ub ({r_ctx; r_call_m} as r) f_id l =
     let f = get_f r f_id
     and l = List.map l ~f:(ovar_of_ibeither r) in
     let default () =
-      let v = S.new_ivar r_ctx t in
+      let v = S.new_ivar r_ctx ?lb ?ub in
       S.add_call r_ctx (Some v, Int63.zero) f l;
       v in
     Hashtbl.find_or_add r_call_m (f, l) ~default
+
+  and var_of_bool_app r f_id l =
+    (let lb = Int63.zero and ub = Int63.one in
+     var_of_app ~lb ~ub r f_id l) |>
+      S.bvar_of_ivar
 
   and blast_ite_branch ({r_ctx} as r) xv v e =
     let l, o = iexpr_of_flat_term r e in
@@ -311,12 +311,12 @@ struct
       | S_Neg None ->
         ovar_of_term r t
       | S_Pos (Some bv) ->
-        let v = S.new_ivar r_ctx mip_type_int in
+        let v = S.new_ivar ~implied_int:true r_ctx in
         blast_ite_branch r (S_Pos bv) v s;
         blast_ite_branch r (S_Neg bv) v t;
         Some v, Int63.zero
       | S_Neg (Some bv) ->
-        let v = S.new_ivar r_ctx mip_type_int in
+        let v = S.new_ivar ~implied_int:true r_ctx in
         blast_ite_branch r (S_Neg bv) v s;
         blast_ite_branch r (S_Pos bv) v t;
         Some v, Int63.zero in
@@ -328,7 +328,7 @@ struct
     | P.B_Formula g ->
       ovar_of_formula r g
     | P.B_App (f_id, l) ->
-      Some (var_of_app r f_id l mip_type_int), Int63.zero
+      Some (var_of_app r f_id l), Int63.zero
     | P.B_Ite i ->
       ovar_of_ite r i
 
@@ -340,7 +340,7 @@ struct
     | l, o ->
       let v =
         let default () =
-          let v = S.new_ivar r_ctx mip_type_int in
+          let v = S.new_ivar ~implied_int:true r_ctx in
           S.add_eq r_ctx ((Int63.minus_one, v) :: l) Int63.zero;
           v in
         Hashtbl.find_or_add r_var_of_sum_m l ~default in
@@ -372,7 +372,7 @@ struct
       | [c, x], o when Int63.(c = one) ->
         Some x, o
       | l, o ->
-        let v = S.new_ivar r_ctx mip_type_int in
+        let v = S.new_ivar ~implied_int:true r_ctx in
         S.add_eq r_ctx ((Int63.minus_one, v) :: l) (Int63.neg o);
         Some v, Int63.zero)
     | H_Bool g ->
@@ -427,9 +427,7 @@ struct
     | P.U_Var v ->
       S_Pos (Some (bvar_of_bid r v))
     | P.U_App (f_id, l) ->
-      S_Pos (Some
-               (var_of_app r f_id l mip_type_bool |>
-                   S.bvar_of_ivar))
+      S_Pos (Some (var_of_bool_app r f_id l))
     | P.U_Atom (t, o) ->
       blast_atom r (t, o)
     | P.U_And l ->
@@ -451,14 +449,15 @@ struct
     S.add_le r_ctx [Int63.one, v] c
 
   let assert_bvar_equal_constant {r_ctx} v c =
-    let v = S.ivar_of_bvar v in
+    let v = S.ivar_of_bvar v
+    and c = Int63.(if c then one else zero) in
     S.add_eq r_ctx [Int63.one, v] c
 
   let finally_assert_unit ({r_ctx} as r) = function
     | S_Pos (Some v) ->
-      assert_bvar_equal_constant r v Int63.one
+      assert_bvar_equal_constant r v true
     | S_Neg (Some v) ->
-      assert_bvar_equal_constant r v Int63.zero
+      assert_bvar_equal_constant r v false
     | S_Pos None ->
       ()
     | S_Neg None ->
@@ -472,17 +471,17 @@ struct
         | [] ->
           r.r_unsat <- true
         | [S_Pos v] ->
-          assert_bvar_equal_constant r v Int63.zero
+          assert_bvar_equal_constant r v false
         | [S_Neg v] ->
-          assert_bvar_equal_constant r v Int63.one
+          assert_bvar_equal_constant r v true
         | l ->
           (let f = snot in List.map l ~f) |> S.add_clause r_ctx in
       Option.iter (blast_conjunction_map r [] l) ~f
     | P.U_Var v ->
-      assert_bvar_equal_constant r (bvar_of_bid r v) Int63.one
+      assert_bvar_equal_constant r (bvar_of_bid r v) true
     | P.U_App (f_id, l) ->
-      let v = var_of_app r f_id l mip_type_bool in
-      assert_ivar_equal_constant r v Int63.one
+      let v = var_of_bool_app r f_id l in
+      assert_bvar_equal_constant r v true
     | P.U_Atom (P.G_Sum s, O'_Le) ->
       let l, o = iexpr_of_sum r s in
       S.add_le r_ctx l (Int63.neg o)

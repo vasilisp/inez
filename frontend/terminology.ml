@@ -24,11 +24,6 @@ with compare, sexp
 type 'v iexpr           =  'v isum offset
 with compare, sexp
 
-type mip_type           =  T_Int of (Core.Std.Int63.t option *
-                                       Core.Std.Int63.t option)
-                           | T_Real of float option * float option
-with compare, sexp
-
 type result             =  R_Opt | R_Unbounded | R_Sat
                            | R_Unsat | R_Unknown
 with compare, sexp

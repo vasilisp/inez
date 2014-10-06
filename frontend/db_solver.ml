@@ -394,7 +394,7 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
       `Out_of_fragment
 
   let name_diff r v1 v2 =
-    let v = Imt'.new_ivar r (T_Int (None, None)) in
+    let v = Imt'.new_ivar r in
     Int63.(Imt'.add_eq r [minus_one, v1; one, v2; one, v] zero);
     v
 

@@ -69,7 +69,7 @@ let string_of_retcode = function
   |  SCIP_INVALIDRESULT  ->
     "SCIP_INVALIDRESULT"
   |  SCIP_PLUGINNOTFOUND  ->
-    "SCIP_PLUGINNOTFOUND"
+     "SCIP_PLUGINNOTFOUND"
   |  SCIP_PARAMETERUNKNOWN  ->
     "SCIP_PARAMETERUNKNOWN"
   |  SCIP_PARAMETERWRONGTYPE  ->
@@ -164,20 +164,20 @@ let scip_lb_float {r_ctx} =
 let scip_ub_float {r_ctx} =
   Option.value ~default:(sCIPinfinity r_ctx)
 
-let new_ivar ({r_ctx; r_var_d} as r) t =
-  let i = Dequeue.length r_var_d in
-  let id = Printf.sprintf "v%d" i in
+let new_ivar
+      ?lb ?ub
+      ?implied_int:(implied_int = false)
+      ({r_ctx; r_var_d} as r) =
   let v =
-    assert_ok1 _here_
-      (match t with
-      | T_Int (lb, ub) ->
-        sCIPcreateVarBasic
-          r_ctx id (scip_lb r lb) (scip_ub r ub)
-          0. SCIP_VARTYPE_INTEGER
-      | T_Real (lb, ub) ->
-        sCIPcreateVarBasic
-          r_ctx id (scip_lb_float r lb) (scip_ub_float r ub)
-          0. SCIP_VARTYPE_CONTINUOUS) in
+    let t =
+      if implied_int then
+        SCIP_VARTYPE_INTEGER
+      else
+        SCIP_VARTYPE_IMPLINT
+    and id = Dequeue.length r_var_d |> Printf.sprintf "v%d" in
+    sCIPcreateVarBasic
+      r_ctx id (scip_lb r lb) (scip_ub r ub)
+      0. t |> assert_ok1 _here_ in
   assert_ok _here_ (sCIPaddVar r_ctx v);
   Dequeue.enqueue_back r_var_d v; v
 

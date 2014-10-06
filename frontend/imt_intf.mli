@@ -67,7 +67,12 @@ module type S_access = sig
 
   (** define an integer variable with optional lower and upper
       bounds *)
-  val new_ivar : ctx -> mip_type -> ivar
+  val new_ivar :
+    ?lb          : Int63.t ->
+    ?ub          : Int63.t ->
+    ?implied_int : bool ->
+    ctx ->
+    ivar
 
   (** define a boolean variable *)
   val new_bvar : ctx -> bvar
