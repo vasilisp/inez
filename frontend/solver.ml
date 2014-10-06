@@ -402,15 +402,14 @@ struct
     | [] ->
       Some acc
 
-  and blast_conjunction_reduce {r_ctx} l =
-    match l with
+  and blast_conjunction_reduce {r_ctx} = function
     | [] ->
       xtrue
     | [S_Pos x] ->
       S_Pos (Some x)
     | [S_Neg x] ->
       S_Neg (Some x)
-    | _ ->
+    | l ->
       let rval = S.new_bvar r_ctx in
       (let f v = S.add_clause r_ctx [S_Neg rval; v] in
        List.iter l ~f);
@@ -468,6 +467,17 @@ struct
   let rec finally_assert_formula ({r_ctx} as r) = function
     | P.U_And l ->
       List.iter l ~f:(finally_assert_formula r)
+    | P.U_Not (P.U_And l) ->
+      let f = function
+        | [] ->
+          r.r_unsat <- true
+        | [S_Pos v] ->
+          assert_bvar_equal_constant r v Int63.zero
+        | [S_Neg v] ->
+          assert_bvar_equal_constant r v Int63.one
+        | l ->
+          (let f = snot in List.map l ~f) |> S.add_clause r_ctx in
+      Option.iter (blast_conjunction_map r [] l) ~f
     | P.U_Var v ->
       assert_bvar_equal_constant r (bvar_of_bid r v) Int63.one
     | P.U_App (f_id, l) ->

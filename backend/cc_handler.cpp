@@ -203,8 +203,7 @@ cc_handler::cc_handler(SCIP* scip, dp* d, cut_gen* c)
     frames(),
     frames_ocg(),
     fcalls(),
-    catchq(),
-    scip_sepafreq_(2)
+    catchq()
 {}
 
 cc_handler::~cc_handler()

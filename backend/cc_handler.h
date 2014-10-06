@@ -286,8 +286,6 @@ public:
 
   SCIP_VAR* ocaml_add_dvar(SCIP_VAR*, SCIP_VAR*, llint, bool);
 
-  const int scip_sepafreq_;
-
 };
 
 #else /* end C++ declarations */
