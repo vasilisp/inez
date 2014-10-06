@@ -534,19 +534,9 @@ module Dp_access = struct
 
 end
 
-module Dvars =
-  Dvars.Make (struct
-    include Dp_access_bounds
-    let name_diff = name_diff
-  end)
-
 module Cut_gen_access = struct
 
   include Dp_access_bounds
-
-  module Dvars = Dvars
-
-  (* type dvar = Dvars.t *)
 
   let add_cut_local = add_cut_local
 
@@ -643,14 +633,11 @@ module Scip_with_cut_gen = struct
     
   type sol = sol'
 
-  module Dvars = Dvars
-
   module F
 
     (D : Imt_intf.S_cut_gen
      with type ivar_plug := ivar
-     and type bvar_plug := bvar
-     and type dvar_plug := Dvars.t) =
+     and type bvar_plug := bvar) =
 
   struct
 
@@ -714,8 +701,6 @@ module Scip_with_cut_gen = struct
       run_config_list r_ctx;
       rval
 
-    let create_dvar = Dvars.create_dvar
-    
   end
 
 end

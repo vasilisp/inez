@@ -161,32 +161,9 @@ module type S_dp_access = sig
 
 end
 
-module type Dvars_access = sig
-
-  type ctx_plug
-
-  type sol_plug
-  
-  include (S_int_bounds
-           with type ctx := ctx_plug
-           and type sol := sol_plug)
-
-  val sexp_of_t : t -> Sexplib.Sexp.t
-
-  val compare : t -> t -> int
-
-  val hashable : t Hashtbl.Hashable.t
-
-end
-
 module type S_cut_gen_access = sig
 
   include S_dp_access_bounds
-
-  module Dvars :
-    (Dvars_access
-     with type ctx_plug := ctx
-     and type sol_plug := sol)
 
   val add_cut_local :
     ctx -> ivar Terminology.iexpr -> [`Ok | `Unsat]
@@ -284,7 +261,6 @@ module type S_cut_gen = sig
 
   type ivar_plug
   type bvar_plug
-  type dvar_plug
 
   include Ctx_intf.S_unit_creatable
 
@@ -292,8 +268,7 @@ module type S_cut_gen = sig
 
     (S : S_cut_gen_access
      with type ivar := ivar_plug
-     and type bvar := bvar_plug
-     and type Dvars.t = dvar_plug) :
+     and type bvar := bvar_plug) :
 
   sig
 
@@ -321,28 +296,11 @@ module type S_with_cut_gen = sig
 
   type sol
 
-  module Dvars : sig
-
-    include
-      (Dvars_access
-       with type ctx_plug := ctx
-       and type sol_plug := sol)
-
-    val create_dvar :
-      ctx -> ivar option offset -> ivar option offset -> t
-
-    val get_left : ctx -> t -> ivar option offset
-
-    val get_right : ctx -> t -> ivar option offset
-
-  end
-
   module F
 
     (D : S_cut_gen
      with type ivar_plug := ivar
-     and type bvar_plug := bvar
-     and type dvar_plug := Dvars.t) :
+     and type bvar_plug := bvar) :
 
   sig
 
@@ -363,12 +321,6 @@ module type S_with_cut_gen = sig
        and type f := f)
 
     val make_ctx : D.ctx -> ctx
-
-    val create_dvar :
-      ctx ->
-      ivar option offset ->
-      ivar option offset ->
-      Dvars.t
 
   end
 
