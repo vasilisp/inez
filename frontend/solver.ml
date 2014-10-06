@@ -1,15 +1,23 @@
 open Core.Std
 open Terminology
-open Core.Int_replace_polymorphic_compare
+(* open Core.Int_replace_polymorphic_compare *)
+
+let dbg = false
 
 module Make
 
   (S : Imt_intf.S_access)
-  (I : Id.Accessors) =
+  (I : Id.S) =
 
 struct
 
   open Logic
+
+  module Matching = Flat.Matching(M)
+
+  module Conv = Flat.Conv(I)(M)
+
+  module Linear = Flat.Linear(I)
 
   module P = Pre.Make(I)
 
@@ -121,43 +129,61 @@ struct
 
   let mip_type_bool = T_Int (Some Int63.zero, Some Int63.one)
 
+  (* axiom-related datatypes *)
+
+  type int_id = (I.c, int) Id.t
+  with compare, sexp_of
+
+  type axiom_id = int
+
+  type bind_key = int_id list
+  with compare, sexp_of
+
+  type bind_data = (I.c, int) M.t list list
+
   (* context *)
 
   type ctx = {
-    r_ctx              :  S.ctx;
-    r_pre_ctx          :  P.ctx;
-    r_ivar_m           :  (iid, S.ivar) Hashtbl.t;
-    r_bvar_m           :  (bid, S.bvar) Hashtbl.t;
-    r_iid_m            :  (S.ivar, iid) Hashtbl.t;
-    r_bid_m            :  (S.bvar, bid) Hashtbl.t;
-    r_xvar_m           :  (P.formula, xvar) Hashtbl.t;
-    r_fun_m            :  (fid, S.f) Hashtbl.t;
-    r_call_m           :  (bg_call, S.ivar) Hashtbl.t;
-    r_sum_m            :  (P.sum, S.ivar iexpr) Hashtbl.t;
-    r_var_of_sum_m     :  (bg_isum, S.ivar) Hashtbl.t;
-    r_ovar_of_iite_m   :  (P.iite, ovar) Hashtbl.t;
-    r_q                :  P.formula Dequeue.t;
-    mutable r_obj      :  P.term option;
-    mutable r_fun_cnt  :  int;
-    mutable r_unsat    :  bool
+    r_ctx                :  S.ctx;
+    r_pre_ctx            :  P.ctx;
+    r_ivar_m             :  (iid, S.ivar) Hashtbl.t;
+    r_bvar_m             :  (bid, S.bvar) Hashtbl.t;
+    r_iid_m              :  (S.ivar, iid) Hashtbl.t;
+    r_bid_m              :  (S.bvar, bid) Hashtbl.t;
+    r_xvar_m             :  (P.formula, xvar) Hashtbl.t;
+    r_fun_m              :  (fid, S.f) Hashtbl.t;
+    r_call_m             :  (bg_call, S.ivar) Hashtbl.t;
+    r_sum_m              :  (P.sum, S.ivar iexpr) Hashtbl.t;
+    r_var_of_sum_m       :  (bg_isum, S.ivar) Hashtbl.t;
+    r_ovar_of_iite_m     :  (P.iite, ovar) Hashtbl.t;
+    r_patt_m             :
+      (c Id.Box_arrow.t, (axiom_id * c Flat.Box.t) list) Hashtbl.t;
+    r_bind_m             :
+      (axiom_id, (bind_key, bind_data) Hashtbl.t) Hashtbl.t;
+    r_axiom_m            :  (axiom_id, c Axiom.Flat.t) Hashtbl.t;
+    r_q                  :  P.formula Dequeue.t;
+    mutable r_obj        :  P.term option;
+    mutable r_fun_cnt    :  int;
+    mutable r_axiom_cnt  :  int;
+    mutable r_unsat      :  bool
   }
 
   let make_ctx s = {
-    r_ctx     = s;
+    r_ctx = s;
     r_pre_ctx = P.make_ctx ();
-    r_ivar_m  =
+    r_ivar_m =
       Hashtbl.create ()  ~size:10240  ~hashable:hashable_iid;
-    r_bvar_m  = 
+    r_bvar_m = 
       Hashtbl.create ()  ~size:10240  ~hashable:hashable_bid;
     r_iid_m =
       Hashtbl.create ()  ~size:10240  ~hashable:hashable_ivar;
     r_bid_m =
       Hashtbl.create ()  ~size:10240  ~hashable:hashable_bvar;
-    r_xvar_m  =
+    r_xvar_m =
       Hashtbl.create ()  ~size:10240  ~hashable:P.hashable_formula;
-    r_fun_m   =
+    r_fun_m =
       Hashtbl.create ()  ~size:512    ~hashable:hashable_fid;
-    r_call_m  =
+    r_call_m =
       Hashtbl.create ()  ~size:2048   ~hashable:hashable_bg_call;
     r_sum_m =
       Hashtbl.create ()  ~size:2048   ~hashable:P.hashable_sum;
@@ -165,11 +191,14 @@ struct
       Hashtbl.create ()  ~size:2048   ~hashable:hashable_bg_isum;
     r_ovar_of_iite_m =
       Hashtbl.create ()  ~size:2048   ~hashable:P.hashable_iite;
-    r_q       =
-      Dequeue.create () ~initial_length:63;
+    r_axiom_m = Hashtbl.Poly.create () ~size:512;
+    r_patt_m = Hashtbl.Poly.create () ~size:1024;
+    r_bind_m = Hashtbl.Poly.create () ~size:4096;
+    r_q = Dequeue.create () ~initial_length:63;
     r_obj = None;
     r_fun_cnt = 0;
-    r_unsat   = false;
+    r_axiom_cnt = 0;
+    r_unsat = false;
   }
 
   let get_f ({r_ctx; r_fun_m; r_fun_cnt} as r)
@@ -180,6 +209,10 @@ struct
         let s = Printf.sprintf "f_%d" r_fun_cnt in
         r.r_fun_cnt <- r.r_fun_cnt + 1;
         S.new_f r_ctx s (Type.count_arrows t))
+
+  let get_axiom_id ({r_axiom_cnt} as r) =
+    r.r_axiom_cnt <- r.r_axiom_cnt + 1;
+    r_axiom_cnt
 
   let ivar_of_iid {r_ctx; r_ivar_m; r_iid_m} x =
     Hashtbl.find_or_add r_ivar_m x
@@ -212,16 +245,16 @@ struct
 
   let rec iexpr_of_sum ({r_sum_m} as r) (l, o) =
     let l, o' =
-      Hashtbl.find_or_add r_sum_m l
-        ~default:(fun () ->
-          let f (l, o) (c, t) =
-            match ovar_of_flat_term_base r t with
-            | Some v, x ->
-              (c, v) :: l, Int63.(o + c * x)
-            | None, x ->
-              l, Int63.(o + c * x)
-          and init = [], Int63.zero in
-          List.fold_left ~init ~f l) in
+      let default () =
+        let f (l, o) (c, t) =
+          match ovar_of_flat_term_base r t with
+          | Some v, x ->
+            (c, v) :: l, Int63.(o + c * x)
+          | None, x ->
+            l, Int63.(o + c * x)
+        and init = [], Int63.zero in
+        List.fold_left ~init ~f l in
+      Hashtbl.find_or_add r_sum_m l ~default in
     l, Int63.(o' + o)
 
   and iexpr_of_flat_term r = function
@@ -237,7 +270,7 @@ struct
   and blast_le ?v ({r_ctx} as r) s =
     let l, o = iexpr_of_sum r s
     and v = match v with Some v -> v | _ -> S.new_bvar r_ctx in
-    S.add_indicator r_ctx (S_Pos v)  l                (Int63.neg o);
+    S.add_indicator r_ctx (S_Pos v)  l                Int63.(neg o);
     S.add_indicator r_ctx (S_Neg v)  (negate_isum l)  Int63.(o - one);
     S_Pos (Some v)
 
@@ -465,9 +498,6 @@ struct
     | g ->
       xvar_of_formula_doit r g |> finally_assert_unit r
 
-  let assert_formula {r_pre_ctx; r_q} g =
-    P.flatten_formula r_pre_ctx g |> Dequeue.enqueue_back r_q
-
   let negate_bvar {r_ctx} =
     S.negate_bvar r_ctx
 
@@ -492,21 +522,6 @@ struct
     Dequeue.iter r_q ~f:(finally_assert_formula r);
     Dequeue.clear r_q
 
-  let solve ({r_ctx; r_obj} as r) =
-    bg_assert_all_cached r;
-    match r_obj, r.r_unsat with
-    | _, true ->
-      R_Unsat
-    | Some o, false ->
-      let l, _ = iexpr_of_flat_term r o in
-      (match S.add_objective r_ctx l with
-      | `Duplicate ->
-        raise (Unreachable.Exn _here_)
-      | `Ok ->
-        S.solve r_ctx)
-    | None, false ->
-      S.solve r_ctx
-
   let add_objective ({r_obj; r_pre_ctx} as r) o =
     match r_obj with
     | None ->
@@ -520,5 +535,269 @@ struct
 
   let deref_bool {r_ctx; r_bvar_m} id =
     Option.(Hashtbl.find r_bvar_m id >>= S.bderef r_ctx)
+
+  (* local axioms implementation *)
+
+  let bind_for_axiom {r_axiom_m; r_bind_m} axiom_id bindings =
+    let key, data = List.unzip bindings
+    and axiom = Hashtbl.find r_axiom_m axiom_id in
+    let q, _, _ = Option.value_exn axiom ~here:_here_ in
+    if
+      let f id =
+        let f id' = compare_int_id id id' = 0 in
+        List.exists q ~f in
+      List.for_all key ~f
+    then
+      let h =
+        let default () = Hashtbl.Poly.create () ~size:128 in
+        Hashtbl.find_or_add r_bind_m axiom_id ~default
+      and f = function
+        | Some l ->
+          Some
+            (if let f = (=) data in List.exists l ~f then
+                l
+             else
+                data :: l)
+        | None ->
+          Some [data] in
+      Hashtbl.change h key f
+    else
+      ()
+
+  let register_app_for_axioms ({r_patt_m} as r) (m : (c, int) M.t) =
+    match m with
+    | M.M_App (a, b) ->
+      Option.value_exn ~here:_here_ (M.fun_id_of_app m) |>
+          Hashtbl.find r_patt_m |>
+              let f (axiom_id, Flat.Box.Box pattern) =
+                let f l =
+                  let f = function
+                    | `Bool (_, _) ->
+                      (* FIXME: let's deal with integers first *)
+                      raise (Unreachable.Exn _here_)
+                    | `Int (id, m) ->
+                      id, m
+                  and f' =
+                    let cmp (id1, _) (id2, _) =
+                      compare_int_id id1 id2 in
+                    List.sort ~cmp in
+                  List.map l ~f |> f' |> bind_for_axiom r axiom_id in
+                Matching.do_for_match m ~pattern ~f in
+              let f = List.iter ~f in
+              Option.iter ~f
+    | _ ->
+      raise (Unreachable.Exn _here_)
+
+  let rec register_apps_formula r =
+    let rec
+        f : type s . (I.c, s) M.t -> unit =
+                function
+                | M.M_Int _ ->
+                  ()
+                | M.M_Var _ ->
+                  ()
+                | M.M_Bool g ->
+                  register_apps_formula r g
+                | M.M_Sum (a, b) ->
+                  f a; f b
+                | M.M_Prod (_, a) ->
+                  f a
+                | M.M_Ite (g, a, b) ->
+                  register_apps_formula r g; f a; f b
+                | M.M_App (a, b) as m ->
+                  (match M.type_of_t m with
+                   | Type.Y_Int ->
+                     register_app_for_axioms r m
+                   | _ ->
+                     ());
+                  f a; f b in
+                 let f a ~polarity =
+                   match a with
+                   | A.A_Bool m ->
+                     f m
+                   | A.A_Le m | A.A_Eq m ->
+                                f m
+                 and polarity = `Both in
+                 Formula.iter_atoms ~f ~polarity
+
+  let register_axiom_terms {r_patt_m} id axiom =
+    let open Flat in
+    let f = function
+      | M_Var _ ->
+        ()
+      | M_App (_, _) as m ->
+        let key = Option.value_exn (fun_id_of_app m) ~here:_here_
+        and data = id, Flat.Box.Box m in
+        Hashtbl.add_multi r_patt_m ~key ~data in
+    Axiom.Flat.iter_subterms axiom ~f
+
+  let instantiate r (l, o) ~bindings =
+    let f (l, s) (c, m) =
+      Conv.term_of_t m ~bindings |>
+        ovar_of_term r |>
+        Lazy.force |>
+        function
+        | Some v, o ->
+          (c, v) :: l, Int63.(s + c * o)
+        | None, o ->
+          l,  Int63.(s + c * o)
+    and init = [], o in
+    List.fold_left l ~f ~init
+
+  let bindings_of_substitution =
+    let f x = `Int x in
+    List.map ~f
+
+  let rec iter_substitutions r axiom_id h keys ~f ~bound =
+    match keys with
+    | a :: d ->
+      let l = Option.value_exn (Hashtbl.find h a) ~here:_here_
+      and f a' =
+        let bound =
+          Option.value_exn (List.zip a a') ~here:_here_ |>
+              List.append bound in
+        iter_substitutions r axiom_id h d ~f ~bound in
+      List.iter l ~f
+    | [] ->
+      f (List.rev bound)
+
+  let iter_substitutions ({r_axiom_m; r_bind_m} as r) axiom_id ~f =
+    let f h =
+      let bound = [] in
+      iter_substitutions r axiom_id h (Hashtbl.keys h) ~f ~bound in
+    Option.iter (Hashtbl.find r_bind_m axiom_id) ~f
+
+  let encode_all_axiom_instances ({r_ctx; r_axiom_m} as r) =
+    let cnt = ref 0 in
+    let f ~key ~data:(q, l, c) =
+      let f s =
+        let bindings = bindings_of_substitution s in
+        let f (a, b) =
+          let f x =
+            instantiate r ~bindings x |> ovar_of_sum r in
+          let v_a, o_a = f a in
+          f b, (v_a, Int63.(o_a - one)) in
+        let l = List.map l ~f
+        and c =
+          instantiate r ~bindings c |> ovar_of_sum r in
+        let l = (c, (None, Int63.zero)) :: l in
+        S.add_diffs_disjunction r_ctx l;
+        incr cnt in
+      iter_substitutions r key ~f in
+    Hashtbl.iter r_axiom_m ~f;
+    if dbg then Printf.printf "[INFO] %d axiom instances\n%!" !cnt
+
+  let cut_of_term m ~bindings =
+    let open Option in
+    let f acc c m =
+      acc >>= (fun (l, bindings) ->
+        Conv.t_of_term m ~bindings >>| (fun (m, bindings) ->
+          (c, m) :: l, bindings))
+    and f_offset acc o =
+      acc >>| (fun (l, bindings) -> (l, o), bindings)
+    and init = Some ([], bindings)
+    and factor = Int63.one in
+    M.fold_sum_terms m ~f ~f_offset ~init ~factor
+
+  let negate_cut (l, o) =
+    let f (c, x) = Int63.(~-) c, x
+    and o = Int63.(~-) o in
+    List.map l ~f, o
+  let linearize_iexpr (l, o) ~quantified ~map ~copies =
+    let l, map, copies =
+      let f (l, map, copies) (c, under) =
+        let under, map, copies =
+          Linear.linearize under ~quantified ~under ~map ~copies in
+        (c, under) :: l, map, copies
+      and init = [], map, copies in
+      List.fold_left l ~init ~f in
+    let l = List.rev l in
+    (l, o), map, copies
+
+  let linearize_axiom (quantified, h, cut) =
+    let map = Map.Poly.empty and copies = [] in
+    let h, map, copies =
+      let f (l, map, copies) (a, b) =
+        let a, map, copies =
+          linearize_iexpr a ~quantified ~map ~copies in
+        let b, map, copies =
+          linearize_iexpr b ~quantified ~map ~copies in
+        (a, b) :: l, map, copies
+      and init = [], map, copies in
+      List.fold_left h ~f ~init in
+    let cut, map, copies =
+      linearize_iexpr cut ~quantified ~map ~copies in
+    let h =
+      let f (a, b) =
+        let open Int63 in
+        ([one, Flat.M_Var a], zero),
+        ([one, Flat.M_Var b], zero) in
+      List.rev_map_append copies (List.rev_map_append copies h ~f)
+        ~f:(Fn.compose f Tuple.T2.swap)
+    and quantified =
+      let f (id, _) = id in
+      List.rev_map_append copies quantified ~f in
+    quantified, h, cut
+
+  let flatten_axiom (q, (l, (c1, c2, op))) =
+    let open Option in (
+      let f acc (m1, m2, op) =
+        acc >>= (fun (l, bindings) ->
+          Conv.sum_of_term m1 ~bindings >>= (fun (s1, bindings) ->
+            Conv.sum_of_term m2 ~bindings >>| (fun (s2, bindings) ->
+              (match op with
+              | Terminology.O'_Le ->
+                (s1, s2) :: l
+              | Terminology.O'_Eq ->
+                (s1, s2) :: (s2, s1) :: l), bindings)))
+      and init = Some ([], []) in
+      List.fold_left l ~init ~f) >>= (fun (init, bindings) ->
+        M.(c1 - c2) |>
+            cut_of_term ~bindings >>| (fun (c, bindings) ->
+              let q =
+                let f = Tuple.T2.get1 in
+                List.rev_map_append bindings q ~f
+              and h =
+                let f acc (id, def) =
+                  let e = Int63.([one, Flat.M_Var id], zero) in
+                  (e, def) :: (def, e) :: acc in
+                List.fold_left bindings ~f ~init in
+              (match op with
+              | Terminology.O'_Le ->
+                [q, h, c]
+              | Terminology.O'_Eq ->
+                [q, h, c; q, h, negate_cut c])))
+
+  let assert_axiom ({r_axiom_m} as r) axiom =
+    match flatten_axiom axiom with
+    | Some axioms ->
+      let f axiom =
+        let axiom = linearize_axiom axiom in
+        let id = get_axiom_id r in
+        Hashtbl.replace r_axiom_m id axiom;
+        register_axiom_terms r id axiom in
+      List.iter axioms ~f; `Ok
+    | None ->
+      `Unsupported
+
+  let assert_formula ({r_pre_ctx; r_q} as r) g =
+    register_apps_formula r g;
+    P.flatten_formula r_pre_ctx g |> Dequeue.enqueue_back r_q
+
+  let solve ({r_ctx; r_obj} as r) =
+    bg_assert_all_cached r;
+    encode_all_axiom_instances r;
+    match r_obj, r.r_unsat with
+    | _, true ->
+      R_Unsat
+    | Some o, false ->
+      let l, _ = iexpr_of_flat_term r o in
+      (match S.add_objective r_ctx l with
+       | `Duplicate ->
+         raise (Unreachable.Exn _here_)
+       | `Ok ->
+         S.solve r_ctx)
+    | None, false ->
+      S.solve r_ctx
 
 end

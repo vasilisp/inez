@@ -24,15 +24,11 @@ OCAML_LINK_FLAGS = -linkpkg \
 private.EXT_COBJ = .o
 
 private.CMI_FILES_EMBED = terminology.cmi type.cmi formula.cmi	\
-    logic.cmi script.cmi id_for_scripts.cmi
+    logic.cmi axiom.cmi script.cmi id_for_scripts.cmi
 
 private.CMI_FILES_EMBED_DB = terminology.cmi type.cmi formula.cmi	\
      db_logic_intf.cmi db_logic.cmi db_script.cmi id_for_scripts.cmi	\
      db_smt_script.cmi db_eager_script.cmi
-
-private.CMI_FILES_EMBED_LT = terminology.cmi type.cmi formula.cmi	\
-    id.cmi logic.cmi flat.cmi axiom.cmi solver.cmi lt_script.cmi	\
-    id_for_scripts.cmi
 
 scip_idl.ml scip_idl.mli scip_idl.h scip_idl_stubs.c: scip_idl.idl
     camlidl -header scip_idl.idl
@@ -233,9 +229,6 @@ Camlp4o_lib(flat, type_conv comparelib sexplib, type_conv compare	\
 Camlp4o_lib(axiom, type_conv comparelib sexplib, type_conv compare	\
                   sexp_conv)
 
-Camlp4o_lib(axiom_solver, herelib type_conv comparelib sexplib,	\
-                          herelib type_conv compare sexp_conv)
-
 Camlp4o_lib(flat, herelib type_conv comparelib sexplib, herelib	\
             type_conv compare sexp_conv)
 
@@ -243,21 +236,17 @@ OCamlCMXS(pa_logic, camlp4_maps pa_logic)
 
 OCamlCMXS(pa_db_logic, camlp4_maps pa_db_logic)
 
-OCamlCMXS(pa_lt_logic, camlp4_maps pa_lt_logic)
-
 Camlp4o_nopacks(camlp4_maps)
 
 Camlp4o_nopacks(pa_logic)
 
 Camlp4o_nopacks(pa_db_logic)
 
-Camlp4o_nopacks(pa_lt_logic)
-
 Extra_pack(script_main, ocaml_plugin async)
 
 OCamlTop(inez, terminology unreachable dvars scip_idl scip util		\
          formula type id id_for_scripts logic camlp4_maps pa_logic	\
-         pre solver script, native_utils scip_idl_stubs)
+         pre flat axiom solver script, native_utils scip_idl_stubs)
 
 MyOCamlProgram(inez-smt, terminology unreachable dvars scip_idl scip	\
                util formula type id id_for_scripts logic pre solver	\
@@ -269,32 +258,21 @@ OCamlTop(inez-db, terminology unreachable dvars scip_idl scip util	\
          pa_db_logic pre solver bounds smtlib_printer mem db_solver	\
          db_script, native_utils scip_idl_stubs)
 
-OCamlTop(inez-lt, terminology unreachable dvars scip_idl scip util	\
-         formula type id id_for_scripts logic camlp4_maps pa_lt_logic	\
-         pre solver bounds smtlib_printer mem lt axiom flat		\
-         axiom_solver lt_script, native_utils scip_idl_stubs)
-
 section
 
     OCAMLPACKS += ocaml_plugin async
 
     MyOCamlProgram(inez, terminology unreachable dvars scip_idl scip	\
-                   util formula type id id_for_scripts logic pre	\
-                   solver script script_main, native_utils		\
+                   util formula type id id_for_scripts logic pre flat	\
+                   axiom solver script script_main, native_utils	\
                    scip_idl_stubs ocaml_embedded)
 
     MyOCamlProgram(inez-db, terminology unreachable dvars scip_idl	\
                    scip util formula type id id_for_scripts logic	\
-                   db_logic pre solver bounds smtlib_printer mem	\
-                   db_solver db_script db_smt_script db_eager_script	\
-                   script_main, native_utils scip_idl_stubs		\
-                   db_ocaml_embedded)
-
-    MyOCamlProgram(inez-lt, terminology unreachable dvars scip_idl	\
-                   scip util formula type id id_for_scripts logic pre	\
-                   solver lt axiom flat axiom_solver lt_script		\
-                   script_main, native_utils scip_idl_stubs		\
-                   lt_ocaml_embedded)
+                   db_logic pre flat axiom solver bounds		\
+                   smtlib_printer mem db_solver db_script		\
+                   db_smt_script db_eager_script script_main,		\
+                   native_utils scip_idl_stubs db_ocaml_embedded)
 
 ocaml_embedded.c: pa_logic.cmxs $(CMI_FILES_EMBED)
         ocaml-embed-compiler \
@@ -308,19 +286,6 @@ ocaml_embedded.c: pa_logic.cmxs $(CMI_FILES_EMBED)
             $(shell ocamlfind query core)/core.cmi \
             $(shell ocamlfind query ocaml_plugin)/ocaml_plugin.cmi \
             $(CMI_FILES_EMBED)
-
-lt_ocaml_embedded.c: pa_lt_logic.cmxs $(CMI_FILES_EMBED_LT)
-        ocaml-embed-compiler \
-            -cc $(shell which ocamlopt.opt) \
-            -pp $(shell which camlp4o.opt) \
-            -pa-cmxs pa_lt_logic.cmxs \
-            -o $@ \
-            $(shell ocamlfind printconf stdlib)/pervasives.cmi \
-            $(shell ocamlfind printconf stdlib)/camlinternalFormatBasics.cmi \
-            $(shell ocamlfind query core_kernel)/core_kernel.cmi \
-            $(shell ocamlfind query core)/core.cmi \
-            $(shell ocamlfind query ocaml_plugin)/ocaml_plugin.cmi \
-            $(CMI_FILES_EMBED_LT)
 
 db_ocaml_embedded.c: pa_db_logic.cmxs $(CMI_FILES_EMBED_DB)
         ocaml-embed-compiler \
@@ -336,6 +301,7 @@ db_ocaml_embedded.c: pa_db_logic.cmxs $(CMI_FILES_EMBED_DB)
             $(CMI_FILES_EMBED_DB)
 
 Reset_cflags(ocaml_embedded)
+
 Reset_cflags(db_ocaml_embedded)
 
 .PHONY: clean

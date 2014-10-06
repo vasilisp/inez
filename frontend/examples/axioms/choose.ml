@@ -1,5 +1,5 @@
 open Core.Std ;;
-open Lt_script ;;
+open Script ;;
 
 let (|/) _ _ = ~free ;;
 

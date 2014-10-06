@@ -1,5 +1,5 @@
 open Core.Std ;;
-open Lt_script ;;
+open Script ;;
 
 let n =
   if not !Sys.interactive && Array.length argv >= 2 then

@@ -4,6 +4,13 @@ type c = Id_for_scripts.c
 
 let ctx = S.make_ctx (Scip.Scip_basic.make_ctx ())
 
+let assert_axiom a =
+  match S.assert_axiom ctx a with
+  | `Ok ->
+    ()
+  | `Unsupported ->
+    raise (Invalid_argument "unsupported axiom")
+
 let constrain =
   S.assert_formula ctx
 

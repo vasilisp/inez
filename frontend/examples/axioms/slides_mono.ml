@@ -1,4 +1,4 @@
-open Lt_script ;;
+open Script ;;
 
 open Core.Std ;;
 
