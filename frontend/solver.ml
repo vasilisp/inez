@@ -433,11 +433,17 @@ struct
     | P.U_And l ->
       blast_conjunction r l
 
-  and xvar_of_formula_doit ({r_xvar_m} as r) = function
+  and xvar_of_formula_doit ({r_ctx; r_xvar_m} as r) = function
     | P.U_Not g ->
       snot (xvar_of_formula_doit r g)
     | P.U_Ite (q, g, h) ->
-      P.ff_ite q g h |> xvar_of_formula_doit r
+      let v = P.ff_ite q g h |> xvar_of_formula_doit r in
+      (match v with
+       | S_Pos (Some v) | S_Neg (Some v) ->
+         S.set_bvar_priority r_ctx v 20;
+       | _ ->
+         ());
+      v
     | g ->
       let default () = blast_formula r g in
       Hashtbl.find_or_add r_xvar_m g ~default

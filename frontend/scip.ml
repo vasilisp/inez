@@ -181,6 +181,9 @@ let new_ivar
   assert_ok _here_ (sCIPaddVar r_ctx v);
   Dequeue.enqueue_back r_var_d v; v
 
+let set_var_priority {r_ctx} v i =
+  assert_ok _here_ (sCIPchgVarBranchPriority r_ctx v i)
+
 let new_bvar {r_ctx; r_var_d} =
   let i = Dequeue.length r_var_d in
   let id = Printf.sprintf "v%d" i in
@@ -443,6 +446,8 @@ module Access = struct
   let new_f = new_f
   let new_ivar = new_ivar
   let new_bvar = new_bvar
+  let set_ivar_priority = set_var_priority
+  let set_bvar_priority = set_var_priority
   let negate_bvar = negate_bvar
   let add_eq = add_eq
   let add_le = add_le

@@ -77,6 +77,10 @@ module type S_access = sig
   (** define a boolean variable *)
   val new_bvar : ctx -> bvar
 
+  val set_ivar_priority : ctx -> ivar -> int -> unit
+
+  val set_bvar_priority : ctx -> bvar -> int -> unit
+
   (** [negate_bvar ctx v] = not v *)
   val negate_bvar : ctx -> bvar -> bvar
 

@@ -221,6 +221,8 @@ retcode SCIPinferVarUbCons
 
 retcode SCIPchgVarObj([in] scip s, [in] var v, [in] double newobj);
 
+retcode SCIPchgVarBranchPriority([in] scip s, [in] var v, [in] int p);
+
 retcode SCIPsetIntParam([in] scip s, [in,string] const char* name,
                         [in] int val);
 
