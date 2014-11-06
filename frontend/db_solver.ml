@@ -408,9 +408,17 @@ module Make (Imt : Imt_intf.S_with_dp) (I : Id.S) = struct
         and frv = Imt'.register_ivar r_bg_ctx in
         Imt'.register_bvar r_bg_ctx v;
         let f (e, l) =
-          Dp.assert_membership
-            r_theory_ctx
-            v (force_row x e) (Lazy.force l) ~fd ~frv in
+          let e =
+            let e = force_row x e
+            and f = function
+              | Some v, _ ->
+                Imt'.register_ivar r_bg_ctx v
+              | _ ->
+                () in
+            List.iter e ~f;
+            e
+          and l = Lazy.force l in
+          Dp.assert_membership r_theory_ctx v e l ~fd ~frv in
         List.iter data ~f in
       Hashtbl.iter r_in_m ~f;
       let r = S'.solve r_ctx in

@@ -883,6 +883,9 @@ SCIP_RETCODE cc_handler::scip_lock
   BOOST_FOREACH (SCIP_VAR* v, vars)
     if (v) SCIPaddVarLocks(s, v, n_pos + n_neg, n_pos + n_neg);
 
+  BOOST_FOREACH (SCIP_VAR* v, catchq)
+    if (v) SCIPaddVarLocks(s, v, n_pos + n_neg, n_pos + n_neg);
+
   BOOST_FOREACH (SCIP_VAR* v, dvars)
     SCIPaddVarLocks(s, v, n_pos + n_neg, n_pos + n_neg);
 

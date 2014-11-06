@@ -171,9 +171,9 @@ let new_ivar
   let v =
     let t =
       if implied_int then
-        SCIP_VARTYPE_INTEGER
-      else
         SCIP_VARTYPE_IMPLINT
+      else
+        SCIP_VARTYPE_INTEGER
     and id = Dequeue.length r_var_d |> Printf.sprintf "v%d" in
     sCIPcreateVarBasic
       r_ctx id (scip_lb r lb) (scip_ub r ub)
