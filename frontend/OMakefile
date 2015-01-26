@@ -14,12 +14,12 @@ CFLAGS += -O3
 
 OCAMLDEP_MODULES_ENABLED = true
 
-OCAML_CLIBS = ../backend/libbct
+OCAML_CLIBS = ../backend/libbct libscipopt
 
 OCAML_BYTE_LINK_FLAGS = -custom
 OCAML_LINK_FLAGS = -linkpkg \
         -ccopt -L$(SCIP_LIB_DIR) \
-        -cclib -lcamlidl -cclib -lscipopt -cclib -lstdc++
+        -cclib -lcamlidl -cclib -lstdc++
 
 private.EXT_COBJ = .o
 
@@ -118,7 +118,7 @@ public.MyOCamlProgram(name, files, cfiles) =
                 $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS) $(OCAMLCFLAGS)	\
                 $(PREFIXED_OCAMLINCLUDES) -o $@ $(CMA_OTHER_FILES)	\
                 $(CMAFILES) $(OCamlLinkSort $(CMOFILES)) $(COFILES)	\
-                $(OCAML_LINK_FLAGS) $(OCAML_BYTE_LINK_FLAGS) $(CLIBS)
+                $(CLIBS) $(OCAML_LINK_FLAGS) $(OCAML_BYTE_LINK_FLAGS)
 
     $(OPTPROG): $(CMXAFILES) $(ARFILES) $(CMXFILES) $(OFILES) $(CLIBS) \
             $(COFILES)
@@ -126,8 +126,8 @@ public.MyOCamlProgram(name, files, cfiles) =
                 $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS) $(OCAMLOPTFLAGS)	\
                 $(PREFIXED_OCAMLINCLUDES) -o $@ $(CMXA_OTHER_FILES)	\
                 $(CMXAFILES) $(COFILES) $(OCamlLinkSort $(CMXFILES))	\
-                $(OCAML_LINK_FLAGS) $(OCAML_NATIVE_LINK_FLAGS)		\
-                $(CLIBS)
+                $(CLIBS) $(OCAML_LINK_FLAGS)				\
+                $(OCAML_NATIVE_LINK_FLAGS)
 
     #
     # Link the actual executables.
@@ -186,8 +186,8 @@ public.OCamlTop(name, files, cfiles) =
         -I +camlp4 camlp4of.cma $(PREFIXED_OCAMLPACKS) $(OCAMLFLAGS)	\
         $(OCAMLCFLAGS) $(PREFIXED_OCAMLINCLUDES) -o $@			\
         $(CMA_OTHER_FILES) $(CMAFILES) $(OCamlLinkSort $(CMOFILES))	\
-        $(COFILES) $(OCAML_LINK_FLAGS) $(OCAML_BYTE_LINK_FLAGS)		\
-        $(CLIBS)
+        $(COFILES) $(CLIBS) $(OCAML_LINK_FLAGS)				\
+        $(OCAML_BYTE_LINK_FLAGS)
 
     return $(PROG)
 
