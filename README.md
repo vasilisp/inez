@@ -86,10 +86,12 @@ library. On OS X, you should set `DYLD_FALLBACK_LIBRARY_PATH` in place
 of `LD_LIBRARY_PATH`.
 
 `inez.opt` accepts a single argument for the input program. Some
-examples can be found under `frontend/examples`.
+examples can be found under `frontend/examples`. A [short introduction
+to our superset of OCaml][langintro] is also available.
 
 [jsgithub]: http://janestreet.github.io/
 [scip]: http://scip.zib.de/download.shtml
 [boost]: http://www.boost.org/users/download/
 [opam]: http://opam.ocamlpro.com/
 [cav2013]: http://www.ccs.neu.edu/home/vpap/pub/cav-2013.pdf
+[langintro]: https://github.com/vasilisp/inez/wiki/Inez-Language
