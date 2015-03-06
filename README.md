@@ -11,7 +11,8 @@ Inez implements the *ILP Modulo Theories* scheme, as described in a
 Programming solver with background solvers.
 
 Inez is OCaml-centric. The preferred mode of interacting with the
-solver is via scripts written in a Camlp4-powered superset of OCaml.
+solver is via scripts written in a Camlp4-powered [superset of
+OCaml][langintro].
 
 Inez is a research prototype, and may contain serious bugs. You should
 not use it in production.
@@ -86,8 +87,7 @@ library. On OS X, you should set `DYLD_FALLBACK_LIBRARY_PATH` in place
 of `LD_LIBRARY_PATH`.
 
 `inez.opt` accepts a single argument for the input program. Some
-examples can be found under `frontend/examples`. A [short introduction
-to our superset of OCaml][langintro] is also available.
+examples can be found under `frontend/examples`.
 
 [jsgithub]: http://janestreet.github.io/
 [scip]: http://scip.zib.de/download.shtml
