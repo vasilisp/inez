@@ -25,11 +25,4 @@ constrain (~logic (a <= b)) ;;
 
 solve_print_result () ;;
 
-let ideref_print id v =
-  match ideref v with
-  | Some i ->
-    Printf.printf "%s = %s\n" id (Int63.to_string_hum i)
-  | None ->
-    () ;;
-
-ideref_print "a" a ;;
+ideref_printf "a -> %d\n" a ;;

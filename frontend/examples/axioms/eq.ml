@@ -23,13 +23,6 @@ constrain (~logic (not (f a = f b))) ;;
 
 solve_print_result () ;;
 
-let ideref_print id v =
-  match ideref v with
-  | Some i ->
-    Printf.printf "%s = %s\n" id (Int63.to_string_hum i)
-  | None ->
-    () ;;
+ideref_printf "a -> %d\n" a ;;
 
-ideref_print "a" a ;;
-
-ideref_print "b" b ;;
+ideref_printf "b -> %d\n" b ;;

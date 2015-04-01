@@ -37,11 +37,4 @@ constrain (~logic (c >= x + toi n - 1)) ;;
 
 solve_print_result () ;;
 
-let ideref_print id v =
-  match ideref v with
-  | Some i ->
-    Printf.printf "%s = %s\n" id (Int63.to_string_hum i)
-  | None ->
-    () ;;
-
-ideref_print "x" x ;;
+ideref_printf "x -> %d\n" x ;;

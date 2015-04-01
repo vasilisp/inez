@@ -25,15 +25,8 @@ constrain (~logic (car (cons y z) <= 2)) ;;
 
 solve_print_result () ;;
 
-let ideref_print id v =
-  match ideref v with
-  | Some i ->
-    Printf.printf "%s = %s\n" id (Int63.to_string_hum i)
-  | None ->
-    () ;;
+ideref_printf "x -> %d\n" x ;;
 
-ideref_print "x" x ;;
+ideref_printf "y -> %d\n" y ;;
 
-ideref_print "y" y ;;
-
-ideref_print "z" z ;;
+ideref_printf "z -> %d\n" z ;;

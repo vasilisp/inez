@@ -2,15 +2,6 @@ open Script ;;
 
 open Core.Std ;;
 
-(* utils *)
-
-let ideref_print id v =
-  match ideref v with
-  | Some i ->
-    Printf.printf "%s = %s\n" id (Int63.to_string_hum i)
-  | None ->
-    () ;;
-
 (* vars *)
 
 let x = fresh_int_var () ;;
@@ -43,6 +34,6 @@ constrain (~logic (y >= 0)) ;;
 
 solve () ;;
 
-ideref_print "x" x ;;
+ideref_printf "x: %i\n" x ;;
 
-ideref_print "y" y ;;
+ideref_printf "y: %i\n" y ;;
