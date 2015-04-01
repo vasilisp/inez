@@ -25,6 +25,14 @@ module type S = sig
   val bderef :
     c atom_plug Formula.t -> bool option
 
+  val ideref_printf :
+    (int -> unit, out_channel, unit) format ->
+    (c, int) term_plug -> unit
+
+  val bderef_printf :
+    (bool -> unit, out_channel, unit) format ->
+    c atom_plug Formula.t -> unit
+
   val toi :
     int -> (c, int) term_plug
 

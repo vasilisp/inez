@@ -37,6 +37,14 @@ let bderef = function
   | _ ->
     None
 
+let ideref_printf s v =
+  let open Core.Std.Option in
+  (ideref v >>= Core.Std.Int63.to_int) |> iter ~f:(Printf.printf s)
+
+let bderef_printf s v =
+  let open Core.Std.Option in
+  bderef v |> iter ~f:(Printf.printf s)
+
 let toi x =
   Logic.M.M_Int (Core.Std.Int63.of_int x)
 
