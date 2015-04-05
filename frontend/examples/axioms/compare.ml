@@ -7,6 +7,12 @@ let n =
   else
     10 ;;
 
+let sat = Array.length argv >= 3 && argv.(2) = "--sat" ;;
+
+assert (n >= 0) ;;
+
+assert (n > 1 || not sat) ;;
+
 let compare a b = ~free ;;
 
 (* OCaml-style, int-valued compare function *)
@@ -23,19 +29,14 @@ let a = fresh_int_var () ;;
 
 let b = fresh_int_var () ;;
 
-let mk_unequal_variables n =
-  let rec f acc = function
-    | a :: ((ad :: _) as d) ->
-      f (~logic (a < ad && acc)) d
-    | _ ->
-      acc in
-  let l = let f _ = fresh_int_var () in List.init n ~f in
-  constrain (~logic (f true l)); l ;;
-
-let l = mk_unequal_variables n ;;
-
-let _ =
-  List.iteri l ~f:(fun i x -> constrain (~logic (f (toi i) = x))) ;;
+for i = 0 to n - 1 do
+  if i = n / 2 && sat then
+    let i = toi i in
+    constrain (~logic (f (i - 1) <= f i))
+  else
+    let i = toi i in
+    constrain (~logic (f (i - 1) < f i))
+done ;;
 
 constrain (~logic (0 <= a && a < toi n)) ;;
 
