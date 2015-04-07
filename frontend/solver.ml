@@ -82,7 +82,7 @@ struct
 
   type ovar = S.ivar option offset
   with compare, sexp_of
-    
+
   type bg_call = S.f * ovar list
   with compare, sexp_of
 
@@ -156,6 +156,7 @@ struct
       (axiom_id, (bind_key, bind_data) Hashtbl.t) Hashtbl.t;
     r_axiom_m            :  (axiom_id, c Axiom.Flat.t) Hashtbl.t;
     r_q                  :  P.formula Dequeue.t;
+    mutable r_ground_l   :  (I.c, int) M.t list;
     mutable r_obj        :  P.term option;
     mutable r_fun_cnt    :  int;
     mutable r_axiom_cnt  :  int;
@@ -189,6 +190,7 @@ struct
     r_patt_m = Hashtbl.Poly.create () ~size:1024;
     r_bind_m = Hashtbl.Poly.create () ~size:4096;
     r_q = Dequeue.create () ~initial_length:63;
+    r_ground_l = [];
     r_obj = None;
     r_fun_cnt = 0;
     r_axiom_cnt = 0;
@@ -200,9 +202,9 @@ struct
     let default =
       let t = I.type_of_t id' in
       fun () ->
-      let s = Printf.sprintf "f_%d" r_fun_cnt in
-      r.r_fun_cnt <- r.r_fun_cnt + 1;
-      S.new_f r_ctx s (Type.count_arrows t) in
+        let s = Printf.sprintf "f_%d" r_fun_cnt in
+        r.r_fun_cnt <- r.r_fun_cnt + 1;
+        S.new_f r_ctx s (Type.count_arrows t) in
     Hashtbl.find_or_add r_fun_m id ~default
 
   let get_axiom_id ({r_axiom_cnt} as r) =
@@ -295,7 +297,7 @@ struct
   and var_of_bool_app r f_id l =
     (let lb = Int63.zero and ub = Int63.one in
      var_of_app ~lb ~ub r f_id l) |>
-      S.bvar_of_ivar
+        S.bvar_of_ivar
 
   and blast_ite_branch ({r_ctx} as r) xv v e =
     let l, o = iexpr_of_flat_term r e in
@@ -422,7 +424,8 @@ struct
          Option.value_map ~f ~default)
 
   and blast_formula r = function
-    | P.U_Not _ | P.U_Ite (_, _, _) ->
+    | P.U_Not _
+    | P.U_Ite (_, _, _) ->
       raise (Unreachable.Exn _here_)
     | P.U_Var v ->
       S_Pos (Some (bvar_of_bid r v))
@@ -439,10 +442,10 @@ struct
     | P.U_Ite (q, g, h) ->
       let v = P.ff_ite q g h |> xvar_of_formula_doit r in
       (match v with
-       | S_Pos (Some v) | S_Neg (Some v) ->
-         S.set_bvar_priority r_ctx v 20;
-       | _ ->
-         ());
+      | S_Pos (Some v) | S_Neg (Some v) ->
+        S.set_bvar_priority r_ctx v 20;
+      | _ ->
+        ());
       v
     | g ->
       let default () = blast_formula r g in
@@ -588,7 +591,7 @@ struct
                 let f l =
                   let f = function
                     | `Bool (_, _) ->
-                      (* FIXME: let's deal with integers first *)
+                (* FIXME: let's deal with integers first *)
                       raise (Unreachable.Exn _here_)
                     | `Int (id, m) ->
                       id, m
@@ -596,44 +599,48 @@ struct
                     let cmp (id1, _) (id2, _) =
                       compare_int_id id1 id2 in
                     List.sort ~cmp in
-                  List.map l ~f |> f' |> bind_for_axiom r axiom_id in
+                  List.map l ~f |> f' |> bind_for_axiom r axiom_id in 
                 Matching.do_for_match m ~pattern ~f in
               let f = List.iter ~f in
               Option.iter ~f
     | _ ->
       raise (Unreachable.Exn _here_)
 
-  let rec register_apps_formula r =
-    let rec
-        f : type s . (I.c, s) M.t -> unit =
-                function
-                | M.M_Int _ ->
-                  ()
-                | M.M_Var _ ->
-                  ()
-                | M.M_Bool g ->
-                  register_apps_formula r g
-                | M.M_Sum (a, b) ->
-                  f a; f b
-                | M.M_Prod (_, a) ->
-                  f a
-                | M.M_Ite (g, a, b) ->
-                  register_apps_formula r g; f a; f b
-                | M.M_App (a, b) as m ->
-                  (match M.type_of_t m with
-                   | Type.Y_Int ->
-                     register_app_for_axioms r m
-                   | _ ->
-                     ());
-                  f a; f b in
-                 let f a ~polarity =
-                   match a with
-                   | A.A_Bool m ->
-                     f m
-                   | A.A_Le m | A.A_Eq m ->
-                                f m
-                 and polarity = `Both in
-                 Formula.iter_atoms ~f ~polarity
+  let rec register_apps_term :
+  type s. ctx -> (I.c, s) M.t -> unit =
+    fun r -> function
+    | M.M_Int _ ->
+      ()
+    | M.M_Var _ ->
+      ()
+    | M.M_Bool g ->
+      register_apps_formula r g
+    | M.M_Sum (a, b) ->
+      register_apps_term r a; register_apps_term r b
+    | M.M_Prod (_, a) ->
+      register_apps_term r a
+    | M.M_Ite (g, a, b) ->
+      register_apps_formula r g;
+      register_apps_term r a;
+      register_apps_term r b
+    | M.M_App (a, b) as m ->
+      (match M.type_of_t m with
+      | Type.Y_Int ->
+        register_app_for_axioms r m
+      | _ ->
+        ());
+      register_apps_term r a;
+      register_apps_term r b
+
+  and register_apps_formula r =
+    let f a ~polarity =
+      match a with
+      | A.A_Bool m ->
+        register_apps_term r m
+      | A.A_Le m | A.A_Eq m ->
+        register_apps_term r m
+    and polarity = `Both in
+    Formula.iter_atoms ~f ~polarity
 
   let register_axiom_terms {r_patt_m} id axiom =
     let open Flat in
@@ -649,13 +656,13 @@ struct
   let instantiate r (l, o) ~bindings =
     let f (l, s) (c, m) =
       Conv.term_of_t m ~bindings |>
-        ovar_of_term r |>
-        Lazy.force |>
-        function
-        | Some v, o ->
-          (c, v) :: l, Int63.(s + c * o)
-        | None, o ->
-          l,  Int63.(s + c * o)
+          ovar_of_term r |>
+              Lazy.force |>
+                  function
+                  | Some v, o ->
+                    (c, v) :: l, Int63.(s + c * o)
+                  | None, o ->
+                    l,  Int63.(s + c * o)
     and init = [], o in
     List.fold_left l ~f ~init
 
@@ -718,6 +725,7 @@ struct
     let f (c, x) = Int63.(~-) c, x
     and o = Int63.(~-) o in
     List.map l ~f, o
+
   let linearize_iexpr (l, o) ~quantified ~map ~copies =
     let l, map, copies =
       let f (l, map, copies) (c, under) =
@@ -783,7 +791,95 @@ struct
               | Terminology.O'_Eq ->
                 [q, h, c; q, h, negate_cut c])))
 
+  let rec int_args :
+  type s t .
+  (I.c, s -> t) M.t -> acc:(I.c, int) M.t list ->
+    (I.c, int) M.t list =
+    fun m ~acc ->
+      match m with
+      | M.M_App (f, x) ->
+        (match M.type_of_t x with
+        | Type.Y_Int ->
+          let acc = x :: acc in
+          int_args f ~acc
+        | _ ->
+          int_args f ~acc)
+      | M.M_Var _ ->
+        acc
+
+  let rec maximal_ground_subterms :
+  type s . ctx -> I.c Axiom.quantified list ->
+    (I.c, s) M.t -> acc:(I.c, int) M.t list ->
+    bool * (I.c, int) M.t list =
+    fun r q m ~acc ->
+      match m with
+      | M.M_Bool _ ->
+        false, acc
+      | M.M_Ite _ ->
+        false, acc
+      | M.M_Int _ ->
+        true, acc
+      | M.M_Sum (a, b) ->
+        let a_b, acc = maximal_ground_subterms r q a ~acc in
+        let b_b, acc = maximal_ground_subterms r q b ~acc in
+        (match a_b, b_b with
+        | true, true ->
+          true, acc
+        | true, false ->
+          false, a :: acc
+        | false, true ->
+          false, b :: acc
+        | _, _ ->
+          false, acc)
+      | M.M_App (a, b) ->
+        let a_b, acc = maximal_ground_subterms r q a ~acc in
+        let b_b, acc = maximal_ground_subterms r q b ~acc in
+        (match a_b, b_b with
+        | true, true ->
+          true, acc
+        | false, true ->
+          false,
+          (match M.type_of_t b with
+          | Type.Y_Int ->
+            b :: acc
+          | _ ->
+            acc)
+        | true, false ->
+          false, int_args a ~acc
+        | _, _ ->
+          false, acc)
+      | M.M_Prod (_, a) ->
+        maximal_ground_subterms r q a ~acc
+      | M.M_Var v ->
+        (match Id.type_of_t v with
+        | Type.Y_Int ->
+          let f = (=) v in
+          not (List.exists q ~f), acc
+        | Type.Y_Int_Arrow _ ->
+          true, acc
+        | Type.Y_Bool_Arrow _ ->
+          true, acc
+        | _ ->
+          false, acc)
+
+  let record_axiom_ground_terms r ((q, _) as axiom) =
+    let l =
+      let f acc m =
+        let b, acc = maximal_ground_subterms r q m ~acc in
+        if b then m :: acc else acc
+      and init = [] in
+      Axiom.X.fold_terms axiom ~f ~init in
+    let l =
+      let f = function
+        | M.M_App (_, _) ->
+          true
+        | _ ->
+          false in
+      List.filter l ~f in
+    r.r_ground_l <- List.append l r.r_ground_l
+      
   let assert_axiom ({r_axiom_m} as r) axiom =
+    record_axiom_ground_terms r axiom;
     match flatten_axiom axiom with
     | Some axioms ->
       let f axiom =
@@ -799,8 +895,10 @@ struct
     register_apps_formula r g;
     P.flatten_formula r_pre_ctx g |> Dequeue.enqueue_back r_q
 
-  let solve ({r_ctx; r_obj} as r) =
+  let solve ({r_ctx; r_obj; r_ground_l} as r) =
     bg_assert_all_cached r;
+    (let f = register_apps_term r in
+     List.iter r_ground_l ~f);
     encode_all_axiom_instances r;
     match r_obj, r.r_unsat with
     | _, true ->
@@ -808,10 +906,10 @@ struct
     | Some o, false ->
       let l, _ = iexpr_of_flat_term r o in
       (match S.add_objective r_ctx l with
-       | `Duplicate ->
-         raise (Unreachable.Exn _here_)
-       | `Ok ->
-         S.solve r_ctx)
+      | `Duplicate ->
+        raise (Unreachable.Exn _here_)
+      | `Ok ->
+        S.solve r_ctx)
     | None, false ->
       S.solve r_ctx
 

@@ -44,11 +44,13 @@ module type Term_with_ops = sig
 
   (* traversal *)
 
-  val fold :
+  (*
+  val fold_formulas :
     ('i, 's) t ->
     init : 'a ->
     f    : ('a -> 'i atom Formula.t -> 'a) ->
     'a
+   *)
 
   val fold_sum_terms :
     ('i, int) t ->

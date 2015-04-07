@@ -10,6 +10,13 @@ module X = struct
       ((('c, int) Logic.M.t * ('c, int) Logic.M.t * op') list *
           (('c, int) Logic.M.t * ('c, int) Logic.M.t * op'))
 
+  let fold_terms ((_, (h, c)) : 'c t) ~f ~init =
+    let f init (a, b, _) =
+      let init = f init a in
+      f init b in
+    let init = f init c in
+    List.fold_left h ~f ~init
+
 end
 
 include X

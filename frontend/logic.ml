@@ -117,30 +117,6 @@ struct
     and init = zero in
     List.fold_left l ~init ~f
 
-  let rec fold :
-  type s . ('i, s) t ->
-    init:'a ->
-    f:('a -> 'i T.t Formula.t -> 'a) -> 'a =
-    fun m ~init ~f ->
-      match m with
-      | M_Int _ ->
-        init
-      | M_Var _ ->
-        init
-      | M_Bool b ->
-        f init b
-      | M_Sum (a, b) ->
-        fold b ~init:(fold a ~init ~f) ~f
-      | M_Prod (_, a) ->
-        fold a ~init ~f
-      | M_Ite (q, a, b) ->
-        let init = f init q in
-        let init = fold a ~init ~f in
-        fold b ~init ~f
-      | M_App (a, b) ->
-        let init = fold a ~init ~f in
-        fold b ~init ~f
-
   let rec fold_sum_terms_impl :
   type s . ('i, int) t ->
     factor   : Int63.t ->
