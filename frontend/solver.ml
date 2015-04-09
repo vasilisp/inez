@@ -560,27 +560,24 @@ struct
     let key, data = List.unzip bindings
     and axiom = Hashtbl.find r_axiom_m axiom_id in
     let q, _, _ = Option.value_exn axiom ~here:_here_ in
-    if
-      let f id =
-        let f id' = compare_int_id id id' = 0 in
-        List.exists q ~f in
-      List.for_all key ~f
-    then
-      let h =
-        let default () = Hashtbl.Poly.create () ~size:128 in
-        Hashtbl.find_or_add r_bind_m axiom_id ~default
-      and f = function
-        | Some l ->
-          Some
-            (if let f = (=) data in List.exists l ~f then
-                l
-             else
-                data :: l)
-        | None ->
-          Some [data] in
-      Hashtbl.change h key f
-    else
-      ()
+    assert
+      (let f id =
+         let f id' = compare_int_id id id' = 0 in
+         List.exists q ~f in
+       List.for_all key ~f);
+    let h =
+      let default () = Hashtbl.Poly.create () ~size:128 in
+      Hashtbl.find_or_add r_bind_m axiom_id ~default
+    and f = function
+      | Some l ->
+        Some
+          (if let f = (=) data in List.exists l ~f then
+              l
+           else
+              data :: l)
+      | None ->
+        Some [data] in
+    Hashtbl.change h key f
 
   let register_app_for_axioms ({r_patt_m} as r) (m : (c, int) M.t) =
     match m with
@@ -591,7 +588,7 @@ struct
                 let f l =
                   let f = function
                     | `Bool (_, _) ->
-                (* FIXME: let's deal with integers first *)
+                      (* FIXME: let's deal with integers first *)
                       raise (Unreachable.Exn _here_)
                     | `Int (id, m) ->
                       id, m

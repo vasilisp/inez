@@ -41,6 +41,16 @@ module M = struct
 
 end
 
+let is_quantified :
+type r . ('c, r) Id.t -> quantified:('c, int) Id.t list -> bool =
+  fun id ~quantified ->
+    match Id.type_of_t id with
+    | Type.Y_Int ->
+      let f = (=) id in
+      List.exists quantified ~f
+    | _ ->
+      false
+
 include M
 
 module Conv
@@ -198,7 +208,7 @@ module Matching (E : Logic_intf.Term_with_ops) = struct
           None
       | M_App (pattern, pattern_b), E.M_App (a', b') ->
         let open Option in
-        (bind_id b' ~pattern:pattern_b) >>= (fun b ->
+        bind_id b' ~pattern:pattern_b >>= (fun b ->
           let acc = b :: acc in
           bind_app a' ~pattern ~acc)
       | _, _ ->
@@ -247,33 +257,28 @@ module Linear (I : Id.S) = struct
       | M_App (f, id) ->
         match Id.type_of_t id with
         | Type.Y_Int ->
-          if 
-            let f = (=) id in List.exists quantified ~f
-          then
-            let (under : (I.c, int) t) =
-              match type_of_t x with
-              | Type.Y_Int ->
-                x
-              | _ ->
-                under in
-            match Map.find map id with
-            | Some loc when compare loc (Loc (under, f)) = 0 ->
-              x, map, copies
-            | Some _ ->
-              let id' = Id.(id |> type_of_t |> I.gen_id) in
-              let copies = (id', id) :: copies in
-              let f, map, copies =
-                linearize f ~quantified ~under ~map ~copies in
-              M_App (f, id'), map, copies
-            | None ->
-              let map =
-                let key = id and data = Loc (under, f) in
-                Map.add map ~key ~data in
-              let f, map, copies =
-                linearize f ~quantified ~under ~map ~copies in
-              M_App (f, id), map, copies
-          else
+          let (under : (I.c, int) t) =
+            match type_of_t x with
+            | Type.Y_Int ->
+              x
+            | _ ->
+              under in
+          (match Map.find map id with
+          | Some loc when compare loc (Loc (under, f)) = 0 ->
             x, map, copies
+          | None when is_quantified id ~quantified ->
+            let map =
+              let key = id and data = Loc (under, f) in
+              Map.add map ~key ~data in
+            let f, map, copies =
+              linearize f ~quantified ~under ~map ~copies in
+            M_App (f, id), map, copies
+          | _ ->
+            let id' = Id.(id |> type_of_t |> I.gen_id) in
+            let copies = (id', id) :: copies in
+            let f, map, copies =
+              linearize f ~quantified ~under ~map ~copies in
+            M_App (f, id'), map, copies)
         | _ ->
           x, map, copies
 
