@@ -718,6 +718,10 @@ SCIP_RESULT cc_handler::scip_prop_impl(context& c)
 
   scip_prop_impl_ranges();
 
+  if (node_infeasible) return SCIP_CUTOFF;
+
+  if (!c.get_consistent()) return SCIP_CUTOFF;
+
   dvar_offset_map::iterator it = dvar_offset_m.begin();
 
   while (it != dvar_offset_m.end()) {
