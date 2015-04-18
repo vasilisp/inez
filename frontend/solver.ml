@@ -313,12 +313,12 @@ struct
       | S_Neg None ->
         ovar_of_term r t
       | S_Pos (Some bv) ->
-        let v = S.new_ivar ~implied_int:true r_ctx in
+        let v = S.new_ivar r_ctx in
         blast_ite_branch r (S_Pos bv) v s;
         blast_ite_branch r (S_Neg bv) v t;
         Some v, Int63.zero
       | S_Neg (Some bv) ->
-        let v = S.new_ivar ~implied_int:true r_ctx in
+        let v = S.new_ivar r_ctx in
         blast_ite_branch r (S_Neg bv) v s;
         blast_ite_branch r (S_Pos bv) v t;
         Some v, Int63.zero in
@@ -342,7 +342,7 @@ struct
     | l, o ->
       let v =
         let default () =
-          let v = S.new_ivar ~implied_int:true r_ctx in
+          let v = S.new_ivar r_ctx in
           S.add_eq r_ctx ((Int63.minus_one, v) :: l) Int63.zero;
           v in
         Hashtbl.find_or_add r_var_of_sum_m l ~default in
@@ -368,15 +368,7 @@ struct
     | H_Int (P.G_Base b) ->
       ovar_of_flat_term_base r b
     | H_Int (P.G_Sum s) ->
-      (match iexpr_of_sum r s with
-      | [], o ->
-        None, o
-      | [c, x], o when Int63.(c = one) ->
-        Some x, o
-      | l, o ->
-        let v = S.new_ivar ~implied_int:true r_ctx in
-        S.add_eq r_ctx ((Int63.minus_one, v) :: l) (Int63.neg o);
-        Some v, Int63.zero)
+      iexpr_of_sum r s |> ovar_of_sum r
     | H_Bool g ->
       ovar_of_formula r g
 
