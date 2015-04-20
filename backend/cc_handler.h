@@ -226,7 +226,7 @@ private:
   /* "implementation" versions of handler methods, which do most of
      the work; they will be called from different places */
 
-  void scip_prop_impl_ranges
+  bool scip_prop_impl_ranges
   (const vector<SCIP_VAR*>&,
    const ffc_offset&,
    const vector<ffc_offset>&);

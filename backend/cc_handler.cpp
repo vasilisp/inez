@@ -18,6 +18,9 @@
 #define DEBUG0
 #endif
 
+#define BRANCH_CONFLICT
+#define PROP_RANGES
+
 // potentially not portable stuff
 
 typedef int HRESULT;
@@ -483,8 +486,6 @@ void cc_handler::push_frame(SCIP_NODE* n)
   ctx.push_frame();
   if (ocaml_dp) ocaml_dp->push_level();
   assert(ctx.get_consistent());
-  assert(!node_infeasible);
-  node_infeasible = false;
   node_seen_m.emplace(n, true);
 }
 
@@ -572,7 +573,7 @@ void cc_handler::dbg_print_assignment(SCIP_SOL* sol)
 
 }
 
-void cc_handler::scip_prop_impl_ranges
+bool cc_handler::scip_prop_impl_ranges
 (const vector<SCIP_VAR*>& v,
  const ffc_offset& fo,
  const vector<ffc_offset>& vfo)
@@ -595,7 +596,7 @@ void cc_handler::scip_prop_impl_ranges
       found_not_null = true;
       lb[i] = SCIPvarGetLbLocal(var2);
       ub[i] = SCIPvarGetUbLocal(var2);
-      if (SCIPisGT(scip, ub[i] - lb[i], 1000)) return;
+      if (SCIPisGT(scip, ub[i] - lb[i], 1000)) return false;
       assert(lb[i] != -SCIPinfinity(scip));
       assert(ub[i] != SCIPinfinity(scip));
       lb[i] += vl[i];
@@ -638,7 +639,7 @@ void cc_handler::scip_prop_impl_ranges
   if (count_within_bounds_target != count_within_bounds ||
       SCIPisLE(scip, lbn, -SCIPinfinity(scip)) ||
       SCIPisGE(scip, ubn, SCIPinfinity(scip)))
-    return;
+    return false;
 
   ubn -= ov.offset;
   lbn -= ov.offset;
@@ -659,12 +660,11 @@ void cc_handler::scip_prop_impl_ranges
     bound_changed |= ub_tightened;
     node_infeasible |= lb_infeasible;
     node_infeasible |= ub_infeasible;
-    // assert(!node_infeasible);
-    // assert(!lb_tightened || !ub_tightened);
   } else if (lbn < 0 || ubn > 0) {
     unreachable();
     node_infeasible = true;
   }
+  return node_infeasible;
 
 }
 
@@ -697,7 +697,7 @@ void cc_handler::scip_prop_impl_ranges()
 
       const vector<ffc_offset>& vfo = its->second;
       BOOST_FOREACH (const ffc_offset& fo, vfo)
-        scip_prop_impl_ranges(v, fo, itc->second);
+        if (scip_prop_impl_ranges(v, fo, itc->second)) return;
 
       its++;
 
@@ -716,11 +716,13 @@ SCIP_RESULT cc_handler::scip_prop_impl(context& c)
 
   bound_changed = false;
 
+#ifdef PROP_RANGES
   scip_prop_impl_ranges();
 
   if (node_infeasible) return SCIP_CUTOFF;
 
   if (!c.get_consistent()) return SCIP_CUTOFF;
+#endif
 
   dvar_offset_map::iterator it = dvar_offset_m.begin();
 
@@ -957,10 +959,12 @@ SCIP_RESULT cc_handler::cut_or_branch(bool cc_feasible)
 
   /* trying to branch on something that makes sense for CC */
 
+#ifdef BRANCH_CONFLICT
   if (branch_on_last_cc_conflict()) return SCIP_BRANCHED;
 
   assert(ocaml_dp || ocaml_cut_gen);
-  
+#endif
+
   if (branch_on_cc_diff()) return SCIP_BRANCHED;
 
   /* trying to branch on something that makes sense for ocaml_dp */
@@ -1001,6 +1005,9 @@ SCIP_RETCODE cc_handler::scip_enfolp
 
   ASSERT_SCIP_POINTER(s);
   assert(SCIPgetStage(s) != SCIP_STAGE_PRESOLVING);
+
+  assert(!node_infeasible);
+  assert(ctx.get_consistent());
 
   if (scip_check_impl(NULL) == SCIP_FEASIBLE) {
     *r = ocaml_cut_gen ?
