@@ -742,9 +742,9 @@ SCIP_RESULT cc_handler::scip_prop_impl(context& c)
         ub1 = v1 ? SCIPvarGetUbLocal(v1) : 0,
         lb2 = v2 ? SCIPvarGetLbLocal(v2) : 0,
         ub2 = v2 ? SCIPvarGetUbLocal(v2) : 0;
-      // infinities shouldn't cause trouble
-      assert(SCIPisLE(scip, lb1 - ub2, lb));
-      assert(SCIPisLE(scip, ub, ub1 - lb2));
+      // suspicious stuff, don't use for propagation
+      if (SCIPisGT(scip, lb1 - ub2, lb)) continue;
+      if (SCIPisGT(scip, ub, ub1 - lb2)) continue;
 #ifdef DEBUG1
       cout << "[CB] prop-in " << var_id(it->second.first) << ", "
            << var_id(it->second.second) << ", "
