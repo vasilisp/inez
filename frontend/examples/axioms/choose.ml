@@ -9,6 +9,8 @@ let n =
   else
     10 ;;
 
+let unsat = Array.length argv >= 3 && argv.(2) = "--unsat" ;;
+
 (* forall x y . x |/ y = x \/ x |/ y = y *)
 
 assert_axiom
@@ -33,7 +35,11 @@ let x = fresh_int_var () ;;
 
 let c = f n x ;;
 
-constrain (~logic (c >= x + toi n - 1)) ;;
+constrain
+  (if unsat then
+      ~logic (c >= x + toi n)
+   else
+      ~logic (c >= x + toi n - 1)) ;;
 
 solve_print_result () ;;
 
