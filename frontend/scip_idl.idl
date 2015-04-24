@@ -112,6 +112,8 @@ retcode SCIPcreateProbBasic
 ([in] scip s,
  [in,string] char* name);
 
+retcode SCIPincludeDefaultPlugins([in] scip s);
+
 retcode SCIPincludeDefaultPlugins_modified([in] scip s);
 
 retcode SCIPsolve([in] scip s);
