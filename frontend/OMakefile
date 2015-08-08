@@ -7,7 +7,7 @@ OCAMLFLAGS += -thread -unsafe -safe-string
 OCAMLOPTFLAGS += -inline 30
 # OCAMLOPTFLAGS += -g
 USE_OCAMLFIND = true
-OCAMLPACKS = core camlidl herelib
+OCAMLPACKS = core camlidl
 INCLUDES = $(CAMLIDL_INCLUDE_PATH) $(OCAML_INCLUDE_PATH)
 
 CFLAGS += -O3

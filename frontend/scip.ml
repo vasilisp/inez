@@ -3,7 +3,7 @@ open Scip_idl
 open Terminology
 open Core.Int_replace_polymorphic_compare
 
-exception Scip_Exn of (Here.t * retcode)
+exception Scip_Exn of (Lexing.position * retcode)
 
 (* implementation first, then wrapping things up in modules and
    functors *)
@@ -141,7 +141,7 @@ let make_ctx () =
   let r_var_d = Dequeue.create () ~initial_length:1023
   and r_constraints_n = 0
   and r_has_objective = false
-  and r_sol = None 
+  and r_sol = None
   and r_cuts_n = 0 in
   {r_ctx; r_cch; r_var_d; r_constraints_n; r_has_objective;
    r_sol; r_cuts_n}
@@ -413,7 +413,7 @@ let add_diffs_disjunction ({r_ctx; r_cch} as r) l =
     and types = Array.of_list_map ~f:Tuple.T3.get3 l in
     let c =
       assert_ok1 _here_
-        (sCIPcreateConsBasicBounddisjunction r_ctx 
+        (sCIPcreateConsBasicBounddisjunction r_ctx
            (make_constraint_id r)
            vars types bounds) in
     assert_ok _here_ (sCIPaddCons r_ctx c)
@@ -616,7 +616,7 @@ module Scip_with_dp = struct
       assert_ok _here_ (sCIPcreateProbBasic r_ctx "prob");
       run_config_list r_ctx;
       rval
-    
+
     let register_var {r_cch} v =
       let r_cch = Option.value_exn ~here:_here_ r_cch in
       cc_handler_catch_var_events r_cch v
@@ -633,9 +633,9 @@ module Scip_with_cut_gen = struct
 
   include Types
   include Types_uf
-    
+
   type sol' = sol
-    
+
   type sol = sol'
 
   module F

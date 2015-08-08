@@ -89,7 +89,7 @@ struct
   let compare_bg_call =
     Tuple2.compare
       ~cmp1:S.compare_f
-      ~cmp2:(List.compare ~cmp:compare_ovar)
+      ~cmp2:(List.compare compare_ovar)
 
   let sexp_of_bg_call =
     Tuple2.sexp_of_t S.sexp_of_f (List.sexp_of_t sexp_of_ovar)
@@ -106,7 +106,7 @@ struct
 
   let hashable_bg_isum = {
     Hashtbl.Hashable.
-    hash = Hashtbl.hash; 
+    hash = Hashtbl.hash;
     compare = compare_bg_isum;
     sexp_of_t = sexp_of_bg_isum;
   }
@@ -168,7 +168,7 @@ struct
     r_pre_ctx = P.make_ctx ();
     r_ivar_m =
       Hashtbl.create ()  ~size:10240  ~hashable:hashable_iid;
-    r_bvar_m = 
+    r_bvar_m =
       Hashtbl.create ()  ~size:10240  ~hashable:hashable_bid;
     r_iid_m =
       Hashtbl.create ()  ~size:10240  ~hashable:hashable_ivar;
@@ -212,7 +212,7 @@ struct
     r_axiom_cnt
 
   let ivar_of_iid {r_ctx; r_ivar_m; r_iid_m} x =
-    let default () = 
+    let default () =
       let v = S.new_ivar r_ctx in
       Hashtbl.replace r_iid_m v x; v in
     Hashtbl.find_or_add r_ivar_m x ~default
@@ -347,7 +347,7 @@ struct
           v in
         Hashtbl.find_or_add r_var_of_sum_m l ~default in
       Some v, o
-        
+
   and ovar_of_term r = function
     | P.G_Base b ->
       ovar_of_flat_term_base r b
@@ -588,7 +588,7 @@ struct
                     let cmp (id1, _) (id2, _) =
                       compare_int_id id1 id2 in
                     List.sort ~cmp in
-                  List.map l ~f |> f' |> bind_for_axiom r axiom_id in 
+                  List.map l ~f |> f' |> bind_for_axiom r axiom_id in
                 Matching.do_for_match m ~pattern ~f in
               let f = List.iter ~f in
               Option.iter ~f
@@ -866,7 +866,7 @@ struct
           false in
       List.filter l ~f in
     r.r_ground_l <- List.append l r.r_ground_l
-      
+
   let assert_axiom ({r_axiom_m} as r) axiom =
     record_axiom_ground_terms r axiom;
     match flatten_axiom axiom with

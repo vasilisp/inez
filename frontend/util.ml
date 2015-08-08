@@ -27,4 +27,4 @@ let try_again o ~default =
   | None ->
     default ()
 
-exception Exn of (string * Here.t)
+exception Exn of (string * Lexing.position)
