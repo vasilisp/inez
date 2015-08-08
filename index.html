@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Inez by vasilisp</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1 class="header">Inez</h1>
+        <p class="header">A Constraint Solver</p>
+
+        <ul>
+          <li class="download"><a class="buttons" href="https://github.com/vasilisp/inez/zipball/master">Download ZIP</a></li>
+          <li class="download"><a class="buttons" href="https://github.com/vasilisp/inez/tarball/master">Download TAR</a></li>
+          <li><a class="buttons github" href="https://github.com/vasilisp/inez">View On GitHub</a></li>
+        </ul>
+
+        <p class="header">This project is maintained by <a class="header name" href="https://github.com/vasilisp">vasilisp</a></p>
+
+
+      </header>
+      <section>
+        <h1>
+<a id="inez---a-constraint-solver" class="anchor" href="#inez---a-constraint-solver" aria-hidden="true"><span class="octicon octicon-link"></span></a>Inez - A Constraint Solver</h1>
+
+<h2>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h2>
+
+<p>Inez is a constraint solver.</p>
+
+<p>Inez implements the <em>ILP Modulo Theories</em> scheme, as described in a
+<a href="http://www.ccs.neu.edu/home/vpap/pub/cav-2013.pdf">CAV paper</a>. Simply put, we combine a Mathematical
+Programming solver with background solvers.</p>
+
+<p>Inez is OCaml-centric. The preferred mode of interacting with the
+solver is via scripts written in a Camlp4-powered <a href="https://github.com/vasilisp/inez/wiki/Inez-Language">superset of
+OCaml</a>.</p>
+
+<p>Inez is a research prototype, and may contain serious bugs. You should
+not use it in production.</p>
+
+<h2>
+<a id="dependencies" class="anchor" href="#dependencies" aria-hidden="true"><span class="octicon octicon-link"></span></a>Dependencies</h2>
+
+<h3>
+<a id="unix" class="anchor" href="#unix" aria-hidden="true"><span class="octicon octicon-link"></span></a>Unix</h3>
+
+<p>Inez is known to work on x86_64 GNU/Linux and Mac OS X. Other modern
+Unixen should work, as long as all dependencies are satisfied.</p>
+
+<p>Inez does not work on Windows. We depend quite heavily on
+<a href="http://janestreet.github.io/">Jane Street Core</a>, which is Unix-only.</p>
+
+<h3>
+<a id="scip" class="anchor" href="#scip" aria-hidden="true"><span class="octicon octicon-link"></span></a>SCIP</h3>
+
+<p>Inez depends on the <a href="http://scip.zib.de/download.shtml">SCIP optimization suite</a>, version
+3.1.x. The SCIP optimization suite is available without charge for
+academic and non-commercial purposes. For other purposes, a license
+agreement is required.</p>
+
+<p>Once you obtain the "optimization suite" distribution, the following
+recipe suffices (applied to the toplevel directory):</p>
+
+<pre><code>make scipoptlib \
+    SHARED=true \
+    READLINE=false \
+    ZLIB=false \
+    GMP=false \
+    ZIMPL=false
+</code></pre>
+
+<p>The <code>.so</code> is under <code>lib/</code>. Create a symbolic link to it as follows:</p>
+
+<pre><code>ln -s libscipopt-3.1.0.linux.x86_64.gnu.opt.so libscipopt.so
+</code></pre>
+
+<h3>
+<a id="c-and-c-libraries-and-tools" class="anchor" href="#c-and-c-libraries-and-tools" aria-hidden="true"><span class="octicon octicon-link"></span></a>C and C++ Libraries and Tools</h3>
+
+<p>Building Inez requires GCC (C++ frontend included). We also depend on
+Boost. Fetch and untar a <a href="http://www.boost.org/users/download/">fresh tarball</a>.</p>
+
+<h3>
+<a id="ocaml-libraries-and-tools" class="anchor" href="#ocaml-libraries-and-tools" aria-hidden="true"><span class="octicon octicon-link"></span></a>OCaml Libraries and Tools</h3>
+
+<p>Inez requires OCaml 4.02 or newer. Additionally, you will need recent
+versions of the following packages:</p>
+
+<ul>
+<li><code>async</code></li>
+<li><code>camlidl</code></li>
+<li><code>camlp4</code></li>
+<li><code>comparelib</code></li>
+<li><code>core</code></li>
+<li><code>herelib</code></li>
+<li><code>ocamlfind</code></li>
+<li><code>ocaml_plugin</code></li>
+<li><code>omake</code></li>
+<li><code>sexplib</code></li>
+</ul>
+
+<p>The best way to obtain the above is via <a href="http://opam.ocamlpro.com/">OPAM</a>.</p>
+
+<h2>
+<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Installation</h2>
+
+<p>Once all dependencies are satisfied, you have to:</p>
+
+<ul>
+<li>Copy <code>OMakefile.config.sample</code> to <code>OMakefile.config</code>.</li>
+<li>Adapt <code>OMakefile.config</code> for your setup.</li>
+<li>Type <code>omake frontend/inez.opt</code> to build Inez.</li>
+</ul>
+
+<p><code>inez.opt</code> is dynamically linked against <code>libscipopt.so</code>.  Modify
+<code>LD_LIBRARY_PATH</code> so that the dynamic linker can find this shared
+library. On OS X, you should set <code>DYLD_FALLBACK_LIBRARY_PATH</code> in place
+of <code>LD_LIBRARY_PATH</code>.</p>
+
+<p><code>inez.opt</code> accepts a single argument for the input program. Some
+examples can be found under <code>frontend/examples</code>.</p>
+      </section>
+      <footer>
+        <p><small>Hosted on <a href="https://pages.github.com">GitHub Pages</a> using the Dinky theme</small></p>
+      </footer>
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+		
+  </body>
+</html>
