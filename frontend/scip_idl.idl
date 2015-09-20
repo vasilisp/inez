@@ -11,7 +11,7 @@ quote(h,
 #define VTBL_PADDING\n\
 #undef DECLARE_VTBL_PADDING\n\
 #define DECLARE_VTBL_PADDING\n")
-      
+
 typedef [abstract] void* scip;
 typedef [abstract] void* var;
 typedef [abstract] void* cons;
@@ -51,7 +51,8 @@ typedef enum
   SCIP_PARAMETERWRONGTYPE = -13,
   SCIP_PARAMETERWRONGVAL  = -14,
   SCIP_KEYALREADYEXISTING = -15,
-  SCIP_MAXDEPTHLEVEL      = -16 
+  SCIP_MAXDEPTHLEVEL      = -16
+  SCIP_BRANCHERROR        = -17
 } retcode;
 
 typedef enum
@@ -74,10 +75,11 @@ typedef enum
   SCIP_STATUS_GAPLIMIT       =  7,
   SCIP_STATUS_SOLLIMIT       =  8,
   SCIP_STATUS_BESTSOLLIMIT   =  9,
-  SCIP_STATUS_OPTIMAL        = 10,
-  SCIP_STATUS_INFEASIBLE     = 11,
-  SCIP_STATUS_UNBOUNDED      = 12,
-  SCIP_STATUS_INFORUNBD      = 13
+  SCIP_STATUS_RESTARTLIMIT   = 10,
+  SCIP_STATUS_OPTIMAL        = 11,
+  SCIP_STATUS_INFEASIBLE     = 12,
+  SCIP_STATUS_UNBOUNDED      = 13,
+  SCIP_STATUS_INFORUNBD      = 14
 } status;
 
 
@@ -164,7 +166,6 @@ retcode SCIPcreateConsBasicLogicor
  [in,string] const char* name,
  [in] int nvars,
  [in,size_is(nvars)] var vars[]);
-
 
 retcode SCIPcreateConsBasicBounddisjunction
 ([in] scip s,
@@ -301,7 +302,7 @@ retcode SCIPaddVarsToRow([in] scip s,
                          [in,size_is(n)] double coefs[]);
 
 retcode SCIPaddCut([in] scip s,
-                   [in] sol l, 
+                   [in] sol l,
                    [in] row r,
                    [in] boolean force,
                    [out] boolean* infeasible);

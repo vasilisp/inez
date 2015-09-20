@@ -88,7 +88,7 @@ SCIP_VAR* scip_callback::get_dvar(SCIP_VAR* v1, SCIP_VAR* v2)
   assert(v1 > v2);
 
   if (!v2) return v1;
-  
+
   dvar_map::const_iterator it =
     v1 > v2 ?
     dvar_m->find(vpair(v1, v2)) :
@@ -97,7 +97,7 @@ SCIP_VAR* scip_callback::get_dvar(SCIP_VAR* v1, SCIP_VAR* v2)
   assert(it != dvar_m->end());
 
   return it->second;
-    
+
 }
 
 void scip_callback::operator()(symbol a, symbol b, llint x)
@@ -127,7 +127,7 @@ void scip_callback::operator()(symbol a, symbol b, llint x)
   else
     cout << "[CP] bound did not change\n";
 #endif
-  
+
   if (infeasible) {
 #ifdef DEBUG1
     cout << "[CP] infeasible\n";
@@ -166,7 +166,7 @@ void scip_callback_sol::operator()(symbol a, symbol b, llint x)
        << "diff is " << x << endl;
   fflush(stdout);
 #endif
-  
+
   if (val_a != val_b + x) consistent = false;
 
 }
@@ -177,8 +177,8 @@ cc_handler::cc_handler(SCIP* scip, dp* d, cut_gen* c)
   : scip::ObjConshdlr(scip, "cc", "congruence closure",
                       -100000, -100000, -100000,
                       0, 1, 0, -1,
-                      TRUE, TRUE, TRUE, FALSE,
-                      1),
+                      TRUE, TRUE, FALSE, SCIP_PROPTIMING_ALWAYS,
+                      SCIP_PRESOLTIMING_FAST),
     scip::ObjEventhdlr(scip, "cce", "congruence closure events"),
     uf_call_cnt(0),
     bound_changed(false),
@@ -211,7 +211,7 @@ cc_handler::cc_handler(SCIP* scip, dp* d, cut_gen* c)
 
 cc_handler::~cc_handler()
 {
-  
+
   SCIP*& scip = scip::ObjEventhdlr::scip_;
 
   BOOST_FOREACH (SCIP_VAR* dv, dvars)
@@ -243,11 +243,11 @@ void cc_handler::catch_variable(SCIP_VAR* v, bool catch_bound)
   assert(eh);
 
   sa(SCIPcaptureVar(scip, v));
-  
+
   // SCIPcatchVarEvent expects a transformed variable; create one
   sa(SCIPtransformVar(scip, v, &v_trans));
   sa(SCIPcaptureVar(scip, v_trans));
-  
+
   orig_var_m.emplace(v_trans, v);
 
   if (catch_bound) {
@@ -276,7 +276,7 @@ SCIP_VAR* cc_handler::add_dvar(SCIP_VAR* v1, SCIP_VAR* v2)
   dvar_map::const_iterator it = dvar_m->find(vp);
 
   if (it != dvar_m->end()) return it->second;
-  
+
   if (v2) {
     dv = scip_dvar(scip, v1, v2);
 #ifdef DEBUG1
@@ -315,7 +315,7 @@ SCIP_VAR* cc_handler::ocaml_add_dvar(SCIP_VAR* v1, SCIP_VAR* v2,
     ocaml_dvar_offset_m.emplace(rval, vector<llint>(1, o));
 
   return rval;
-  
+
 }
 
 SCIP_VAR* cc_handler::add_dvar(const scip_ovar& ov1,
@@ -352,7 +352,7 @@ inline SCIP_VAR* cc_handler::get_dvar(SCIP_VAR* v1, SCIP_VAR* v2)
   assert(it != dvar_m->end());
 
   return it->second;
-    
+
 }
 
 inline bool branch_around_val(SCIP* scip, SCIP_VAR* v, llint x)
@@ -366,7 +366,7 @@ inline bool branch_around_val(SCIP* scip, SCIP_VAR* v, llint x)
       SCIPisLT(scip, ub, x) ||
       SCIPisGT(scip, lb, x))
     return false;
-  
+
   scip_branch_around_val(scip, v, x);
   return true;
 
@@ -443,16 +443,16 @@ bool cc_handler::branch_on_cc_diff()
   }
 
   return false;
-  
+
 }
 
 
 SCIP_NODE* cc_handler::current_node_ocg()
 {
-  
+
   assert(ocaml_cut_gen);
   assert(!seen_node || !frames_ocg.empty());
-  
+
   return seen_node ? frames_ocg.back() : NULL;
 
 }
@@ -461,11 +461,11 @@ void cc_handler::push_frame_ocg(SCIP_NODE* n)
 {
 
   if (!ocaml_cut_gen) return;
-  
+
   frames_ocg.push_back(n);
   ocaml_cut_gen->push_level();
   node_seen_ocg_m.emplace(n, true);
-  
+
 }
 
 void cc_handler::pop_frame_ocg()
@@ -494,7 +494,7 @@ void cc_handler::pop_frame()
 
   assert(!frames.empty());
   SCIP_NODE* cn = frames.back();
-  
+
   node_infeasible = false;
   frames.pop_back();
   ctx.pop_frame();
@@ -549,7 +549,7 @@ void cc_handler::dbg_print_assignment(SCIP_SOL* sol, SCIP_VAR* v)
   } else {
     cout << " in [" << lb << ", " << ub << ']' << endl;
   }
-  
+
   if (SCIPisLE(scip, lb, val) && SCIPisLE(scip, val, ub)) return;
   cout << "[W!] SCIP numerical issues (?)" << endl;
   assert(sol);
@@ -767,7 +767,7 @@ SCIP_RESULT cc_handler::scip_prop_impl(context& c)
   if (ocaml_dp) return ocaml_dp->propagate();
 
   return SCIP_DIDNOTFIND;
-  
+
 }
 
 SCIP_RESULT cc_handler::scip_prop_impl(bool stateless = true)
@@ -865,11 +865,11 @@ SCIP_RESULT cc_handler::scip_check_impl(SCIP_SOL* sol)
 SCIP_RETCODE cc_handler::scip_trans
 (SCIP* s, SCIP_CONSHDLR* ch, SCIP_CONS* src, SCIP_CONS** tgt)
 {
-  
+
 #ifdef DEBUG0
   cout << "[CB] trans\n";
 #endif
-  
+
   ASSERT_SCIP_POINTER(s);
 
   return SCIP_OKAY;
@@ -896,7 +896,7 @@ SCIP_RETCODE cc_handler::scip_lock
     SCIPaddVarLocks(s, v, n_pos + n_neg, n_pos + n_neg);
 
   return SCIP_OKAY;
-  
+
 }
 
 bool cc_handler::branch_on_ocaml_diff()
@@ -928,7 +928,7 @@ bool cc_handler::branch_on_ocaml_diff()
   }
 
   return false;
-  
+
 }
 
 SCIP_RESULT cc_handler::cut_or_branch(bool cc_feasible)
@@ -978,7 +978,7 @@ SCIP_RESULT cc_handler::cut_or_branch(bool cc_feasible)
 #endif
 
   if (branch_on_ocaml_diff()) return SCIP_BRANCHED;
-  
+
   /* we are in trouble */
 
 #ifdef DEBUG1
@@ -987,7 +987,7 @@ SCIP_RESULT cc_handler::cut_or_branch(bool cc_feasible)
 
   unreachable();
   return SCIP_DIDNOTFIND;
-  
+
 }
 
 SCIP_RETCODE cc_handler::scip_enfolp
@@ -1015,13 +1015,13 @@ SCIP_RETCODE cc_handler::scip_enfolp
       SCIP_FEASIBLE;
     return SCIP_OKAY;
   }
-    
+
 #ifdef DEBUG1
   cout << "[CB] enfolp: solution infeasible, trying to propagate\n";
 #endif
 
   switch (scip_prop_impl(false)) {
-  case SCIP_DIDNOTFIND: 
+  case SCIP_DIDNOTFIND:
     break;
   case SCIP_REDUCEDDOM:
     *r = SCIP_REDUCEDDOM;
@@ -1036,13 +1036,13 @@ SCIP_RETCODE cc_handler::scip_enfolp
 #ifdef DEBUG1
     cout << "[CB] ... failed to propagate\n";
 #endif
-  
+
   *r = cut_or_branch(false);
   assert(!node_infeasible);
   assert(ctx.get_consistent());
   assert(*r != SCIP_FEASIBLE);
   return SCIP_OKAY;
-  
+
 }
 
 SCIP_RETCODE cc_handler::scip_enfops
@@ -1056,11 +1056,11 @@ SCIP_RETCODE cc_handler::scip_enfops
 #endif
 
   unreachable();
-  
+
   SCIP_RESULT r = scip_check_impl(NULL);
 
   *result = (r == SCIP_FEASIBLE) ? SCIP_FEASIBLE : SCIP_SOLVELP;
-  
+
   return SCIP_OKAY;
 
 }
@@ -1078,7 +1078,7 @@ SCIP_RETCODE cc_handler::scip_check
   ASSERT_SCIP_POINTER(s);
 
   *result = scip_check_impl(sol);
-  
+
   return SCIP_OKAY;
 
 }
@@ -1097,7 +1097,7 @@ SCIP_RETCODE cc_handler::scip_prop
   ASSERT_SCIP_POINTER(s);
 
   *result = scip_prop_impl(false);
-  
+
 #ifdef DEBUG1
   switch (*result) {
   case SCIP_DIDNOTFIND:
@@ -1120,7 +1120,8 @@ SCIP_RETCODE cc_handler::scip_prop
 
 SCIP_RETCODE cc_handler::scip_presol
 (SCIP* s, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss,
- int nconss, int nrounds, int nnewfixedvars, int nnewaggrvars,
+ int nconss, int nrounds, SCIP_PRESOLTIMING t,
+ int nnewfixedvars, int nnewaggrvars,
  int nnewchgvartypes, int nnewchgbds, int nnewholes,
  int nnewdelconss, int nnewaddconss, int nnewupgdconss,
  int nnewchgcoefs, int nnewchgsides,
@@ -1253,7 +1254,7 @@ SCIP_RETCODE cc_handler::scip_exec_relaxed
 #endif
 
   // tried to be smarter in the past, leading to wrong answers. We
-  // cannot dependably whether our state 
+  // cannot dependably whether our state
 
   rewind_to_frame_ocg(NULL);
   push_frame_ocg(cn);
@@ -1277,14 +1278,14 @@ SCIP_RETCODE cc_handler::scip_exec_lbrelaxed(SCIP_EVENT* e)
 
 SCIP_RETCODE cc_handler::scip_exec_ubrelaxed(SCIP_EVENT* e)
 {
-  
+
   SCIP_VAR* ev = orig_var(SCIPeventGetVar(e));
   SCIP_Real old_ub = SCIPeventGetOldbound(e);
   SCIP_Real new_ub = SCIPeventGetNewbound(e);
   SCIP_Real lb = SCIPvarGetLbLocal(ev);
 
   return scip_exec_relaxed(ev, lb, lb, old_ub, new_ub);
-  
+
 }
 
 SCIP_RETCODE cc_handler::scip_exec
@@ -1311,7 +1312,7 @@ SCIP_RETCODE cc_handler::scip_exec
     fflush(stdout);
 #endif
   }
-  
+
   return SCIP_OKAY;
 
 }
@@ -1329,17 +1330,17 @@ SCIP_RETCODE cc_handler::scip_init(SCIP* s, SCIP_EVENTHDLR* eh)
   sa(SCIPcatchEvent(s, SCIP_EVENTTYPE_ROWADDEDLP, eh, NULL, NULL));
   sa(SCIPcatchEvent(s, SCIP_EVENTTYPE_ROWDELETEDLP, eh, NULL, NULL));
 #endif
-  
+
   sa(SCIPcatchEvent(s, SCIP_EVENTTYPE_NODEFOCUSED, eh, NULL, NULL));
 
   BOOST_FOREACH (SCIP_VAR* v, vars)
     if(v) catch_variable(v, false);
 
   BOOST_FOREACH (SCIP_VAR* dv, dvars)
-    catch_variable(dv, true); 
+    catch_variable(dv, true);
 
   BOOST_FOREACH (SCIP_VAR* v, catchq)
-    if (v) catch_var_events_impl(v); 
+    if (v) catch_var_events_impl(v);
 
   return SCIP_OKAY;
 
@@ -1347,7 +1348,7 @@ SCIP_RETCODE cc_handler::scip_init(SCIP* s, SCIP_EVENTHDLR* eh)
 
 void cc_handler::register_var(SCIP_VAR* v)
 {
-  
+
   BOOST_FOREACH (SCIP_VAR* v2, vars)
     if (v == v2)
       return;
@@ -1514,9 +1515,9 @@ void cc_handler::add_rval_dvars(ffcall_slave_map::const_iterator it1,
 
 void cc_handler::finalize()
 {
-  
+
   loc_map::iterator it = loc_m.begin();
-  
+
   while (it != loc_m.end()) {
     vector<scip_ovar>& v = it->second;
     vector<scip_ovar>::const_iterator it1 = v.begin();
@@ -1539,7 +1540,7 @@ void cc_handler::finalize()
   }
 
   ffcall_map::iterator it_r = ffcall_m.begin();
-  
+
   while (it_r != ffcall_m.end()) {
 
     ffcall_slave_map& ffcs_m = it_r->second;
@@ -1598,7 +1599,7 @@ void cc_handler::catch_var_events_impl(SCIP_VAR* v)
   sa(SCIPcaptureVar(scip, v_trans));
 
   orig_var_m.emplace(v_trans, v);
-  
+
   sa(SCIPcatchVarEvent
      (scip, v_trans, SCIP_EVENTTYPE_LBRELAXED, eh,
       NULL, NULL));
