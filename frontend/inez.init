@@ -3,9 +3,12 @@ let () =
   with Not_found -> () ;;
 
 #use "topfind" ;;
+
+#require "core.syntax" ;;
+open Core.Std ;;
 #require "core" ;;
+
 #print_depth 4 ;;
 #print_length 4 ;;
 
-open Core.Std ;;
 open Script ;;
