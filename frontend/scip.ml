@@ -80,6 +80,8 @@ let string_of_retcode = function
     "SCIP_KEYALREADYEXISTING"
   |  SCIP_MAXDEPTHLEVEL  ->
     "SCIP_MAXDEPTHLEVEL"
+  |  SCIP_BRANCHERROR  ->
+    "SCIP_BRANCHERROR"
 
 let ok_or_fail_of_retcode = function
   | SCIP_OKAY ->
