@@ -276,11 +276,14 @@ ocaml_embedded.c: pa_logic.cmxs $(CMI_FILES_EMBED)
             -cc $(shell which ocamlopt.opt) \
             -pp $(shell which camlp4o.opt) \
             -pa-cmxs pa_logic.cmxs \
+            -pa-cmxs $(shell ocamlfind query type_conv)/pa_type_conv.cmxs \
+            -pa-cmxs $(shell ocamlfind query sexplib)/pa_sexp_conv.cmxs \
             -o $@ \
             $(shell ocamlfind printconf stdlib)/pervasives.cmi \
             $(shell ocamlfind printconf stdlib)/camlinternalFormatBasics.cmi \
             $(shell ocamlfind query core_kernel)/core_kernel.cmi \
             $(shell ocamlfind query core)/core.cmi \
+            $(shell ocamlfind query sexplib)/sexplib.cmi \
             $(shell ocamlfind query ocaml_plugin)/ocaml_plugin.cmi \
             $(CMI_FILES_EMBED)
 
